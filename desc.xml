@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<plugin name="wkfarm" version="0.1" active="1">
+  <author>Florian Schmitt</author>
+  <label>Ferme &agrave; wikis pour bazar</label>
+  <desc>Ajoute un champ yeswiki pour bazar permettant d'associer un wiki à une fiche</desc>
+</plugin>
