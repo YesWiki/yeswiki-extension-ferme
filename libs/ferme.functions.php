@@ -355,7 +355,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
             .'<input type="text" class="form-control" id="'. $tableau_template[1] . '" name="' . $tableau_template[1]
             .'" required'.$disable.' value="'.$def.'" pattern="^[0-9a-zA-Z-]*$" placeholder="nom du site (sans espace, ni caractères spéciaux)">'.'</div>'."\n"
             .$extrafields.'</div>'."\n".'</div>'."\n";
-        $formtemplate->addElement('html', $html);
+        return $html;
     } elseif ($mode == 'requete') {
         if (!empty($valeurs_fiche[$tableau_template[1]])
             && preg_match('/^[0-9a-zA-Z-]*$/', $valeurs_fiche[$tableau_template[1]])) {
