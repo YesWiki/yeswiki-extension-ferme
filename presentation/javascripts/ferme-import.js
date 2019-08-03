@@ -36,9 +36,11 @@ $(document).ready(function () {
     if (rgHttpUrl.test(url)) {
       // on formate l url pour acceder au service json de yeswiki
       var taburl = url.split('wakka.php');
+      var taburl = taburl[0].split('?');
+
 
       // formulaires
-      url = taburl[0].replace(/\/+$/g, '') + '/wakka.php?wiki=BazaR/json&demand=forms';
+      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=forms';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url
@@ -66,7 +68,7 @@ $(document).ready(function () {
       });
 
       // listes
-      url = taburl[0].replace(/\/+$/g, '') + '/wakka.php?wiki=BazaR/json&demand=lists';
+      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=lists';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url
@@ -95,7 +97,7 @@ $(document).ready(function () {
       });
 
       // fiches
-      url = taburl[0].replace(/\/+$/g, '') + '/wakka.php?wiki=BazaR/json&demand=entries';
+      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=entries';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url
@@ -124,7 +126,7 @@ $(document).ready(function () {
       });
 
       // pages
-      url = taburl[0].replace(/\/+$/g, '') + '/wakka.php?wiki=BazaR/json&demand=pages';
+      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=pages';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url

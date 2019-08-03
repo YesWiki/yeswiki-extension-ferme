@@ -3,7 +3,7 @@ CREATE TABLE `{{prefix}}__acls` (
   `privilege` varchar(20) NOT NULL DEFAULT '',
   `list` text NOT NULL,
   PRIMARY KEY (`page_tag`,`privilege`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `{{prefix}}__links` (
   `from_tag` char(50) NOT NULL DEFAULT '',
@@ -11,7 +11,7 @@ CREATE TABLE `{{prefix}}__links` (
   UNIQUE KEY `from_tag` (`from_tag`,`to_tag`),
   KEY `idx_from` (`from_tag`),
   KEY `idx_to` (`to_tag`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `{{prefix}}__nature` (
   `bn_id_nature` int(10) unsigned NOT NULL DEFAULT '0',
@@ -30,7 +30,7 @@ CREATE TABLE `{{prefix}}__nature` (
   `bn_type_fiche` varchar(255) NOT NULL,
   `bn_label_class` varchar(255) NOT NULL,
   PRIMARY KEY (`bn_id_nature`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `{{prefix}}__pages` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -49,7 +49,7 @@ CREATE TABLE `{{prefix}}__pages` (
   KEY `idx_latest` (`latest`),
   KEY `idx_comment_on` (`comment_on`),
   FULLTEXT KEY `tag` (`tag`,`body`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `{{prefix}}__referrers` (
   `page_tag` char(50) NOT NULL DEFAULT '',
@@ -57,7 +57,7 @@ CREATE TABLE `{{prefix}}__referrers` (
   `time` datetime NOT NULL,
   KEY `idx_page_tag` (`page_tag`),
   KEY `idx_time` (`time`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `{{prefix}}__triples` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -67,7 +67,7 @@ CREATE TABLE `{{prefix}}__triples` (
   PRIMARY KEY (`id`),
   KEY `resource` (`resource`),
   KEY `property` (`property`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `{{prefix}}__triples` (`id`, `resource`, `property`, `value`) VALUES
 (1, 'ThisWikiGroup:admins', 'http://www.wikini.net/_vocabulary/acls', '{{WikiName}}');
@@ -85,7 +85,7 @@ CREATE TABLE `{{prefix}}__users` (
   PRIMARY KEY (`name`),
   KEY `idx_name` (`name`),
   KEY `idx_signuptime` (`signuptime`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `{{prefix}}__users` (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) VALUES
 ('{{WikiName}}', md5('{{password}}'), '{{email}}', '', 20, 50, 'Y',  now(), 'N');

@@ -7,6 +7,7 @@ if ($this->UserIsAdmin()) {
     $output = '';
     if (isset($_POST['wiki-import-forms'])) {
         $f = explode('/wakka.php', $_POST["url-import"]);
+        $f = explode('/?', $f[0]); 
         $filename = 'tools/ferme/sql/'.str_replace(
             array('http://', 'https://', '/'),
             array('', '', '--'),
