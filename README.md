@@ -127,4 +127,7 @@ Il est possible de récupérer automatiquement les fichier sql des qikis qui doi
  - y déposer l'url du wiki source 
 
 ## Gestion des wikis générés
-Placer {{adminwikis}} sur une page de votre wiki générateur de ferme
+Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet
+ - d'ajouter un super adminstrateur à vos wikis
+ - de supprimer les wikis installés et ayant un compte superadmin
+ Remarque : il est parfois plus simple de supprimer un wiki de la ferme en passant via la fiche bazar ferme
