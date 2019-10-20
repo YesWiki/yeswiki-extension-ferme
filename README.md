@@ -13,6 +13,11 @@ yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
 
 OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wakka.config.php
 ```
+	
+  // ces deux lignes permettent de créer un super admin pour modifier les wikis créés via la ferme
+  'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
+  'yeswiki-farm-admin-pass' => 'votremotdepasse',
+
   // fichiers sql du modele de wiki a installer par defaut
   'yeswiki-farm-sql' => array(
     array(
@@ -115,3 +120,11 @@ OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wa
   // cas spécifique ou l'on veut créer un user sur le wiki source
   'yeswiki-farm-create-user' => false,
 ```
+
+## Récupérer les fichiers sql de wikis sources
+Il est possible de récupérer automatiquement les fichier sql des qikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config)
+ - Placer {{generatemodel}} dans une page pour faire apparaître le module d'import
+ - y déposer l'url du wiki source 
+
+## Gestion des wikis générés
+Placer {{adminwikis}} sur une page de votre wiki générateur de ferme
