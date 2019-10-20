@@ -235,7 +235,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
             '" src="tools/bazar/presentation/images/aide.png" width="16" height="16" alt="image aide" />';
         } else {
             $bulledaide = ' &nbsp;&nbsp;<img class="tooltip_aide" title="'
-                ._t('uniquement des caractères alphanumériques et tirets (-)')
+                ._t('uniquement des caractères alphanumériques et tirets (- et _)')
                 .'" src="tools/bazar/presentation/images/aide.png" width="16" height="16" alt="image aide" />';
         }
 
@@ -366,7 +366,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
         return $html;
     } elseif ($mode == 'requete') {
         if (!empty($valeurs_fiche[$tableau_template[1]])
-            && preg_match('/^[0-9a-zA-Z-]*$/', $valeurs_fiche[$tableau_template[1]])) {
+            && preg_match('/^[0-9a-zA-Z-_]*$/', $valeurs_fiche[$tableau_template[1]])) {
             if (isset($valeurs_fiche[$tableau_template[1].'_exists'])
                 && $valeurs_fiche[$tableau_template[1].'_exists'] == 1) {
                 // si le wiki a déja été créé on zappe
@@ -720,7 +720,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
             );
         } else {
             die('La valeur '.$valeurs_fiche[$tableau_template[1]]
-                .' n\'est pas valide, il faut des caractères alphanumérique et des tirets uniquement.');
+                .' n\'est pas valide, il faut des caractères alphanumérique et des tirets (- _) uniquement.');
         }
     } elseif ($mode == 'html') {
         $html = '';

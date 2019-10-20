@@ -5,28 +5,70 @@ if (!defined("WIKINI_VERSION")) {
 
 if ($this->UserIsAdmin()) {
     echo '<h1>Administration de tous les wikis</h1>';
-
+    initFarmConfig();
     $mainWikiVersion = $this->config['yeswiki_release'];
+    $wakkaConfig = [];
 
     if (isset($_GET['superadmin']) and !empty($_GET['superadmin'])) {
-        include_once realpath(getcwd().DIRECTORY_SEPARATOR
-        .$GLOBALS['wiki']->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
-        .$_GET['superadmin'].'/wakka.config.php');
-        $sql = 'INSERT INTO '.$wakkaConfig['table_prefix'].'users (name, password) VALUES ("'.$this->config['yeswiki-farm-admin-name'].'" , MD5("'.$this->config['yeswiki-farm-admin-pass'].'"))';
-        $this->Query($sql);
+        if ($this->config['yeswiki-farm-root-folder'] == '.') {
+            $path = getcwd().DIRECTORY_SEPARATOR.$_GET['superadmin'].'/wakka.config.php';
+        } else {
+            $path = getcwd().DIRECTORY_SEPARATOR
+            .$this->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
+            .$_GET['superadmin'].'/wakka.config.php';
+        }
+        include_once realpath($path);
+        if (!empty($wakkaConfig['table_prefix'])) {
+            $sql = 'SELECT value FROM `'.$wakkaConfig['table_prefix'].'triples` WHERE resource = "ThisWikiGroup:admins";';
+            $list = $this->LoadSingle($sql);
+            $list = explode("\n", $list['value']);
+            if (!in_array($this->config['yeswiki-farm-admin-name'], $list)) {
+                $list[] = $this->config['yeswiki-farm-admin-name'];
+            }
+            $list = array_map('trim', $list);
+            $list = implode("\n", $list);
+            $sql = 'UPDATE `'.$wakkaConfig['table_prefix'].'triples` SET value="'.addslashes($list).'" WHERE resource = "ThisWikiGroup:admins";';
+            $this->Query($sql);
+    
+            $sql = 'INSERT INTO `'.$wakkaConfig['table_prefix'].'users` (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) VALUES (\''.$this->config['yeswiki-farm-admin-name'].'\', MD5(\''.$this->config['yeswiki-farm-admin-pass'].'\'), \'\', \'\', \'20\', \'50\', \'Y\', NOW(), \'N\')';
+            $this->Query($sql);
+        }
     } elseif (isset($_GET['nosuperadmin']) and !empty($_GET['nosuperadmin'])) {
-        include_once realpath(getcwd().DIRECTORY_SEPARATOR
-        .$GLOBALS['wiki']->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
-        .$_GET['nosuperadmin'].'/wakka.config.php');
-        $sql = 'DELETE FROM '.$wakkaConfig['table_prefix'].'users WHERE name="'.$this->config['yeswiki-farm-admin-name'].'"';
-        $this->Query($sql);
+        if ($this->config['yeswiki-farm-root-folder'] == '.') {
+            $path = getcwd().DIRECTORY_SEPARATOR.$_GET['nosuperadmin'].'/wakka.config.php';
+        } else {
+            $path = getcwd().DIRECTORY_SEPARATOR
+            .$this->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
+            .$_GET['nosuperadmin'].'/wakka.config.php';
+        }
+        include_once realpath($path);
+        if (!empty($wakkaConfig['table_prefix'])) {
+            $sql = 'SELECT value FROM `'.$wakkaConfig['table_prefix'].'triples` WHERE resource = "ThisWikiGroup:admins";';
+            $list = $this->LoadSingle($sql);
+            $list = explode("\n", $list['value']);
+            if (in_array($this->config['yeswiki-farm-admin-name'], $list)) {
+                $list = array_diff($list, array($this->config['yeswiki-farm-admin-name']));
+            }
+            $list = array_map('trim', $list);
+            $list = implode("\n", $list);
+            $sql = 'UPDATE `'.$wakkaConfig['table_prefix'].'triples` SET value="'.addslashes($list).'" WHERE resource = "ThisWikiGroup:admins";';
+            $this->Query($sql);
+    
+            $sql = 'DELETE FROM '.$wakkaConfig['table_prefix'].'users WHERE name="'.$this->config['yeswiki-farm-admin-name'].'";';
+            $this->Query($sql);
+        }
     } elseif (isset($_GET['maj']) and !empty($_GET['maj'])) {
         $srcfolder = getcwd().DIRECTORY_SEPARATOR;
-        $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR
-            .$GLOBALS['wiki']->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
+        if ($this->config['yeswiki-farm-root-folder'] == '.') {
+            $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR.$_GET['maj']).DIRECTORY_SEPARATOR;
+        } else {
+            $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR
+            .$this->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
             .$_GET['maj']).DIRECTORY_SEPARATOR;
+        }
+       
         include_once $destfolder.'wakka.config.php';
-        echo '<div class="alert alert-info">Mise a jour de '.$destfolder.' à partir de '.$srcfolder.'.</div>';
+        echo '<div class="alert alert-info">Mise a jour de '.$_GET['maj'].'.</div>';
         // nettoyage des anciens tools non utilises
         if (is_dir($destfolder.'tools/despam')) {
             rrmdir($destfolder.'tools/despam');
@@ -53,6 +95,8 @@ if ($this->UserIsAdmin()) {
         copyRecursive($srcfolder.'formatters', $destfolder.'formatters');
         copyRecursive($srcfolder.'handlers', $destfolder.'handlers');
         copyRecursive($srcfolder.'includes', $destfolder.'includes');
+        copyRecursive($srcfolder.'vendor', $destfolder.'vendor');
+        copyRecursive($srcfolder.'custom', $destfolder.'custom');
         copyRecursive($srcfolder.'lang', $destfolder.'lang');
         copyRecursive($srcfolder.'setup', $destfolder.'setup');
 
@@ -148,7 +192,12 @@ if ($this->UserIsAdmin()) {
     $list = '';
     foreach ($results as $fiche) {
         $wakkaConfig = array();
-        $wikiConfigFile = realpath($GLOBALS['wiki']->config['yeswiki-farm-root-folder'].'/'.$fiche['bf_dossier-wiki'].'/wakka.config.php');
+        if ($this->config['yeswiki-farm-root-folder'] == '.') {
+            $wikiConfigFile = realpath(getcwd().'/'.$fiche['bf_dossier-wiki'].'/wakka.config.php');
+        } else {
+            $wikiConfigFile = realpath(getcwd().'/'.$this->config['yeswiki-farm-root-folder'].'/'.$fiche['bf_dossier-wiki'].'/wakka.config.php');
+        }
+        
         if (file_exists($wikiConfigFile)) {
             include_once $wikiConfigFile;
             if (!empty($wakkaConfig['table_prefix'])) {
@@ -159,7 +208,7 @@ if ($this->UserIsAdmin()) {
                 $list .= '<li class="item-wiki"><a href="'.$url.'">'.$fiche['bf_titre'].' - <small>'.$url.'</small></a>';
                 $list .= '<br><strong>Version de yeswiki : '.(empty($wakkaConfig['yeswiki_release']) ? '<i>Inconnue</i>' : $wakkaConfig['yeswiki_release']).'</strong>';
                 if (empty($wakkaConfig['yeswiki_release']) || ($wakkaConfig['yeswiki_release'] < $this->config['yeswiki_release'])) {
-                    $list .= ' <a class="btn btn-xs btn-danger" href="'.$GLOBALS['wiki']->href('', $GLOBALS['wiki']->GetPageTag(), 'maj='.$fiche['bf_dossier-wiki']).'">Mettre à jour vers '.$mainWikiVersion.'</a>';
+                    $list .= ' <a class="btn btn-xs btn-danger" href="'.$this->href('', $this->GetPageTag(), 'maj='.$fiche['bf_dossier-wiki']).'">Mettre à jour vers '.$mainWikiVersion.'</a>';
                 } else {
                     $list .= ' <i>à jour avec le wiki source</i>';
                 }
@@ -168,9 +217,9 @@ if ($this->UserIsAdmin()) {
                     $sql = 'SELECT name FROM '.$wakkaConfig['table_prefix'].'users WHERE name="'.$this->config['yeswiki-farm-admin-name'].'"';
                     $userresults = $this->LoadAll($sql);
                     if ($userresults) {
-                        $text = ' présent <a class="btn btn-xs btn-danger" href="'.$GLOBALS['wiki']->href('', $GLOBALS['wiki']->GetPageTag(), 'nosuperadmin='.$fiche['bf_dossier-wiki']).'">supprimer le compte</a>';
+                        $text = ' présent <a class="btn btn-xs btn-danger" href="'.$this->href('', $this->GetPageTag(), 'nosuperadmin='.$fiche['bf_dossier-wiki']).'">supprimer le compte</a>';
                     } else {
-                        $text = ' absent <a class="btn btn-xs btn-success" href="'.$GLOBALS['wiki']->href('', $GLOBALS['wiki']->GetPageTag(), 'superadmin='.$fiche['bf_dossier-wiki']).'">ajouter le compte</a>';
+                        $text = ' absent <a class="btn btn-xs btn-success" href="'.$this->href('', $this->GetPageTag(), 'superadmin='.$fiche['bf_dossier-wiki']).'">ajouter le compte</a>';
                     }
                     $list .= '<br><strong>Admin de la ferme : </strong>'.$this->config['yeswiki-farm-admin-name'].$text;
                 }
