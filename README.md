@@ -13,6 +13,11 @@ yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
 
 OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wakka.config.php
 ```
+	
+  // ces deux lignes permettent de créer un super admin pour modifier les wikis créés via la ferme
+  'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
+  'yeswiki-farm-admin-pass' => 'votremotdepasse',
+
   // fichiers sql du modele de wiki a installer par defaut
   'yeswiki-farm-sql' => array(
     array(
