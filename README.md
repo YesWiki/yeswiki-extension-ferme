@@ -127,4 +127,4 @@ Il est possible de récupérer automatiquement les fichier sql des qikis qui doi
  - y déposer l'url du wiki source 
 
 ## Gestion des wikis générés
-Placer {{ædminwikis}} sur une page de votre wiki générateur de ferme
+Placer {{adminwikis}} sur une page de votre wiki générateur de ferme
