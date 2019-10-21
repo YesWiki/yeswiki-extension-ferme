@@ -136,8 +136,8 @@ Pour ajouter un super administateur, ajoutez les deux lignes suivantes au wkka.c
   // ces deux lignes permettent de créer un super admin pour modifier les wikis créés via la ferme
   'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
   'yeswiki-farm-admin-pass' => 'votremotdepasse',
-'''
-Ceci fait apparaître un bouton 'ajouter le compte' en regard de chaque wiki dans la page d'administration des wikis.
-Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans a page d'administration des wikis devient rouge avec le libellé 'supprimer le compte'. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
+```
+Ceci fait apparaître un bouton `ajouter le compte` en regard de chaque wiki dans la page d'administration des wikis.
+Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans a page d'administration des wikis devient rouge avec le libellé `supprimer le compte`. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
 
 Pour supprimer un wiki, il faut aller sur la fiche bazar correspondant à ce wiki et supprimer celle-ci. Cela déclenche la suppression du wiki en question.
