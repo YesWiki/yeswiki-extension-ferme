@@ -7,10 +7,9 @@
 ```
 texte***bf_titre***Titre***255***255*** *** *** ***1***
 texte***bf_description***Description courte***255***255*** *** *** ***1***
-image***bf_bandeau***Bandeau (1920x280 pixels)***400***1920***400***1920***center***1*** ***
+labelhtml***<p style="color:#cc3333;">Votre wiki sera accessible sans mot de passe. Si vous devez vous connecter pour certaines actions, vos login/mot de passe seront le mail et le mot de passe indiqués ci-dessous.</p>*** ***
 yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
 ```
-
 ## Récupérer les fichiers sql de wikis sources
 Il est possible de récupérer automatiquement les fichier sql des qikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config)
  - Placer {{generatemodel}} dans une page pour faire apparaître le module d'import
