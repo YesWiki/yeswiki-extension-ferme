@@ -1,4 +1,6 @@
 # Extension YesWiki bazar ferme
+> Attention — Ceci est une extension de YesWiki. Elle ne fait pas partie du cœur officiellement maintenu de YesWiki.
+
 ### Ajoute la possibilité de créer des champs de type 'yeswiki'. Ceci permet de créer automatiquement un wiki en créant une fiche bazar
 
 1) Copier l'extension dans votre dossier tools ou installez-la depuis la page `GererMisesAJour`.
