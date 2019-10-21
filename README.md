@@ -1,5 +1,5 @@
 # Extension YesWiki bazar ferme
-### Ajoute un champs 'yeswiki' pour créer automatiquement un wiki dans une fiche bazar
+### Ajoute la possibilité de créer des champs de type 'yeswiki'. Ceci permet de créer automatiquement un wiki en créant une fiche bazar
 
 1) copier l'extension dans votre dossier tools
 
@@ -131,3 +131,13 @@ Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet
  - d'ajouter un super adminstrateur à vos wikis
  - de supprimer les wikis installés et ayant un compte superadmin
  Remarque : il est parfois plus simple de supprimer un wiki de la ferme en passant via la fiche bazar ferme
+Pour ajouter un super administateur, ajoutez les deux lignes suivantes au wkka.config.php du wiki maître (en les adaptant à votre cas)
+```
+  // ces deux lignes permettent de créer un super admin pour modifier les wikis créés via la ferme
+  'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
+  'yeswiki-farm-admin-pass' => 'votremotdepasse',
+'''
+Ceci fait apparaître un bouton 'ajouter le compte' en regard de chaque wiki dans la page d'administration des wikis.
+Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans a page d'administration des wikis devient rouge avec le libellé 'supprimer le compte'. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
+
+Pour supprimer un wiki, il faut aller sur la fiche bazar correspondant à ce wiki et supprimer celle-ci. Cela déclenche la suppression du wiki en question.
