@@ -33,10 +33,8 @@ Il est possible de récupérer automatiquement les fichier sql des qikis qui doi
  - Cliquer sur `Importer`.
  - Apparaît alors une description du contenu du wiki en question. Cliquer sur le bouton `Générer le fichier MySQL modèle pour ce wiki`.
  - Un message indique que le fichier sql portant le nom du wiki source a été généré et copié dans le dossier `tools/ferme/sql` du wiki maître.
-
-OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wakka.config.php
+ - Il faut alors modifier le `wakka.config.php` comme suit.
 ```
-	
   // fichiers sql du modele de wiki a installer par defaut
   'yeswiki-farm-sql' => array(
     array(
@@ -52,7 +50,10 @@ OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wa
       'file' => 'projet.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
     )
   ),
+```
 
+## Autres options activables (à documenter) 
+```
   // adresse url de départ des wikis de la ferme, le nom du dossier sera ajouté
   'yeswiki-farm-root-url' => 'http://yeswiki.dev/',
 
