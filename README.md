@@ -23,13 +23,16 @@ Pour ce faire, ajouter les deux suivantes à `wakka.config.php`
 Ceci fait apparaître un bouton `ajouter le compte` en regard de chaque wiki dans la page d'administration des wikis.
 Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans a page d'administration des wikis devient rouge avec le libellé `supprimer le compte`. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
 
+### Pour supprimer un wiki
 Pour supprimer un wiki, il faut aller sur la fiche bazar correspondant à ce wiki et supprimer celle-ci. Cela déclenche la suppression du wiki en question.
 
 ## Récupérer les fichiers sql de wikis sources
 Il est possible de récupérer automatiquement les fichier sql des qikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config)
- - Placer {{generatemodel}} dans une page pour faire apparaître le module d'import
- - y déposer l'url du wiki source 
-
+ - Placer {{generatemodel}} dans une page pour y faire apparaître le module d'import.
+ - Après avoir affiché la page, dans la zone de saisie intitulée `Générer un modèle à partir d'une adresse URL`, saisir l'url du wiki source.
+ - Cliquer sur `Importer`.
+ - Apparaît alors une description du contenu du wiki en question. Cliquer sur le bouton `Générer le fichier MySQL modèle pour ce wiki`.
+ - Un message indique que le fichier sql portant le nom du wiki source a été généré et copié dans le dossier `tools/ferme/sql` du wiki maître.
 
 OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wakka.config.php
 ```
