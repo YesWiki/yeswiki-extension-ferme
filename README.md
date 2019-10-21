@@ -12,11 +12,11 @@ yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
 ```
 ## Gestion des wikis générés
 Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet de
- - mettre à jour chaque wiki (Remarque – chaque wiki est considéré comme à jour lorsqu'il est à la mee version que le wiki maître => Maintenez votre wiki maîtreà jour) ; 
+ - mettre à jour chaque wiki (Remarque – chaque wiki est considéré comme à jour lorsqu'il est à la même version que le wiki maître => Maintenez votre wiki maître à jour) ; 
  - ajouter un super adminstrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ; 
- - de supprimer, pour chque wiki le compte superadmin.
+ - de supprimer, pour chaque wiki le compte superadmin.
+Pour ce faire, ajouter les deux suivantes à `wakka.config.php`
 ```
-  // ces deux lignes permettent de créer un super admin pour modifier les wikis créés via la ferme
   'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
   'yeswiki-farm-admin-pass' => 'votremotdepasse',
 ```
