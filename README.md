@@ -56,10 +56,12 @@ Il est possible de récupérer automatiquement les fichier sql des qikis qui doi
 
 ## Autres options activables (à documenter) 
 ```
-  // adresse url de départ des wikis de la ferme, le nom du dossier sera ajouté
+  // adresse url de départ des wikis de la ferme (c'est la base_url des wikis créés via la ferme), le nom du dossier sera ajouté
+  //exemple vous souhaitez que vos wikis soient créés dans un dossier wikis alors http://yeswiki.dev/wikis/
   'yeswiki-farm-root-url' => 'http://yeswiki.dev/',
 
   // dossier de destination des wikis, par défaut '.' : répertoire du wiki qui dispose de bazar
+  // chemin relatif donc dans notre exemple avec le dossier wikis , ça devient 'wikis/'
   // on peut mettre '..' pour descendre d'un dossier
   'yeswiki-farm-root-folder' => '.',
 
