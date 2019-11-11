@@ -7,8 +7,7 @@ $type = $this->GetTripleValue($this->GetPageTag(), 'http://outils-reseaux.org/_v
 if ($type == 'fiche_bazar' && $_GET['confirme'] == 'oui' && ($this->UserIsOwner() || $this->UserIsAdmin())) {
     $tab_valeurs = baz_valeurs_fiche($this->GetPageTag());
     if (isset($tab_valeurs["bf_dossier-wiki"]) && !empty($tab_valeurs["bf_dossier-wiki"])) {
-        $src = $GLOBALS['wiki']->config['yeswiki-farm-root-folder'].'/'.$tab_valeurs["bf_dossier-wiki"];
-        var_dump($src, is_dir($src), is_dir(realpath($src)));
+        $src = realpath(getcwd().'/'.(!empty($GLOBALS['wiki']->config['yeswiki-farm-root-folder']) ? $GLOBALS['wiki']->config['yeswiki-farm-root-folder'] : '.').'/'.$tab_valeurs["bf_dossier-wiki"]);
         if (is_dir($src)) {
             // supprimer le wiki
             rrmdir($src);
@@ -16,8 +15,6 @@ if ($type == 'fiche_bazar' && $_GET['confirme'] == 'oui' && ($this->UserIsOwner(
             $prefix = 'yeswiki_'.str_replace('-', '_', $tab_valeurs["bf_dossier-wiki"]).'__';
             $query = 'DROP TABLE `'.$prefix.'acls`, `'.$prefix.'links`, `'.$prefix.'nature`, `'.$prefix.'pages`, `'.$prefix.'referrers`, `'.$prefix.'triples`, `'.$prefix.'users`;';
             $GLOBALS['wiki']->Query($query);
-            var_dump($query);
-            exit;
         }
     }
 }
