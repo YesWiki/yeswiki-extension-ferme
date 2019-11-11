@@ -1,23 +1,42 @@
 # Extension YesWiki bazar ferme
-### Ajoute un champs 'yeswiki' pour créer automatiquement un wiki dans une fiche bazar
+> Attention — Ceci est une extension de YesWiki. Elle ne fait pas partie du cœur officiellement maintenu de YesWiki.
 
-1) copier l'extension dans votre dossier tools
+### Ajoute la possibilité de créer des champs de type 'yeswiki'. Ceci permet de créer automatiquement un wiki en créant une fiche bazar
 
-2) utiliser les lignes suivantes pour le formulaire bazar "ferme":
+1) Copier l'extension dans votre dossier tools ou installez-la depuis la page `GererMisesAJour`.
+
+2) Utiliser les lignes suivantes pour le formulaire bazar "ferme":
 ```
 texte***bf_titre***Titre***255***255*** *** *** ***1***
 texte***bf_description***Description courte***255***255*** *** *** ***1***
-image***bf_bandeau***Bandeau (1920x280 pixels)***400***1920***400***1920***center***1*** ***
+labelhtml***<p style="color:#cc3333;">Votre wiki sera accessible sans mot de passe. Si vous devez vous connecter pour certaines actions, vos login/mot de passe seront le mail et le mot de passe indiqués ci-dessous.</p>*** ***
 yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
 ```
-
-OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wakka.config.php
+## Gestion des wikis générés
+Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet de
+ - mettre à jour chaque wiki (Remarque – chaque wiki est considéré comme à jour lorsqu'il est à la même version que le wiki maître => Maintenez votre wiki maître à jour) ; 
+ - ajouter un super adminstrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ; 
+ - de supprimer, pour chaque wiki le compte superadmin.
+Pour ce faire, ajouter les deux suivantes à `wakka.config.php`
 ```
-	
-  // ces deux lignes permettent de créer un super admin pour modifier les wikis créés via la ferme
   'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
   'yeswiki-farm-admin-pass' => 'votremotdepasse',
+```
+Ceci fait apparaître un bouton `ajouter le compte` en regard de chaque wiki dans la page d'administration des wikis.
+Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans a page d'administration des wikis devient rouge avec le libellé `supprimer le compte`. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
 
+### Pour supprimer un wiki
+Pour supprimer un wiki, il faut aller sur la fiche bazar correspondant à ce wiki et supprimer celle-ci. Cela déclenche la suppression du wiki en question.
+
+## Récupérer les fichiers sql de wikis sources
+Il est possible de récupérer automatiquement les fichier sql des qikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config)
+ - Placer {{generatemodel}} dans une page pour y faire apparaître le module d'import.
+ - Après avoir affiché la page, dans la zone de saisie intitulée `Générer un modèle à partir d'une adresse URL`, saisir l'url du wiki source.
+ - Cliquer sur `Importer`.
+ - Apparaît alors une description du contenu du wiki en question. Cliquer sur le bouton `Générer le fichier MySQL modèle pour ce wiki`.
+ - Un message indique que le fichier sql portant le nom du wiki source a été généré et copié dans le dossier `tools/ferme/sql` du wiki maître.
+ - Il faut alors modifier le `wakka.config.php` comme suit.
+```
   // fichiers sql du modele de wiki a installer par defaut
   'yeswiki-farm-sql' => array(
     array(
@@ -33,11 +52,16 @@ OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wa
       'file' => 'projet.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
     )
   ),
+```
 
-  // adresse url de départ des wikis de la ferme, le nom du dossier sera ajouté
+## Autres options activables (à documenter) 
+```
+  // adresse url de départ des wikis de la ferme (c'est la base_url des wikis créés via la ferme), le nom du dossier sera ajouté
+  //exemple vous souhaitez que vos wikis soient créés dans un dossier wikis alors http://yeswiki.dev/wikis/
   'yeswiki-farm-root-url' => 'http://yeswiki.dev/',
 
   // dossier de destination des wikis, par défaut '.' : répertoire du wiki qui dispose de bazar
+  // chemin relatif donc dans notre exemple avec le dossier wikis , ça devient 'wikis/'
   // on peut mettre '..' pour descendre d'un dossier
   'yeswiki-farm-root-folder' => '.',
 
@@ -120,11 +144,3 @@ OPTION: pour affiner le fonctionnement, ajouter les informations suivantes à wa
   // cas spécifique ou l'on veut créer un user sur le wiki source
   'yeswiki-farm-create-user' => false,
 ```
-
-## Récupérer les fichiers sql de wikis sources
-Il est possible de récupérer automatiquement les fichier sql des qikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config)
- - Placer {{generatemodel}} dans une page pour faire apparaître le module d'import
- - y déposer l'url du wiki source 
-
-## Gestion des wikis générés
-Placer {{adminwikis}} sur une page de votre wiki générateur de ferme
