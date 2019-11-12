@@ -13,15 +13,19 @@ CREATE TABLE `{{prefix}}__links` (
   KEY `idx_to` (`to_tag`)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+
 CREATE TABLE `{{prefix}}__nature` (
   `bn_id_nature` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `bn_label_nature` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `bn_description` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `bn_condition` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bn_sem_context` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bn_sem_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bn_sem_use_template` tinyint(1) NOT NULL DEFAULT 1,
   `bn_template` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `bn_ce_i18n` varchar(5) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   PRIMARY KEY (`bn_id_nature`)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `{{prefix}}__pages` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
