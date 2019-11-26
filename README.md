@@ -54,17 +54,32 @@ Il est possible de récupérer automatiquement les fichier sql des qikis qui doi
   ),
 ```
 
+## Paramétrer le dossier de stockage des wikis
+Par défaut, lorsqu'un wiki est créé dans la ferme, les fichiers de ce wikis sont placés dans un dossier portant le nom du wiki et placé à la racine du wiki de la ferme. Si vous souhaitez que les dossiers de vos wikis ne soint pas mélés à ceux qui sont nécessaires à la ferme, vous pouvez paramétrer le comportement de votre ferme à cet égard.
+Il est nécessaire de jouer sur deux paramètres :
+- le nom du dossier de stockage des wikis,
+- l'url de base des wikis de la ferme.
+
+**Le nom du dossier —** On utilise à cet effet le paramètre `yeswiki-farm-root-folder`. Il s'agit en fait du chemin relatif du dossier de staockage des wikis.
+Si vous voulezque vos wikis soient créés dans le sous-dossier `wikis` du dossier de votre ferme, vous devez le préciser en ajoutant au `wakka.config.php`une ligne contenant :
+```
+'yeswiki-farm-root-folder' => 'wikis',
+```
+Par défaut, ce paramètre vaut `'yeswiki-farm-root-folder' => '.',`
+
+**L'url de base des wikis —** On utilise à cet effet le paramètre `yeswiki-farm-root-url`.
+Si, l'adresse de ma ferme est `https://ma.ferme.url/` et que vous voulez que vos wikis soient créés dans le sous-dossier `wikis` de cette ferme, vous devez préciser en ajoutant au `wakka.config.php` une ligne contenant :
+```
+'yeswiki-farm-root-url' => 'https://ma.ferme.url/wikis/',
+```
+Par défaut, ce paramètre n'est pas présent.
+
+**Attention —** Ces deux paramètres doivent être en cohérence l'un avec l'autre.
+Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 'wikis',` tout en n'ajoutant pas `'yeswiki-farm-root-url' => 'https://ma.ferme.url/wikis/',`, vous ne pourrez jamais accéder aux wikis créés.
+
+
 ## Autres options activables (à documenter) 
 ```
-  // adresse url de départ des wikis de la ferme (c'est la base_url des wikis créés via la ferme), le nom du dossier sera ajouté
-  //exemple vous souhaitez que vos wikis soient créés dans un dossier wikis alors http://yeswiki.dev/wikis/
-  'yeswiki-farm-root-url' => 'http://yeswiki.dev/',
-
-  // dossier de destination des wikis, par défaut '.' : répertoire du wiki qui dispose de bazar
-  // chemin relatif donc dans notre exemple avec le dossier wikis , ça devient 'wikis/'
-  // on peut mettre '..' pour descendre d'un dossier
-  'yeswiki-farm-root-folder' => '.',
-
   // themes supplémentaires (doivent etre présents dans le dossier themes du wiki source)
   'yeswiki-farm-extra-themes' => array('bootstrap3'),
 
