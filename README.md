@@ -29,7 +29,7 @@ Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en reg
 Pour supprimer un wiki, il faut aller sur la fiche bazar correspondant à ce wiki et supprimer celle-ci. Cela déclenche la suppression du wiki en question.
 
 ## Récupérer les fichiers sql de wikis sources
-Il est possible de récupérer automatiquement les fichier sql des qikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config)
+Il est possible de récupérer automatiquement les fichier sql des wikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config).
  - Placer {{generatemodel}} dans une page pour y faire apparaître le module d'import.
  - Après avoir affiché la page, dans la zone de saisie intitulée `Générer un modèle à partir d'une adresse URL`, saisir l'url du wiki source.
  - Cliquer sur `Importer`.
