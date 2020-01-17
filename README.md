@@ -17,7 +17,7 @@ Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet de
  - mettre à jour chaque wiki (Remarque – chaque wiki est considéré comme à jour lorsqu'il est à la même version que le wiki maître => Maintenez votre wiki maître à jour) ; 
  - ajouter un super adminstrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ; 
  - de supprimer, pour chaque wiki le compte superadmin.
-Pour ce faire, ajouter les deux suivantes à `wakka.config.php`
+Pour ce faire, ajouter les deux lignes suivantes à `wakka.config.php`
 ```
   'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
   'yeswiki-farm-admin-pass' => 'votremotdepasse',
