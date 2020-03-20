@@ -736,4 +736,3 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
         return $html;
     }
 }
-

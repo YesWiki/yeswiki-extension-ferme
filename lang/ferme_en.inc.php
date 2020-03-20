@@ -31,15 +31,15 @@
 $GLOBALS['translations'] = array_merge(
 	$GLOBALS['translations'],
 	array(
-	'FERME_IMPORT' => 'Importer',
-	'FERME_GENERATE_MODEL_FROM_URL' => 'Générer un modèle à partir d\'une adresse URL',
-	'FERME_URL_IMPORT_INFO' => 'Entrer l\'url de n\'importe quelle page yeswiki ou de son dossier',
-	'FERME_ALL_WIKIS_ADMIN' => 'Administration de tous les wikis',
-	'FERME_UPDATING' => 'Mise a jour de ',
-	'FERME_WIKI' => 'Le wiki ',
-	'FERME_UPDATED' => ' a bien été mise a jour',
-	'FERME_FILE' => 'Fichier ',
-	'FERME_NOT_FOUND' => ' non trouvé',
-	'FERME_ADMIN_REQUIRED' => 'Il faut faire partie du groupe @admins pour administrer les wikis',
+	'FERME_IMPORT' => 'Import',
+	'FERME_GENERATE_MODEL_FROM_URL' => 'Use an URL to generate a model',
+	'FERME_URL_IMPORT_INFO' => 'Key a YesWiki page URL in',
+	'FERME_ALL_WIKIS_ADMIN' => 'Wikis management',
+	'FERME_UPDATING' => 'Updating ',
+	'FERME_WIKI' => 'Wiki ',
+	'FERME_UPDATED' => ' has properly been updated',
+	'FERME_FILE' => 'File ',
+	'FERME_NOT_FOUND' => ' not found',
+	'FERME_ADMIN_REQUIRED' => 'You must be part of @admins group to manage wikis',
 	)
 );
