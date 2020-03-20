@@ -10,7 +10,7 @@ CREATE TABLE `{{prefix}}__links` (
   `from_tag` char(50) NOT NULL,
   `to_tag` char(50) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `from_tag` (`from_tag`,`to_tag`),
+  UNIQUE KEY `from_tag` (`from_tag`,`to_tag`)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 
 CREATE TABLE `{{prefix}}__nature` (
