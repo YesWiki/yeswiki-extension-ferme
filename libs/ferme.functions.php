@@ -638,6 +638,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                             $GLOBALS["wiki"]->config['mysql_password'],
                             $GLOBALS["wiki"]->config['mysql_database']
                         );
+                        mysqli_set_charset($link, 'utf8');
                         if ($sql = file_get_contents('tools/ferme/sql/create-tables.sql')) {
                             $sql = str_replace(
                                 '{{prefix}}',
