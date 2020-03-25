@@ -4,7 +4,7 @@ if (!defined("WIKINI_VERSION")) {
 }
 
 if ($this->UserIsAdmin()) {
-	echo '<h1>'._t('FERME_ALL_WIKIS_ADMIN')'</h1>';
+	echo '<h1>'._t('FERME_ALL_WIKIS_ADMIN').'</h1>';
 	initFarmConfig();
 	$mainWikiVersion = $this->config['yeswiki_release'];
 	$wakkaConfig = [];
