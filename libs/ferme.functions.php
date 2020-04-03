@@ -422,11 +422,14 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                         copyRecursive($srcfolder.'actions', $destfolder.'actions');
                         mkdir($destfolder.'cache');
                         mkdir($destfolder.'files');
+                        mkdir($destfolder.'custom');
+                        mkdir($destfolder.'templates');
                         copyRecursive($srcfolder.'formatters', $destfolder.'formatters');
                         copyRecursive($srcfolder.'handlers', $destfolder.'handlers');
                         copyRecursive($srcfolder.'includes', $destfolder.'includes');
                         copyRecursive($srcfolder.'lang', $destfolder.'lang');
                         copyRecursive($srcfolder.'setup', $destfolder.'setup');
+                        copyRecursive($srcfolder.'vendor', $destfolder.'vendor');
 
                         // themes
                         mkdir($destfolder.'themes');
