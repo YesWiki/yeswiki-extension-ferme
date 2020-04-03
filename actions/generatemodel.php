@@ -8,7 +8,7 @@ if ($this->UserIsAdmin()) {
     if (isset($_POST['wiki-import-forms'])) {
         $f = explode('/wakka.php', $_POST["url-import"]);
         $f = explode('/?', $f[0]); 
-        $filename = 'tools/ferme/sql/'.str_replace(
+        $filename = 'files/'.str_replace(
             array('http://', 'https://', '/'),
             array('', '', '--'),
             $f[0]
@@ -89,8 +89,8 @@ if ($this->UserIsAdmin()) {
                  '</div>'."\n";
         } else {
             echo '<div class="alert alert-success">'
-                 ._t('Le fichier '.$filename.' vient d\'être enregistré avec succès.')
-                 .'</div>'."\n".'<a class="btn btn-default" href="'
+                 ._t('Le fichier <a href="'.$filename.'">'.$filename.'</a> vient d\'être enregistré avec succès.')
+                 .'</div>'."\n".'<a class="btn btn-primary" href="'
                  .$this->href('', $this->GetPageTag()).'">'
                  ._t('Importer d\'autres modèles').'</a>'."\n";
         }

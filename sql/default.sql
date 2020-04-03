@@ -475,14 +475,14 @@ Si vous souhaitez simplement être tenu·e informé·e des nouveautés de l\'out
 {{end elem=\"col\"}}
 {{end elem=\"grid\"}}', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', ''),
 ('PageRapideHaut',  now(), '{{moteurrecherche template=\"moteurrecherche_button.tpl.html\"}}
-{{buttondropdown icon=\"fas fa-cog\" caret=\"0\"}}
+{{buttondropdown icon=\"glyphicon glyphicon-cog\" caret=\"0\"}}
  - {{login template=\"modal.tpl.html\" nobtn=\"1\"}}
  - ------
- - {{button nobtn=\"1\" icon=\"fa fa-question\" text=\"Aide\" link=\"AidE\"}}
+ - {{button nobtn=\"1\" icon=\"glyphicon glyphicon-question-sign\" text=\"Aide\" link=\"AidE\"}}
  - ------
- - {{button nobtn=\"1\" icon=\"fa fa-wrench\" text=\"Gestion du site\" link=\"GererSite\"}}
- - {{button nobtn=\"1\" icon=\"fa fa-tachometer-alt\" text=\"Tableau de bord\" link=\"TableauDeBord\"}}
- - {{button nobtn=\"1\" icon=\"fa fa-briefcase\" text=\"Base de données\" link=\"BazaR\"}}
+ - {{button nobtn=\"1\" icon=\"glyphicon glyphicon-wrench\" text=\"Gestion du site\" link=\"GererSite\"}}
+ - {{button nobtn=\"1\" icon=\"glyphicon glyphicon-dashboard\" text=\"Tableau de bord\" link=\"TableauDeBord\"}}
+ - {{button nobtn=\"1\" icon=\"glyphicon glyphicon-briefcase\" text=\"Base de données\" link=\"BazaR\"}}
 {{end elem=\"buttondropdown\"}}', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', ''),
 ('PageTitre',  now(), '{{configuration param=\"wakka_name\"}}', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', ''),
 ('ParametresUtilisateur',  now(), '{{UserSettings}}', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', ''),
