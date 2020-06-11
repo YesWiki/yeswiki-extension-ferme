@@ -7,8 +7,8 @@ CREATE TABLE `{{prefix}}__acls` (
 
 CREATE TABLE `{{prefix}}__links` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `from_tag` char(50) NOT NULL,
-  `to_tag` char(50) NOT NULL,
+  `from_tag` char(191) NOT NULL,
+  `to_tag` char(191) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `from_tag` (`from_tag`,`to_tag`)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
