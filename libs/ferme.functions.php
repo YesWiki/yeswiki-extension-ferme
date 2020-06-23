@@ -639,9 +639,18 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                             $GLOBALS["wiki"]->config['mysql_host'],
                             $GLOBALS["wiki"]->config['mysql_user'],
                             $GLOBALS["wiki"]->config['mysql_password'],
-                            $GLOBALS["wiki"]->config['mysql_database']
+                            $GLOBALS["wiki"]->config['mysql_database'],
+                            isset($GLOBALS["wiki"]->config['mysql_port']) ? $GLOBALS["wiki"]->config['mysql_port'] : ini_get("mysqli.default_port")
                         );
-                        mysqli_set_charset($link, 'utf8');
+                        // necessaire pour les versions de mysql qui ont un autre encodage par defaut
+                        mysqli_set_charset($link, 'utf8mb4');
+
+                        // dans certains cas (ovh), set_charset ne passe pas, il faut faire une requete sql
+                        $charset = mysqli_character_set_name($link);
+                        if ($charset != 'utf8mb4') {
+                            mysqli_query($link, 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
+                        }
+
                         if ($sql = file_get_contents('tools/ferme/sql/create-tables.sql')) {
                             $sql = str_replace(
                                 '{{prefix}}',
@@ -654,10 +663,10 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                             $sql = str_replace('{{foldername}}', $valeurs_fiche[$tableau_template[1]], $sql);
 
                             /* Execute queries */
-                            mysqli_multi_query($link, $sql);
+                            mysqli_multi_query($link, $sql) or die(mysqli_error($link));
                             do {
                                 ;
-                            } while (mysqli_next_result($link));
+                            } while (mysqli_more_results($link) && mysqli_next_result($link));
                         } else {
                             die('Lecture du fichier sql "tools/ferme/sql/create-tables.sql" impossible');
                         }
@@ -675,10 +684,10 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                             $sql = str_replace('{{foldername}}', $valeurs_fiche[$tableau_template[1]], $sql);
 
                             /* Execute queries */
-                            mysqli_multi_query($link, $sql);
+                            mysqli_multi_query($link, $sql) or die(mysqli_error($link));
                             do {
                                 ;
-                            } while (mysqli_next_result($link));
+                            } while (mysqli_more_results($link) && mysqli_next_result($link));
                         } else {
                             die('Lecture du fichier sql "tools/ferme/sql/'.$sqlfile.'" impossible');
                         }
