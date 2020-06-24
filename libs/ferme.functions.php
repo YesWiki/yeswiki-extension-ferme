@@ -663,10 +663,14 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                             $sql = str_replace('{{foldername}}', $valeurs_fiche[$tableau_template[1]], $sql);
 
                             /* Execute queries */
-                            mysqli_multi_query($link, $sql) or die(mysqli_error($link));
-                            do {
-                                ;
-                            } while (mysqli_more_results($link) && mysqli_next_result($link));
+                            $sql_report = '<strong>Rapport create-tables.sql</strong><br/>';
+                            $queries = [];
+                            preg_match_all('/^.*?;$(?:\r\n|\n)/sm', $sql, $queries);
+                            foreach ($queries[0] as $index => $query){
+                                mysqli_query($link, $query) or die('Erreur à l\'insertion n°' . ($index + 1) . ' : ' . mysqli_error($link));
+                                $sql_report .= 'Insertion n°' . ($index + 1) . ' : ' . mysqli_affected_rows($link) . ' ligne(s) affectée(s)<br/>';
+                            }
+                            $sql_report .= '<br/>';
                         } else {
                             die('Lecture du fichier sql "tools/ferme/sql/create-tables.sql" impossible');
                         }
@@ -684,10 +688,16 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                             $sql = str_replace('{{foldername}}', $valeurs_fiche[$tableau_template[1]], $sql);
 
                             /* Execute queries */
-                            mysqli_multi_query($link, $sql) or die(mysqli_error($link));
-                            do {
-                                ;
-                            } while (mysqli_more_results($link) && mysqli_next_result($link));
+                            $sql_report .= '<strong>Rapport ' . $sqlfile . '</strong><br/>';
+                            $queries = [];
+                            preg_match_all('/^.*?\);$(?:\r\n|\n)/sm', $sql, $queries);
+                            foreach ($queries[0] as $index => $query){
+                                mysqli_query($link, $query) or die('Erreur à l\'insertion n°' . ($index + 1) . ' : ' . mysqli_error($link));
+                                $sql_report .= 'Insertion n°' . ($index + 1) . ' : ' . mysqli_affected_rows($link) . ' ligne(s) affectée(s)<br/>';
+                            }
+
+                            // TODO find a way to display this message longer
+                            $GLOBALS["wiki"]->SetMessage($sql_report);
                         } else {
                             die('Lecture du fichier sql "tools/ferme/sql/'.$sqlfile.'" impossible');
                         }
