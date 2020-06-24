@@ -32,17 +32,16 @@ if ($this->UserIsAdmin()) {
         if (is_array($forms)) {
             $sql .= '# Bazar forms'."\n";
             foreach ($forms as $form) {
-                $tabforms[] = "('".$form['bn_id_nature']."', '".addslashes($form['bn_label_nature'])."'"
-                  .", '".addslashes($form['bn_description'])."', '".addslashes($form['bn_condition'])
-                  ."', '0', '0', '0', '', '', ''"
-                  .", '', '".addslashes($form['bn_template'])."', 'fr-FR', '".addslashes($form['bn_type_fiche'])."'"
-                  .", '".addslashes($form['bn_label_class'])."')";
+                $tabforms[] = "('".$form['bn_id_nature'] . "', '" . addslashes($form['bn_label_nature'])
+                  . "', '" . addslashes($form['bn_description']) . "', '" . addslashes($form['bn_condition'])
+                  . "', '" . (!empty($form['bn_sem_context'] ? addslashes($form['bn_sem_context']) : ''))
+                  . "', '" . (!empty($form['bn_sem_type'] ? addslashes($form['bn_sem_type']) : ''))
+                  . "', '" . (!empty($form['bn_sem_use_template'] ? addslashes($form['bn_sem_use_template']) : "1"))
+                  . "', '" . addslashes($form['bn_template'])."', 'fr-FR')";
             }
             $sql .= "INSERT INTO `{{prefix}}__nature` (`bn_id_nature`, `bn_label_nature`"
-              .", `bn_description`, `bn_condition`, `bn_ce_id_menu`, `bn_commentaire`"
-              .", `bn_appropriation`, `bn_image_titre`, `bn_image_logo`"
-              .", `bn_couleur_calendrier`, `bn_picto_calendrier`, `bn_template`"
-              .", `bn_ce_i18n`, `bn_type_fiche`, `bn_label_class`)"
+              .", `bn_description`, `bn_condition`, `bn_sem_context`, `bn_sem_type`"
+              .", `bn_sem_use_template`, `bn_template`, `bn_ce_i18n`)"
               ." VALUES\n".implode(','."\n", $tabforms).";\n";
             $sql .= '# end Bazar forms'."\n\n";
         }
