@@ -564,7 +564,9 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                         $GLOBALS['wiki']->config['yeswiki-farm-bg-img'] = isset($theme['bg-img']) ? $theme['bg-img'] : '';
 
                         // generation du prefixe
-                        $prefix = $GLOBALS['wiki']->config['yeswiki-farm-prefix'].str_replace('-', '_', $valeurs_fiche[$tableau_template[1]]);
+                        $prefix = empty($valeurs_fiche['bf_prefixe']) ?
+                            $GLOBALS['wiki']->config['yeswiki-farm-prefix'].str_replace('-', '_', $valeurs_fiche[$tableau_template[1]]) :
+                            $valeurs_fiche['bf_prefixe'];
 
                         // ecriture du fichier de configuration
                         $config = array (

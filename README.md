@@ -11,6 +11,7 @@ texte***bf_titre***Titre***255***255*** *** *** ***1***
 texte***bf_description***Description courte***255***255*** *** *** ***1***
 labelhtml***<p style="color:#cc3333;">Votre wiki sera accessible sans mot de passe. Si vous devez vous connecter pour certaines actions, vos login/mot de passe seront le mail et le mot de passe indiqués ci-dessous.</p>*** ***
 yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
+texte***bf_prefixe***Préfixe des tables*** *** *** *** ***text***0*** ***Si non renseigné  le préfixe sera généré automatiquement à partir de l'adresse du site wiki*** * *** * *** *** ***
 ```
 ## Gestion des wikis générés
 Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet de
