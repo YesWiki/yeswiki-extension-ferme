@@ -565,7 +565,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
 
                         // generation du prefixe
                         $prefix = empty($valeurs_fiche['bf_prefixe']) ?
-                            $GLOBALS['wiki']->config['yeswiki-farm-prefix'].str_replace('-', '_', $valeurs_fiche[$tableau_template[1]]) :
+                            $GLOBALS['wiki']->config['yeswiki-farm-prefix'].str_replace('-', '_', $valeurs_fiche[$tableau_template[1]]) . '__' :
                             $valeurs_fiche['bf_prefixe'];
 
                         // ecriture du fichier de configuration
@@ -579,7 +579,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                               'mysql_database' => $GLOBALS['wiki']->config['mysql_database'],
                               'mysql_user' => $GLOBALS['wiki']->config['mysql_user'],
                               'mysql_password' => $GLOBALS['wiki']->config['mysql_password'],
-                              'table_prefix' => $prefix.'__',
+                              'table_prefix' => $prefix,
                               'root_page' => $GLOBALS['wiki']->config['yeswiki-farm-homepage'],
                               'wakka_name' => addslashes($valeurs_fiche['bf_titre']),
                               'base_url' => $GLOBALS['wiki']->config['yeswiki-farm-root-url']
