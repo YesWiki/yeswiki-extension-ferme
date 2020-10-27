@@ -99,7 +99,7 @@ if ($this->UserIsAdmin()) {
             $file = 'form-import-wiki.tpl.html';
         }
 
-        $output .= $this->renderTemplate('ferme', $file, array(
+        $output .= $this->services->get('templates.engine')->renderTemplate('ferme', $file, array(
           'formurl' => $this->href('', $this->GetPageTag()),
         ), 1);
 
