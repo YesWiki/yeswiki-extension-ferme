@@ -1,5 +1,5 @@
 # YesWiki pages
-INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`, `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES
+INSERT INTO `{{prefix}}__pages` (`tag`, `time`, `body`, `body_r`, `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES
 ('AidE',  now(), '=====Les pages d\'aide=====
 Vous disposez de deux niveaux d\'aide.
  **ReglesDeFormatage <=** Résumé des syntaxes couramment utilisées. Le contenu de cette page est affiché en cliquant sur le bouton \"?\" visible lorsque vous éditez une page.
@@ -617,7 +617,7 @@ description
 
 # Bazar forms
 INSERT INTO `{{prefix}}nature` (`bn_id_nature`, `bn_label_nature`, `bn_description`, `bn_condition`, `bn_sem_context`, `bn_sem_type`, `bn_sem_use_template`, `bn_template`, `bn_ce_i18n`) VALUES
-('28', 'Evénement', 'Formulaire basique pour lister des événements et éventuellement les afficher dans un calendrier.', '', '', '', '', 'texte***bf_titre***Nom de l\'événement***60***255*** *** *** ***1***0***
+('28', 'Evénement', 'Formulaire basique pour lister des événements et éventuellement les afficher dans un calendrier.', '', '', '', 0, 'texte***bf_titre***Nom de l\'événement***60***255*** *** *** ***1***0***
 textelong***bf_description***Description***40***10*** *** *** *** 
 checkbox***ListeMaListe***Type d\'évènement*** ***1*** *** *** ***1***1***
 texte***bf_exergue***Mettre en avant *** ***20*** *** *** ***1***1***
@@ -627,17 +627,17 @@ lien_internet***bf_site_internet***Site Internet***40***255***http://***http://*
 # end Bazar forms
 
 # Bazar lists
-INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`, `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES
+INSERT INTO `{{prefix}}__pages` (`tag`, `time`, `body`, `body_r`, `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES
 ('ListeMaliste',  now(), '{\"label\":{\"opt1\":\"Choix 1 \",\"opt2\":\"Choix 2\",\"opt3\":\"Choix 3\"},\"titre_liste\":\"MaListe\"}', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '');
-INSERT INTO `{{prefix}}triples` (`resource`, `property`, `value`) VALUES
+INSERT INTO `{{prefix}}__triples` (`resource`, `property`, `value`) VALUES
 ('ListeMaliste', 'http://outils-reseaux.org/_vocabulary/type', 'liste');
 # end Bazar lists
 
 # Bazar entries
-INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`, `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES
+INSERT INTO `{{prefix}}__pages` (`tag`, `time`, `body`, `body_r`, `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES
 ('TestDate',  now(), '{\"bf_titre\":\"Test date\",\"bf_description\":\"https:\\/\\/yeswiki.net\",\"checkboxListeMaListe\":\"opt1\",\"bf_exergue\":\"1\",\"bf_date_debut_evenement\":\"2019-10-29\",\"bf_date_debut_evenement_allday\":\"1\",\"bf_date_debut_evenement_hour\":\"00\",\"bf_date_debut_evenement_minutes\":\"00\",\"bf_date_fin_evenement\":\"2019-10-31\",\"bf_date_fin_evenement_allday\":\"1\",\"bf_date_fin_evenement_hour\":\"00\",\"bf_date_fin_evenement_minutes\":\"00\",\"bf_site_internet\":\"https:\\/\\/yeswiki.net\",\"id_typeannonce\":\"28\",\"id_fiche\":\"TestDate\",\"createur\":\"WikiAdmin\",\"date_creation_fiche\":\"2019-10-23 15:11:59\",\"statut_fiche\":\"1\",\"date_maj_fiche\":\"2019-10-25 07:31:49\"}', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', ''),
 ('YoupiIciCEstLeTitre',  now(), '{\"bf_titre\":\"Youpi ici c\'est le titre\",\"bf_description\":\"il faut que l\'on descrive des trucs un peu plus long pour voir si cela rentre bien\",\"checkboxListeMaListe\":\"opt3\",\"bf_exergue\":\"N\",\"bf_date_debut_evenement\":\"2019-10-10\",\"bf_date_debut_evenement_allday\":\"1\",\"bf_date_debut_evenement_hour\":\"00\",\"bf_date_debut_evenement_minutes\":\"00\",\"bf_date_fin_evenement\":\"2019-10-17\",\"bf_date_fin_evenement_allday\":\"1\",\"bf_date_fin_evenement_hour\":\"00\",\"bf_date_fin_evenement_minutes\":\"00\",\"bf_site_internet\":\"\",\"id_typeannonce\":\"28\",\"id_fiche\":\"YoupiIciCEstLeTitre\",\"createur\":\"WikiAdmin\",\"date_creation_fiche\":\"2019-10-23 15:27:17\",\"statut_fiche\":\"1\",\"date_maj_fiche\":\"2019-10-25 07:32:11\"}', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '');
-INSERT INTO `{{prefix}}triples` (`resource`, `property`, `value`) VALUES
+INSERT INTO `{{prefix}}__triples` (`resource`, `property`, `value`) VALUES
 ('TestDate', 'http://outils-reseaux.org/_vocabulary/type', 'fiche_bazar'),
 ('YoupiIciCEstLeTitre', 'http://outils-reseaux.org/_vocabulary/type', 'fiche_bazar');
 # end Bazar entries
