@@ -616,8 +616,8 @@ description
 # end YesWiki pages
 
 # Bazar forms
-INSERT INTO `{{prefix}}__nature` (`bn_id_nature`, `bn_label_nature`, `bn_description`, `bn_condition`, `bn_sem_context`, `bn_sem_type`, `bn_sem_use_template`, `bn_template`, `bn_ce_i18n`) VALUES
-('28', 'Evénement', 'Formulaire basique pour lister des événements et éventuellement les afficher dans un calendrier.', '', '', '', '', 'texte***bf_titre***Nom de l\'événement***60***255*** *** *** ***1***0***
+INSERT INTO `{{prefix}}nature` (`bn_id_nature`, `bn_label_nature`, `bn_description`, `bn_condition`, `bn_sem_context`, `bn_sem_type`, `bn_sem_use_template`, `bn_template`, `bn_ce_i18n`) VALUES
+('28', 'Evénement', 'Formulaire basique pour lister des événements et éventuellement les afficher dans un calendrier.', '', '', '', 0, 'texte***bf_titre***Nom de l\'événement***60***255*** *** *** ***1***0***
 textelong***bf_description***Description***40***10*** *** *** *** 
 checkbox***ListeMaListe***Type d\'évènement*** ***1*** *** *** ***1***1***
 texte***bf_exergue***Mettre en avant *** ***20*** *** *** ***1***1***

@@ -22,7 +22,7 @@ if ($this->UserIsAdmin()) {
                 $tabpages[] = "('".$page['tag']."',  now(), '".addslashes($page['body'])
                   ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
             }
-            $sql .= "INSERT INTO `{{prefix}}__pages` (`tag`, `time`, `body`, `body_r`,"
+            $sql .= "INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`,"
             ." `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES\n"
             .implode(','."\n", $tabpages).";\n";
             $sql .= '# end YesWiki pages'."\n\n";
@@ -39,7 +39,7 @@ if ($this->UserIsAdmin()) {
                   . "', '" . (!empty($form['bn_sem_use_template'] ? addslashes($form['bn_sem_use_template']) : "1"))
                   . "', '" . addslashes($form['bn_template'])."', 'fr-FR')";
             }
-            $sql .= "INSERT INTO `{{prefix}}__nature` (`bn_id_nature`, `bn_label_nature`"
+            $sql .= "INSERT INTO `{{prefix}}nature` (`bn_id_nature`, `bn_label_nature`"
               .", `bn_description`, `bn_condition`, `bn_sem_context`, `bn_sem_type`"
               .", `bn_sem_use_template`, `bn_template`, `bn_ce_i18n`)"
               ." VALUES\n".implode(','."\n", $tabforms).";\n";
@@ -55,10 +55,10 @@ if ($this->UserIsAdmin()) {
                   ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
                 $tabliststriple[] = "('".$id."', 'http://outils-reseaux.org/_vocabulary/type', 'liste')";
             }
-            $sql .= "INSERT INTO `{{prefix}}__pages` (`tag`, `time`, `body`, `body_r`,"
+            $sql .= "INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`,"
               ." `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES\n"
               .implode(','."\n", $tablists).";\n";
-            $sql .= "INSERT INTO `{{prefix}}__triples` (`resource`, `property`, `value`) VALUES\n"
+            $sql .= "INSERT INTO `{{prefix}}triples` (`resource`, `property`, `value`) VALUES\n"
               .implode(','."\n", $tabliststriple).";\n";
             $sql .= '# end Bazar lists'."\n\n";
         }
@@ -72,10 +72,10 @@ if ($this->UserIsAdmin()) {
                   ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
                 $tabentriestriple[] = "('".$id."', 'http://outils-reseaux.org/_vocabulary/type', 'fiche_bazar')";
             }
-            $sql .= "INSERT INTO `{{prefix}}__pages` (`tag`, `time`, `body`, `body_r`,"
+            $sql .= "INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`,"
               ." `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES\n"
               .implode(','."\n", $tabentries).";\n";
-            $sql .= "INSERT INTO `{{prefix}}__triples` (`resource`, `property`, `value`) VALUES\n"
+            $sql .= "INSERT INTO `{{prefix}}triples` (`resource`, `property`, `value`) VALUES\n"
               .implode(','."\n", $tabentriestriple).";\n";
             $sql .= '# end Bazar entries'."\n\n";
         }

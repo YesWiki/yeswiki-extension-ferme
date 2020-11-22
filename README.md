@@ -11,8 +11,10 @@ texte***bf_titre***Titre***255***255*** *** *** ***1***
 texte***bf_description***Description courte***255***255*** *** *** ***1***
 labelhtml***<p style="color:#cc3333;">Votre wiki sera accessible sans mot de passe. Si vous devez vous connecter pour certaines actions, vos login/mot de passe seront le mail et le mot de passe indiqués ci-dessous.</p>*** ***
 yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
-texte***bf_prefixe***Préfixe des tables*** *** *** *** ***text***0*** ***Si non renseigné  le préfixe sera généré automatiquement à partir de l'adresse du site wiki*** * *** * *** *** ***
+texte***bf_prefixe***Préfixe des tables*** *** *** *** ***text***0*** ***Si non renseigné, le préfixe sera généré automatiquement à partir de l'adresse du site wiki***@admins***@admins*** *** ***
 ```
+Le champ `bf_prefixe` sera affiché uniquement aux administrateurs (droits @admins en lecture et écriture).
+
 ## Gestion des wikis générés
 Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet de
  - mettre à jour chaque wiki (Remarque – chaque wiki est considéré comme à jour lorsqu'il est à la même version que le wiki maître => Maintenez votre wiki maître à jour) ; 
@@ -160,6 +162,6 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
   // cas spécifique ou l'on veut créer un user sur le wiki source
   'yeswiki-farm-create-user' => false,
   
-  // ajouter des valeurs au fichier de configuration des wikis créés
+  // ajouter des valeurs dans le fichier de configuration des wikis créés
   'yeswiki-farm-extra-config' => array( 'BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'),
 ```
