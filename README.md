@@ -162,6 +162,6 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
   // cas spécifique ou l'on veut créer un user sur le wiki source
   'yeswiki-farm-create-user' => false,
   
-  // ajouter des valeurs au fichier de configuration des wikis créés
+  // ajouter des valeurs dans le fichier de configuration des wikis créés
   'yeswiki-farm-extra-config' => array( 'BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'),
 ```
