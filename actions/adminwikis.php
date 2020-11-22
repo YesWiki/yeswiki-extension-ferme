@@ -184,13 +184,13 @@ if ($this->UserIsAdmin()) {
 		echo '<div class="alert alert-success">'._t('FERME_WIKI').$_GET['maj']._t('FERME_UPDATED').'</div>';
 	} // End elseif (isset($_GET['maj']) and !empty($_GET['maj']))
 	$sql = 'SELECT body FROM `'.$this->config['table_prefix'].'pages` WHERE latest="Y" and body like \'%"bf_dossier-wiki":"%\'';
-	$results = $this->LoadAll($sql);
-	$results = searchResultstoArray($results, array(), '');
+	$pages = $this->LoadAll($sql);
+	$fiches = array_map(function($page) { return json_decode($page['body'], true); }, $pages);
 	$GLOBALS['ordre'] = 'asc';
 	$GLOBALS['champ'] = 'bf_titre';
-	usort($results, 'champCompare');
+	usort($fiches, 'champCompare');
 	$list = '';
-	foreach ($results as $fiche) {
+	foreach ($fiches as $fiche) {
 		$wakkaConfig = array();
 		if ($this->config['yeswiki-farm-root-folder'] == '.') {
 			$wikiConfigFile = realpath(getcwd().'/'.$fiche['bf_dossier-wiki'].'/wakka.config.php');
@@ -231,7 +231,7 @@ if ($this->UserIsAdmin()) {
 		} else {
 			echo '<div class="alert alert-danger">'._t('FERME_FILE').$fiche['bf_dossier-wiki'].'/wakka.config.php'._t('FERME_NOT_FOUND').'</div>';
 		}
-	} // End foreach ($results as $fiche)
+	} // End foreach ($fiches as $fiche)
 	if ($list) {
 		echo '<ol class="list-wiki">'.$list.'</ol>';
 	}
