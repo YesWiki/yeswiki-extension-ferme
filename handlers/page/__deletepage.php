@@ -8,8 +8,6 @@ if (!defined("WIKINI_VERSION")) {
 
 $ficheManager = $this->services->get(FicheManager::class);
 
-initFarmConfig();
-
 if ($ficheManager->isFiche($this->GetPageTag()) && !empty($_GET['confirme']) && $_GET['confirme'] == 'oui' && ($this->UserIsOwner() || $this->UserIsAdmin())) {
     $tab_valeurs = $ficheManager->getOne($this->GetPageTag());
     if (isset($tab_valeurs["bf_dossier-wiki"]) && !empty($tab_valeurs["bf_dossier-wiki"])) {
