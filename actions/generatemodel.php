@@ -1,4 +1,7 @@
 <?php
+
+use YesWiki\Core\Service\TemplateEngine;
+
 if (!defined("WIKINI_VERSION")) {
     die("acc&egrave;s direct interdit");
 }
@@ -96,12 +99,12 @@ if ($this->UserIsAdmin()) {
     } else {
         $file = $this->GetParameter('template');
         if (empty($file)) {
-            $file = 'form-import-wiki.tpl.html';
+            $file = '@ferme/form-import-wiki.tpl.html';
         }
 
-        $output .= $this->services->get('templates.engine')->renderTemplate('ferme', $file, array(
+        $output .= $this->services->get(TemplateEngine::class)->render($file, array(
           'formurl' => $this->href('', $this->GetPageTag()),
-        ), 1);
+        ));
 
         $GLOBALS['wiki']->AddJavascriptFile('tools/ferme/presentation/javascripts/ferme-import.js');
     }
