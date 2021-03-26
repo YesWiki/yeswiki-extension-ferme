@@ -1,0 +1,54 @@
+parameters:
+  bazar_farm_id: 1100
+  contact_wikis:
+    default_template: 'list-email.twig'
+  yeswiki_files:
+    'index.php'
+    'composer.json'
+    'composer.lock'
+    'Dockerfile'
+    'docker-compose.yml'
+    'INSTALL.md'
+    'interwiki.conf'
+    'LICENSE'
+    'README.md'
+    'robots.txt'
+    'wakka.basic.css'
+    'wakka.css'
+    'wakka.php'
+    'actions'
+    'docs'
+    'formatters'
+    'handlers'
+    'includes'
+    'lang'
+    'setup'
+    'templates'
+    'themes/margot'
+    'themes/tools'
+    'tools/README.md'
+    'tools/autoupdate'
+    'tools/helloworld'
+    'tools/progressBar'
+    'tools/syndication'
+    'tools/templates'
+    'tools/aceditor'
+    'tools/bazar'
+    'tools/lang'
+    'tools/rss'
+    'tools/tableau'
+    'tools/toc'
+    'tools/attach'
+    'tools/contact'
+    'tools/login'
+    'tools/security'
+    'tools/tags'
+    'vendor'
+
+services:
+  _defaults:
+    autowire: true
+    public: true
+
+  YesWiki\Ferme\Service\:
+    resource: 'services/*'
