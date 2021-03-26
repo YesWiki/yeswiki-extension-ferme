@@ -24,30 +24,24 @@ $(document).ready(function () {
     var url = $('#url-import').val();
 
     // expression réguliere pour trouver une url valide
-    var rgHttpUrl = new RegExp(
-      '^(http|https):\\/\\/(([a-zA-Z0-9$\\-_.+!*\'(),;:&=]|%[0-9a-fA-F]{2})+@)?'
-      + '(((25[0-5]|2[0-4][0-9]|[0-1][0-9][0-9]|[1-9][0-9]|[0-9])'
-      + '(\\.(25[0-5]|2[0-4][0-9]|[0-1][0-9][0-9]|[1-9][0-9]|[0-9])){3})'
-      + '|localhost|([a-zA-Z0-9\\-\\u00C0-\\u017F]+\\.)+([a-zA-Z]{2,}))(:[0-9]+)?'
-      + '(\\/(([a-zA-Z0-9$\\-_.+!*\'(),;:@&=]|%[0-9a-fA-F]{2})*(\\/([a-zA-Z0-9$\\-_.+!*\'(),;:@&=]'
-      + '|%[0-9a-fA-F]{2})*)*)?(\\?([a-zA-Z0-9$\\-_.+!*\'(),;:@&=\\/?]|%[0-9a-fA-F]{2})*)'
-      + '(\\#([a-zA-Z0-9$\\-_.+!*\'(),;:@&=\\/?]|%[0-9a-fA-F]{2})*)?)?$', 'i');
-
+    var rgHttpUrl = new RegExp(/((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/, 'i');
+   
+    // on formate l url pour acceder au service json de yeswiki
+    url = url.split('/wakka.php');
+    url = url[0].split('/index.php');
+    url = url[0].split('/?');
+    url = url[0].replace(/\/+$/g, '') + '/';
+    
     if (rgHttpUrl.test(url)) {
-      // on formate l url pour acceder au service json de yeswiki
-      var taburl = url.split('wakka.php');
-      var taburl = taburl[0].split('?');
-
 
       // formulaires
-      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=forms';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url
         + '</div>');
       $.ajax({
         method: 'GET',
-        url: url,
+        url: url + '?BazaR/json&demand=forms',
       }).done(function (data) {
         $results.find('.loading').remove();
         var count = 0;
@@ -68,14 +62,13 @@ $(document).ready(function () {
       });
 
       // listes
-      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=lists';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url
         + '</div>');
       $.ajax({
         method: 'GET',
-        url: url,
+        url: url + '?BazaR/json&demand=lists',
       }).done(function (data) {
         $results.find('.loading').remove();
         var count = 0;
@@ -97,14 +90,13 @@ $(document).ready(function () {
       });
 
       // fiches
-      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=entries';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url
         + '</div>');
       $.ajax({
         method: 'GET',
-        url: url,
+        url: url + '?BazaR/json&demand=entries',
       }).done(function (data) {
         $results.find('.loading').remove();
         var count = 0;
@@ -126,14 +118,13 @@ $(document).ready(function () {
       });
 
       // pages
-      url = taburl[0].replace(/\/+$/g, '') + '/?BazaR/json&demand=pages';
       $results.append('<div class="loading alert alert-info">'
         + '<span class="throbber">' + $translate.loading + '...</span> '
         + $translate.recuperation + ' ' + url
         + '</div>');
       $.ajax({
         method: 'GET',
-        url: url,
+        url: url + '?BazaR/json&demand=pages',
       }).done(function (data) {
         $results.find('.loading').remove();
         var count = 0;

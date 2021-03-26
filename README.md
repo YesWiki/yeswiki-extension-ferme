@@ -44,7 +44,7 @@ Il est possible de récupérer automatiquement les fichier sql des wikis qui doi
   'yeswiki-farm-sql' => array(
     array(
       'label' => 'Je veux un wiki vide pour commencer', //nom à l'écran
-      'file' => 'default.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
+      'file' => 'default-content.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
     ),
     array(
       'label' => 'Je veux la configuration de départ pour un projet d\'oasis', //nom à l'écran

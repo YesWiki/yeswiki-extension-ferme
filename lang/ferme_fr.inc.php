@@ -29,17 +29,27 @@
 */
 
 $GLOBALS['translations'] = array_merge(
-	$GLOBALS['translations'],
-	array(
-	'FERME_IMPORT' => 'Importer',
-	'FERME_GENERATE_MODEL_FROM_URL' => 'Générer un modèle à partir d\'une adresse URL',
-	'FERME_URL_IMPORT_INFO' => 'Entrer l\'url de n\'importe quelle page yeswiki ou de son dossier',
-	'FERME_ALL_WIKIS_ADMIN' => 'Administration de tous les wikis',
-	'FERME_UPDATING' => 'Mise a jour de ',
-	'FERME_WIKI' => 'Le wiki ',
-	'FERME_UPDATED' => ' a bien été mise a jour',
-	'FERME_FILE' => 'Fichier ',
-	'FERME_NOT_FOUND' => ' non trouvé',
-	'FERME_ADMIN_REQUIRED' => 'Il faut faire partie du groupe @admins pour administrer les wikis',
-	)
+    $GLOBALS['translations'],
+    array(
+    'FERME_AVAILABLE_MODELS' => 'Modèles de contenus disponibles',
+    'FERME_BASIC_INSTALL' => 'Installation de base',
+    'FERME_PROPOSED_MODEL' => 'Disponible à la création d\'un wiki',
+    'FERME_VIEW_SOURCE' => 'Voir le wiki source',
+    'FERME_ACCESS_WIKI' => 'Accéder au YesWiki',
+    'FERME_IMPORT' => 'Importer',
+    'FERME_DELETE' => 'Supprimer',
+    'FERME_CONFIRM_DELETE_MODEL' => 'Êtes-vous sûr·e de vouloir supprimer ce modèle ?',
+    'FERME_GENERATE_MODEL_FROM_URL' => 'Générer un modèle à partir d\'une adresse URL',
+    'FERME_URL_IMPORT_INFO' => 'Entrer l\'url de n\'importe quelle page yeswiki ou de son dossier',
+    'FERME_ALL_WIKIS_ADMIN' => 'Administration de tous les wikis',
+    'FERME_UPDATING' => 'Mise a jour de ',
+    'FERME_WIKI' => 'Le wiki ',
+    'FERME_UPDATED' => ' a bien été mise a jour',
+    'FERME_FILE' => 'Fichier ',
+    'FERME_NOT_FOUND' => ' non trouvé',
+    'FERME_ADMIN_REQUIRED' => 'Il faut faire partie du groupe @admins pour administrer les wikis',
+    'FERME_EMAIL_USERS' => 'Ecrire un mail aux usagers des wikis',
+    'FERME_SITE_NAME' => 'nom Internet du wiki (sans espace, ni caractères spéciaux)',
+    'FERME_ADMIN_NAME' => 'NomWiki de l\'admin',
+    )
 );

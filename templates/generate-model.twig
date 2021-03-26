@@ -1,0 +1,43 @@
+<h2>{{ _t('FERME_AVAILABLE_MODELS') }}</h2>
+<form method="POST">
+<ol>
+<li style="margin-bottom:1rem;">
+  {{ _t('FERME_BASIC_INSTALL') }} (default-content.sql)<br />
+  <label class="checkbox-inline">
+    <input name="config[default-content.sql]" type="checkbox" {% if defaultModelIsAvailable is not same as(false) %} checked {% endif %} />
+      {{ _t('FERME_PROPOSED_MODEL') }}
+  </label>
+</li>
+{% for model in models %}
+    <li style="margin-bottom:1rem;">
+      {{ model.file }}<br />
+      <label class="checkbox-inline">
+        <input name="config[{{ model.file }}]" type="checkbox" {% if model.isavailable %} checked {% endif %} />
+          {{ _t('FERME_PROPOSED_MODEL') }}
+      </label>
+      <a target="_blank" href="{{ model.url }}" class="btn btn-xs btn-default"><i class="fas fa-eye"></i> {{ _t('FERME_VIEW_SOURCE') }}</a>
+      <a onclick="return confirm('{{ _t('FERME_CONFIRM_DELETE_MODEL') }}')" href="{{ model.deleteurl }}" class="btn btn-xs btn-danger"><i class="fas fa-trash"></i> {{ _t('FERME_DELETE') }}</a>
+    </li>
+{% endfor %}
+</ol>
+<button type="submit" class="btn btn-primary">Enregistrer</button>
+</form>
+<hr />
+<h2>{{ _t('FERME_GENERATE_MODEL_FROM_URL') }}</h2>
+<form id="yw-import-from-url" action="{{formurl|e}}" method="post">
+  <div class="form-group">
+    <div class="input-prepend input-append input-group">
+      <span class="add-on input-group-addon"><i class="glyphicon glyphicon-link icon-globe"></i></span>
+      <input id="url-import" name="url-import" class="form-control input-xxlarge" placeholder="{{ _t('FERME_URL_IMPORT_INFO') }}" type="url">
+      <span class="input-group-btn">
+          <button id="btn-import-wiki" class="btn btn-primary" type="submit">{{ _t('FERME_IMPORT') }}</button>
+      </span>
+    </div>
+  </div>
+  <div id="wiki-response"></div>
+  <input id="wiki-import-forms" name="wiki-import-forms" type="hidden" value="">
+  <input id="wiki-import-lists" name="wiki-import-lists" type="hidden" value="">
+  <input id="wiki-import-entries" name="wiki-import-entries" type="hidden" value="">
+  <input id="wiki-import-pages" name="wiki-import-pages" type="hidden" value="">
+</form>
+<div id="yw-import-from-url-translations" data-nbformsfound="{{ _t('BAZ_NBFORMSFOUND') }}" data-nblistsfound="{{ _t('Nombre de listes trouvées') }}" data-nbpagesfound="{{ _t('Nombre de pages trouvées') }}" data-nbentriesfound="{{ _t('Nombre de fiches trouvées') }}" data-noanswers="{{ _t('BAZ_NOANSWERS') }}" data-notvalidurl="{{ _t('BAZ_NOTVALIDURL') }}" data-recuperation="{{ _t('BAZ_RECUPERATION') }}" data-generatesqlfile="{{ _t('Générer le fichier MySQL modèle pour ce wiki') }}" data-loading="{{ _t('BAZ_LOADING') }}" data-existingmessage="{{ _t('BAZ_EXISTINGMESSAGEFORM') }}" data-existingmessagereplace="{{ _t('BAZ_EXISTINGMESSAGEREPLACEFORM') }}"></div>
