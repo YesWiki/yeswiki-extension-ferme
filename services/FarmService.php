@@ -125,13 +125,13 @@ class FarmService
         }
 
         // sql d'installation par défaut
-        if (!isset($this->wiki->config['yeswiki-farm-sql'])
-        or !is_array($this->wiki->config['yeswiki-farm-sql'])) {
-            $this->wiki->config['yeswiki-farm-sql'][0]['label'] = 'Configuration de base';
-            $this->wiki->config['yeswiki-farm-sql'][0]['file'] = 'default-content.sql';
+        if (!isset($this->wiki->config['yeswiki-farm-models'])
+        or !is_array($this->wiki->config['yeswiki-farm-models'])) {
+            $this->wiki->config['yeswiki-farm-models'][0]['label'] = 'Configuration de base';
+            $this->wiki->config['yeswiki-farm-models'][0]['file'] = 'default-content.sql';
         } else {
             // verifier l'existence des parametres des fichiers sql
-            foreach ($this->wiki->config['yeswiki-farm-sql'] as $key => $sql) {
+            foreach ($this->wiki->config['yeswiki-farm-models'] as $key => $sql) {
                 if (!isset($sql['label']) or empty($sql['label'])) {
                     exit('<div class="alert alert-danger">Au moins un label pour les configurations sql de la ferme n\'a'
                     .' pas été bien renseigné.</div>');
@@ -163,7 +163,7 @@ class FarmService
 
         // Email par défaut (laisser vide pour demander à la création du wiki)
         if (!isset($this->wiki->config['yeswiki-farm-email-WikiAdmin'])) {
-            $this->wiki->config['yeswiki-farm-email-WikiAdmin'] = '';
+            $this->wiki->config['yeswiki-farm-email-WikiAdmin'] = 'bf_mail';
         }
 
         // page d'accueil des wikis de la ferme
@@ -185,7 +185,8 @@ class FarmService
         }
     }
 
-    public function getWikiConfig($wiki) {
+    public function getWikiConfig($wiki)
+    {
         $wakkaConfig = [];
         if ($this->wiki->config['yeswiki-farm-root-folder'] == '.') {
             $path = getcwd().DIRECTORY_SEPARATOR.$wiki.'/wakka.config.php';
@@ -258,6 +259,251 @@ class FarmService
         }
     }
 
+    public function createWikiFromEntry($entry, $fieldName)
+    {
+        if ($entry[$fieldName.'_wikiname'] == '{{folder}}') {
+            $entry[$fieldName.'_wikiname'] = genere_nom_wiki(
+                $entry[$fieldName],
+                0
+            );
+            if ($this->wiki->LoadUser($entry[$fieldName.'_wikiname'])) {
+                throw new \Exception('L\'utilisateur '.$entry[$fieldName.'_wikiname']
+                    .' existe déjà, veuillez trouver un autre nom pour votre wiki.');
+            }
+        }
+
+        // creation d'un user?
+        if ($this->wiki->config['yeswiki-farm-create-user']) {
+            if ($this->wiki->LoadUser($entry[$fieldName.'_wikiname'])) {
+                throw new \Exception('L\'utilisateur '.$entry[$fieldName.'_wikiname']
+                    .' existe déjà, veuillez trouver un autre nom pour votre wiki.');
+            }
+            $this->wiki->Query(
+                "insert into ".$this->wiki->config["table_prefix"]."users set ".
+                "signuptime = now(), ".
+                "name = '".mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName.'_wikiname'])."', ".
+                "email = '".mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName.'_email'])."', ".
+                "password = md5('".mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName.'_password'])."')"
+            );
+        }
+
+        $url = $this->wiki->config['yeswiki-farm-root-url'].$entry[$fieldName];
+        $srcfolder = getcwd().DIRECTORY_SEPARATOR;
+        $destfolder = $this->getAbsolutePath(
+            getcwd().DIRECTORY_SEPARATOR
+              .$this->wiki->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
+              .$entry[$fieldName]
+        );
+
+        // test l'existence du dossier choisi
+        if (is_dir($destfolder)) {
+            throw new \Exception('L\'adresse '.$url.' est déja utilisée, veuillez en prendre une autre.');
+        } else {
+            // on copie les fichier du wiki si l'on a accès en écriture
+            if (is_writable($this->wiki->config['yeswiki-farm-root-folder'])) {
+                // create root folder and empty folders
+                foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
+                    mkdir($destfolder.$folder, 0777, true);
+                }
+                
+                // main yeswiki files
+                foreach ($this->wiki->config['yeswiki_files'] as $file) {
+                    $this->copyRecursive($srcfolder.$file, $destfolder.$file);
+                }
+
+                // extra themes
+                foreach ($this->wiki->config['yeswiki-farm-extra-themes'] as $themes) {
+                    $this->copyRecursive(
+                        $srcfolder.'themes'.DIRECTORY_SEPARATOR.$themes,
+                        $destfolder.'themes'.DIRECTORY_SEPARATOR.$themes
+                    );
+                }
+
+                // extensions supplémentaires
+                foreach ($this->wiki->config['yeswiki-farm-extra-tools'] as $tools) {
+                    $this->copyRecursive(
+                        $srcfolder.'tools'.DIRECTORY_SEPARATOR.$tools,
+                        $destfolder.'tools'.DIRECTORY_SEPARATOR.$tools
+                    );
+                }
+
+                // droits d'accès par aux pages
+                $rights = $this->wiki->config['yeswiki-farm-acls'][$entry['yeswiki-farm-acls']];
+                if ($rights["write"] == '{{user}}') {
+                    if (!empty($entry["access-username"])) {
+                        $rights["write"] = $entry["access-username"];
+                    } else {
+                        $rights["write"] = $entry[$fieldName.'_wikiname'];
+                    }
+                }
+                if ($rights["read"] == '{{user}}') {
+                    if (!empty($entry["access-username"])) {
+                        $rights["read"] = $entry["access-username"];
+                    } else {
+                        $rights["read"] = $entry[$fieldName.'_wikiname'];
+                    }
+                }
+                if ($rights["comments"] == '{{user}}') {
+                    if (!empty($entry["access-username"])) {
+                        $rights["comments"] = $entry["access-username"];
+                    } else {
+                        $rights["comments"] = $entry[$fieldName.'_wikiname'];
+                    }
+                }
+
+                // theme choisi
+                $theme = $this->wiki->config['yeswiki-farm-themes'][$_POST['yeswiki-farm-theme']];
+                $this->wiki->config['yeswiki-farm-fav-theme'] = $theme['theme'];
+                $this->wiki->config['yeswiki-farm-fav-style'] = $theme['style'];
+                $this->wiki->config['yeswiki-farm-fav-squelette'] = $theme['squelette'];
+                $this->wiki->config['yeswiki-farm-bg-img'] = isset($theme['bg-img']) ? $theme['bg-img'] : '';
+
+                // generation du prefixe
+                $prefix = empty($entry['bf_prefixe']) ?
+                    $this->wiki->config['yeswiki-farm-prefix'].str_replace('-', '_', $entry[$fieldName]) . '__' :
+                    $entry['bf_prefixe'];
+
+                // ecriture du fichier de configuration
+                $config = array(
+                      'wakka_version' => $this->wiki->config['wakka_version'],
+                      'wikini_version' => $this->wiki->config['wikini_version'],
+                      'yeswiki_version' => $this->wiki->config['yeswiki_version'],
+                      'yeswiki_release' => $this->wiki->config['yeswiki_release'],
+                      'debug' => $this->wiki->config['debug'],
+                      'mysql_host' => $this->wiki->config['mysql_host'],
+                      'mysql_database' => $this->wiki->config['mysql_database'],
+                      'mysql_user' => $this->wiki->config['mysql_user'],
+                      'mysql_password' => $this->wiki->config['mysql_password'],
+                      'table_prefix' => $prefix,
+                      'root_page' => $this->wiki->config['yeswiki-farm-homepage'],
+                      'wakka_name' => addslashes($entry['bf_titre']),
+                      'base_url' => $this->wiki->config['yeswiki-farm-root-url']
+                                    .$entry[$fieldName].'/?',
+                      'rewrite_mode' => $this->wiki->config['rewrite_mode'],
+                      'meta_keywords' => $this->wiki->config['meta_keywords'],
+                      'meta_description' => $this->wiki->config['meta_description'],
+                      'action_path' => 'actions',
+                      'handler_path' => 'handlers',
+                      'header_action' => 'header',
+                      'footer_action' => 'footer',
+                      'navigation_links' => $this->wiki->config['navigation_links'],
+                      'referrers_purge_time' => $this->wiki->config['referrers_purge_time'],
+                      'pages_purge_time' => $this->wiki->config['pages_purge_time'],
+                      'default_write_acl' => $rights["write"],
+                      'default_read_acl' => $rights["read"],
+                      'default_comment_acl' => $rights["comments"],
+                      'preview_before_save' => $this->wiki->config['preview_before_save'],
+                      'allow_raw_html' => $this->wiki->config['allow_raw_html'],
+                      'default_language' => $this->wiki->config['default_language'],
+                      'favorite_theme' => $this->wiki->config['yeswiki-farm-fav-theme'],
+                      'favorite_style' => $this->wiki->config['yeswiki-farm-fav-style'],
+                      'favorite_squelette' => $this->wiki->config['yeswiki-farm-fav-squelette'],
+                      'favorite_background_image' => $this->wiki->config['yeswiki-farm-bg-img'],
+                      'source_url' =>  $this->wiki->href('', $entry['id_fiche']),
+                      'db_charset' =>  'utf8mb4',
+                );
+                if (isset($this->wiki->config['yeswiki-farm-extra-config'])
+                    and is_array($this->wiki->config['yeswiki-farm-extra-config'])
+                ) {
+                    $config = array_merge($config, $this->wiki->config['yeswiki-farm-extra-config']);
+                }
+
+                if (isset($entry['bf_description'])) {
+                    $config['meta_description'] = addslashes(
+                        substr(
+                            str_replace('<br>', ' ', strip_tags($entry['bf_description'], '<br>')),
+                            0,
+                            150
+                        )
+                    );
+                }
+
+                // convert config array into PHP code
+                $configCode = "<?php\n// wakka.config.php "._t('CREATED')." ".strftime("%c")."\n// ".
+                                _t('DONT_CHANGE_YESWIKI_VERSION_MANUALLY')." !\n\n\$wakkaConfig = ";
+                $configCode .= var_export($config, true) . ";\n?>";
+
+                if ($fp = @fopen($destfolder.'wakka.config.php', "w")) {
+                    fwrite($fp, $configCode);
+                    // write
+                    fclose($fp);
+                } else {
+                    throw new \Exception('Ecriture du fichier de configuration impossible');
+                }
+                // creation des tables de la base de données
+                /* create sql connection*/
+                $link = mysqli_connect(
+                    $this->wiki->config['mysql_host'],
+                    $this->wiki->config['mysql_user'],
+                    $this->wiki->config['mysql_password'],
+                    $this->wiki->config['mysql_database'],
+                    isset($this->wiki->config['mysql_port']) ? $this->wiki->config['mysql_port'] : ini_get("mysqli.default_port")
+                );
+                // necessaire pour les versions de mysql qui ont un autre encodage par defaut
+                mysqli_set_charset($link, 'utf8mb4');
+
+                // dans certains cas (ovh), set_charset ne passe pas, il faut faire une requete sql
+                $charset = mysqli_character_set_name($link);
+                if ($charset != 'utf8mb4') {
+                    mysqli_query($link, 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
+                }
+
+                $replacements = [
+                    'prefix' => $prefix,
+                    'siteTitle' => $config['wakka_name'],
+                    'WikiName' => $entry[$fieldName.'_wikiname'],
+                    'password' => $entry[$fieldName.'_password'],
+                    'email' => $entry[$fieldName.'_email'],
+                    'rootPage' => $config['root_page'],
+                ];
+
+                // default tables
+                $sqlReport = $this->querySqlFile($link, 'setup/sql/create-tables.sql', $replacements).'<hr />';
+
+                // get the datas to insert from the model
+                $sqlfile = $this->wiki->config['yeswiki-farm-models'][$_POST['yeswiki-farm-model']]['file'];
+                $sqlfilepath = ($sqlfile == 'default-content.sql') ? 'setup/sql/default-content.sql' : 'custom/wiki-models/'.$sqlfile;
+                $sqlReport .= $this->querySqlFile($link, $sqlfilepath, $replacements);
+                if (!empty($_GET['debug']) || $this->wiki->config['debug'] == 'yes') {
+                    $this->wiki->SetMessage($sqlReport);
+                }
+
+                if (!empty($entry["access-username"])) {
+                    $this->wiki->Query("INSERT INTO `".$prefix."__users` (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) VALUES ('".$entry["access-username"]."', md5('".$entry["access-password"]."'), '".$entry[$fieldName.'_email']."', '', '20', '50', 1, now(), 2);");
+                }
+
+                if (!empty($entry["yeswiki-farm-options"])) {
+                    $taboptions = explode(',', $entry["yeswiki-farm-options"]);
+                    foreach ($taboptions as $option) {
+                        $this->wiki->Query('UPDATE `'.$prefix.'__pages` SET body=CONCAT(body, "'.utf8_decode($this->wiki->config['yeswiki-farm-options'][$option]['content']).'") WHERE tag="'.$this->wiki->config['yeswiki-farm-options'][$option]['page'].'" AND latest="Y";');
+                    }
+                }
+            } else {
+                throw new \Exception('Le dossier '.$this->wiki->config['yeswiki-farm-root-folder']
+                    .' n\'est pas accessible en écriture');
+            }
+        }
+
+        // creation d'un groupe et ajout des membres
+        if (is_array($this->wiki->config['yeswiki-farm-group'])) {
+            // generation du prefixe
+            $tripletable = $this->wiki->config['yeswiki-farm-prefix'].str_replace('-', '_', $entry[$fieldName]).'__triples';
+
+            // on efface les anciennes valeurs du groupe
+            $remsql = 'DELETE FROM `'.$tripletable
+            .'` WHERE `resource`="ThisWikiGroup:'.$this->wiki->config['yeswiki-farm-group']['groupname']
+                .'" and `property`="http://www.wikini.net/_vocabulary/acls";';
+            $this->wiki->Query($remsql);
+
+            // on ajoute les nouvelles valeurs du groupe
+            $users = $entry[$this->wiki->config['yeswiki-farm-group']['group_members_field']];
+            $addsql = 'INSERT INTO `'.$tripletable.'` (`resource`, `property`, `value`)'
+            .' VALUES (\'ThisWikiGroup:'.$this->wiki->config['yeswiki-farm-group']['groupname'].'\','
+            .' \'http://www.wikini.net/_vocabulary/acls\', \''.implode("\n", explode(',', $users)).'\');';
+            $this->wiki->Query($addsql);
+        }
+    }
+
     public function getWikiList()
     {
         return ['titi', 'tata', 'toto'];
@@ -276,7 +522,7 @@ class FarmService
             if (($file != '.') && ($file != '..')) {
                 $full = $src . '/' . $file;
                 if (is_dir($full)) {
-                    rrmdir($full);
+                    $this->rrmdir($full);
                 } else {
                     unlink($full);
                 }
@@ -296,7 +542,7 @@ class FarmService
     public function copyRecursive($path, $dest)
     {
         if (is_dir($path)) {
-            @mkdir($dest);
+            @mkdir($dest, 0777, true);
             $objects = scandir($path);
             if (sizeof($objects) > 0) {
                 foreach ($objects as $file) {
@@ -305,7 +551,7 @@ class FarmService
                     }
                     // go on
                     if (is_dir($path.DIRECTORY_SEPARATOR.$file)) {
-                        copyRecursive($path.DIRECTORY_SEPARATOR.$file, $dest.DIRECTORY_SEPARATOR.$file);
+                        $this->copyRecursive($path.DIRECTORY_SEPARATOR.$file, $dest.DIRECTORY_SEPARATOR.$file);
                     } else {
                         copy($path.DIRECTORY_SEPARATOR.$file, $dest.DIRECTORY_SEPARATOR.$file);
                     }
@@ -317,5 +563,63 @@ class FarmService
         } else {
             return false;
         }
+    }
+
+    /**
+     * Returns the real path of given path even for non existent path, with trailing /
+     *
+     * @param string $path
+     * @return string
+     */
+    public function getAbsolutePath($path)
+    {
+        $path = str_replace(array('/', '\\'), DIRECTORY_SEPARATOR, $path);
+        $parts = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
+        $absolutes = array();
+        foreach ($parts as $part) {
+            if ('.' == $part) {
+                continue;
+            }
+            if ('..' == $part) {
+                array_pop($absolutes);
+            } else {
+                $absolutes[] = $part;
+            }
+        }
+        return DIRECTORY_SEPARATOR.implode(DIRECTORY_SEPARATOR, $absolutes).DIRECTORY_SEPARATOR;
+    }
+
+    /**
+     * replace tokens in sql file and query sql
+     *
+     * @param object $dblink mysqli link resource
+     * @param string $sqlFile patho to sql file
+     * @param array $replacements token to replace in sql file
+     * @return string the report of the queries
+     */
+    public function querySqlFile($dblink, $sqlFile, $replacements = [])
+    {
+        $sqlReport = '<h4>'._t('FERME_REPORT').' '.$sqlFile.'</h4>';
+        if ($sql = file_get_contents($sqlFile)) {
+            foreach ($replacements as $keyword => $replace) {
+                $sql = str_replace(
+                    '{{'.$keyword.'}}',
+                    $replace,
+                    $sql
+                );
+            }
+            $queries = [];
+            preg_match_all('/^.*?;$(?:\r\n|\n)?/ms', $sql, $queries);
+            foreach ($queries[0] as $index => $query) {
+                dump($query);
+                if (!mysqli_query($dblink, $query)) {
+                    throw new \Exception(_t('FERME_INSERTION_ERROR').' n°' . ($index + 1) . ' : ' . mysqli_error($dblink));
+                }
+                $sql_report .= _t('FERME_INSERTION').' n°' . ($index + 1) . ' : ' . mysqli_affected_rows($dblink) . ' '._t('FERME_LINE_AFFECTED').'<br/>';
+            }
+        } else {
+            throw new \Exception(_t('SQL_FILE_NOT_FOUND').' "'.$sqlFile.'".');
+        }
+        return $sqlReport;
     }
 }

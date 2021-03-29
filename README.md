@@ -1,47 +1,51 @@
 # Extension YesWiki bazar ferme
-> Attention — Ceci est une extension de YesWiki. Elle ne fait pas partie du cœur officiellement maintenu de YesWiki.
 
-### Ajoute la possibilité de créer des champs de type 'yeswiki'. Ceci permet de créer automatiquement un wiki en créant une fiche bazar
+Permet de créer automatiquement un wiki en créant une fiche bazar
 
 1) Copier l'extension dans votre dossier tools ou installez-la depuis la page `GererMisesAJour`.
+2) Mettre un `/update` en fin d'url pour finaler l'installation
+3) Dans la roue crantée, vous trouverez un menu pour administrer la ferme
 
-2) Utiliser les lignes suivantes pour le formulaire bazar "ferme":
-```
-texte***bf_titre***Titre***255***255*** *** *** ***1***
-texte***bf_description***Description courte***255***255*** *** *** ***1***
-labelhtml***<p style="color:#cc3333;">Votre wiki sera accessible sans mot de passe. Si vous devez vous connecter pour certaines actions, vos login/mot de passe seront le mail et le mot de passe indiqués ci-dessous.</p>*** ***
-yeswiki***bf_dossier-wiki***Nom du dossier wiki***255***255*** *** *** ***1***
-texte***bf_prefixe***Préfixe des tables*** *** *** *** ***text***0*** ***Si non renseigné, le préfixe sera généré automatiquement à partir de l'adresse du site wiki***@admins***@admins*** *** ***
-```
-Le champ `bf_prefixe` sera affiché uniquement aux administrateurs (droits @admins en lecture et écriture).
+## Gestion de la ferme à wikis
 
-## Gestion des wikis générés
-Placer {{adminwikis}} sur une page de votre wiki générateur de ferme permet de
- - mettre à jour chaque wiki (Remarque – chaque wiki est considéré comme à jour lorsqu'il est à la même version que le wiki maître => Maintenez votre wiki maître à jour) ; 
- - ajouter un super adminstrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ; 
- - de supprimer, pour chaque wiki le compte superadmin.
+### Mise à jour de wiki
+
+- mettre à jour chaque wiki (Remarque – chaque wiki est considéré comme à jour lorsqu'il est à la même version que le wiki maître => Maintenez votre wiki principal à jour) ;
+
+### Suppression de wiki
+
+Pour supprimer un wiki, l'interface propose un bouton poubelle pour supprimer la fiche wiki et son contenu associé.  
+On peut aussi supprimer par l'interface de bazar. Cela déclenche la suppression du wiki en question.
+
+### Création de comptes admins temporaires pour administrer des wikis hébergés
+
+- ajouter un super administrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ;
+- de supprimer, pour chaque wiki le compte superadmin.
+
 Pour ce faire, ajouter les deux lignes suivantes à `wakka.config.php`
-```
+
+```php
   'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
   'yeswiki-farm-admin-pass' => 'votremotdepasse',
 ```
+
 Ceci fait apparaître un bouton `ajouter le compte` en regard de chaque wiki dans la page d'administration des wikis.
 Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans a page d'administration des wikis devient rouge avec le libellé `supprimer le compte`. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
 
-### Pour supprimer un wiki
-Pour supprimer un wiki, il faut aller sur la fiche bazar correspondant à ce wiki et supprimer celle-ci. Cela déclenche la suppression du wiki en question.
-
 ## Récupérer les fichiers sql de wikis sources
-Il est possible de récupérer automatiquement les fichier sql des wikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-sql' du wakka-config).
- - Placer {{generatemodel}} dans une page pour y faire apparaître le module d'import.
- - Après avoir affiché la page, dans la zone de saisie intitulée `Générer un modèle à partir d'une adresse URL`, saisir l'url du wiki source.
- - Cliquer sur `Importer`.
- - Apparaît alors une description du contenu du wiki en question. Cliquer sur le bouton `Générer le fichier MySQL modèle pour ce wiki`.
- - Un message indique que le fichier sql portant le nom du wiki source a été généré et copié dans le dossier `tools/ferme/sql` du wiki maître.
- - Il faut alors modifier le `wakka.config.php` comme suit.
-```
+
+Il est possible de récupérer automatiquement les fichier sql des wikis qui doivent servir de modèles pour la ferme (voir param 'yeswiki-farm-models' du wakka-config).
+
+- Placer {{generatemodel}} dans une page pour y faire apparaître le module d'import.
+- Après avoir affiché la page, dans la zone de saisie intitulée `Générer un modèle à partir d'une adresse URL`, saisir l'url du wiki source.
+- Cliquer sur `Importer`.
+- Apparaît alors une description du contenu du wiki en question. Cliquer sur le bouton `Générer le fichier MySQL modèle pour ce wiki`.
+- Un message indique que le fichier sql portant le nom du wiki source a été généré et copié dans le dossier `tools/ferme/sql` du wiki maître.
+- Il faut alors modifier le `wakka.config.php` comme suit.
+
+```php
   // fichiers sql du modele de wiki a installer par defaut
-  'yeswiki-farm-sql' => array(
+  'yeswiki-farm-models' => array(
     array(
       'label' => 'Je veux un wiki vide pour commencer', //nom à l'écran
       'file' => 'default-content.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
@@ -58,31 +62,37 @@ Il est possible de récupérer automatiquement les fichier sql des wikis qui doi
 ```
 
 ## Paramétrer le dossier de stockage des wikis
+
 Par défaut, lorsqu'un wiki est créé dans la ferme, les fichiers de ce wikis sont placés dans un dossier portant le nom du wiki et placé à la racine du wiki de la ferme. Si vous souhaitez que les dossiers de vos wikis ne soint pas mélés à ceux qui sont nécessaires à la ferme, vous pouvez paramétrer le comportement de votre ferme à cet égard.
 Il est nécessaire de jouer sur deux paramètres :
+
 - le nom du dossier de stockage des wikis,
 - l'url de base des wikis de la ferme.
 
 **Le nom du dossier —** On utilise à cet effet le paramètre `yeswiki-farm-root-folder`. Il s'agit en fait du chemin relatif du dossier de staockage des wikis.
 Si vous voulezque vos wikis soient créés dans le sous-dossier `wikis` du dossier de votre ferme, vous devez le préciser en ajoutant au `wakka.config.php`une ligne contenant :
-```
+
+```php
 'yeswiki-farm-root-folder' => 'wikis',
 ```
+
 Par défaut, ce paramètre vaut `'yeswiki-farm-root-folder' => '.',`
 
 **L'url de base des wikis —** On utilise à cet effet le paramètre `yeswiki-farm-root-url`.
 Si, l'adresse de ma ferme est `https://ma.ferme.url/` et que vous voulez que vos wikis soient créés dans le sous-dossier `wikis` de cette ferme, vous devez préciser en ajoutant au `wakka.config.php` une ligne contenant :
-```
+
+```php
 'yeswiki-farm-root-url' => 'https://ma.ferme.url/wikis/',
 ```
+
 Par défaut, ce paramètre n'est pas présent.
 
 **Attention —** Ces deux paramètres doivent être en cohérence l'un avec l'autre.
 Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 'wikis',` tout en n'ajoutant pas `'yeswiki-farm-root-url' => 'https://ma.ferme.url/wikis/',`, vous ne pourrez jamais accéder aux wikis créés.
 
+## Autres options activables (à documenter)
 
-## Autres options activables (à documenter) 
-```
+```php
   // themes supplémentaires (doivent etre présents dans le dossier themes du wiki source)
   'yeswiki-farm-extra-themes' => array('bootstrap3'),
 
@@ -95,29 +105,29 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
   // tableau des choix de themes (ne s'affiche pas si qu'un choix possible)
   'yeswiki-farm-themes' => array(
     array(
-      'label' => 'Colibris (élaboré, incluant beaucoup de pictos)', //nom du thème à l'écran
-      'screenshot' => 'colibris.jpg', //screenshot du theme dans tools/ferme/screenshots
-      'theme' => 'colibris', //nom de theme
+      'label' => 'Margot (thème par défaut de YesWiki)', //nom du thème à l'écran
+      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/margot.jpg', //screenshot du theme dans tools/ferme/screenshots
+      'theme' => 'margot', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
-      'style' => 'colibris.bootstrap.min.css' //style par defaut
+      'style' => 'margot.css' //style par defaut
     ),
     array(
       'label' => 'Bootstrap (très simple)', //nom du thème à l'écran
-      'screenshot' => 'bootstrap.jpg', //screenshot du theme dans tools/ferme/screenshots
+      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/bootstrap.jpg', //screenshot du theme dans tools/ferme/screenshots
       'theme' => 'bootstrap3', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'bootstrap.min.css' //style par defaut
     ),
     array(
       'label' => 'Paper (material design de google)', //nom du thème à l'écran
-      'screenshot' => 'paper.jpg', //screenshot du theme dans tools/ferme/screenshots
+      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/paper.jpg', //screenshot du theme dans tools/ferme/screenshots
       'theme' => 'bootstrap3', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'paper.bootstrap.min.css' //style par defaut
     ),
     array(
       'label' => 'Cyborg (theme sombre, fond noir)', //nom du thème à l'écran
-      'screenshot' => 'cyborg.jpg', //screenshot du theme dans tools/ferme/screenshots
+      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/cyborg.jpg', //screenshot du theme dans tools/ferme/screenshots
       'theme' => 'bootstrap3', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'cyborg.bootstrap.min.css' //style par defaut
