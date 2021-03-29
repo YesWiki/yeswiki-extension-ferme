@@ -1,11 +1,11 @@
-<div class="control-group form-group input-{{ field.type}}">
-    <label class="control-label col-sm-3">
-        {#- No leading/trailing whitespace, see https://twig.symfony.com/doc/3.x/templates.html#templates-whitespace-control-#}         
-            {% if field.required %}<span class="symbole_obligatoire"></span>{% endif %}
-            {% if field.hint %}
-                <span class="form-help fa fa-question-circle" title="{{ field.hint|raw('html') }}" onclick="$(this).tooltip('toggle')"></span>
-            {% endif %}
-            {{ field.label }}         
+<div class="yeswiki-form">
+  <div class="form-group input-{{ field.type}}">
+    <label class="control-label col-sm-3">       
+        {% if field.required %}<span class="symbole_obligatoire"></span>{% endif %}
+        {% if field.hint %}
+            <span class="form-help fa fa-question-circle" title="{{ field.hint|raw('html') }}" onclick="$(this).tooltip('toggle')"></span>
+        {% endif %}
+        {{ field.label }}         
     </label>
     <div class="controls col-sm-9">
         <div class="input-prepend input-group">
@@ -17,19 +17,199 @@
             {% else %}
                 <input type="text" class="form-control" id="{{ field.name }}" name="{{ field.name }}" required value="" pattern="^[0-9a-zA-Z-]*$" placeholder="{{ _t('FERME_SITE_NAME') }}" />
             {% endif %}
-        </div>
-
-        {% if not defaultWikiAdmin %}
-            <div class="input-prepend input-group">
-                <input type="text" class="form-control" id="{{ field.name }}_wikiname" name="{{ field.name }}_wikiname" required placeholder="{{ _t('FERME_ADMIN_NAME') }}">
+        </div>        
+    </div>
+  </div>
+  {% if value is empty %}
+    <div class="yeswiki-farm-section yeswiki-farm-section-user">
+        <h5>{{ _t('FERME_ADMIN_USER') }}</h5>
+        {% if adminUsername is null or adminUsername is empty %}
+        {# TODO : jamais vraiment instancié #}
+        <div class="form-group input-{{ field.type}}">
+            <label class="control-label col-sm-3">       
+                <span class="symbole_obligatoire"></span>
+                {{ _t('FERME_ADMIN_NAME') }}         
+            </label>
+            <div class="controls col-sm-9">
+                <div class="input-prepend input-group">
+                    <input type="text" class="form-control" id="{{ field.name }}_wikiname" name="{{ field.name }}_wikiname" required placeholder="{{ _t('FERME_ADMIN_NAME') }}">
+                </div>
             </div>
+        </div>
         {% else %}
-            <input type="hidden" class="form-control" name="{{ field.name }}_wikiname" value="{{ defaultWikiAdmin }}">
+            <input type="hidden" name="{{ field.name }}_wikiname" value="{{ adminUsername }}">
         {% endif %}
-        <div class="text-danger">
-        <strong>ATTENTION</strong> : notez bien le mot de passe saisi ci dessous  car vous aurez des droits avancés exclusifs sur votre wiki.<br>
-        Pour vous identifier : soit le NomWiki : <strong>WikiAdmin</strong> soit <strong>votre adresse mail</strong> saisie ci-dessus.
+
+        {% if adminEmail is null or adminEmail is empty %}
+        <div class="form-group input-{{ field.type}}">
+            <label class="control-label col-sm-3">       
+                <span class="symbole_obligatoire"></span>
+                {{ _t('FERME_ADMIN_MAIL') }}         
+            </label>
+            <div class="controls col-sm-9">
+                <div class="input-prepend input-group">
+                    <input type="email" class="form-control" id="{{ field.name }}_email" name="{{ field.name }}_email" required placeholder="{{ _t('FERME_ADMIN_MAIL') }}">
+                </div>
+            </div>
+        </div>
+         {% else %}
+            <input type="hidden" name="{{ field.name }}_email" value="{{ adminEmail }}">
+        {% endif %}
+
+        {% if adminPassword is null or adminPassword is empty %}
+        <div class="form-group input-{{ field.type}}">
+            <label class="control-label col-sm-3">       
+                <span class="symbole_obligatoire"></span>
+                {{ _t('FERME_ADMIN_PASSWORD') }}         
+            </label>
+            <div class="controls col-sm-9">
+                <div class="input-prepend input-group">
+                    <input type="password" class="form-control" id="{{ field.name }}_password" name="{{ field.name }}_password" required placeholder="{{ _t('FERME_ADMIN_PASSWORD') }}">
+                </div>
+                <span class="help-block text-danger"><strong>{{ _t('FERME_ATTENTION') }}</strong> : {{ _t('FERME_REMEMBER_PASSWORD') }}.<br/>
+                {{ _t('FERME_TO_LOGIN') }}.</span>
+            </div>
+        </div>
+        {% else %}
+            <input type="hidden" name="{{ field.name }}_password" value="{{ adminPassword }}">
+        {% endif %}
+    </div>
+
+    {% if farmThemes|length > 1 %}
+    <div class="yeswiki-farm-section yeswiki-farm-section-themes">
+      <div class="row">
+        <div class="col-md-6">
+            <h5>{{ _t('FERME_GRAPHICAL_THEME') }}</h5>
+            <div class="input-radio bazar-radio radio_required">
+                {% for key, theme in farmThemes %}
+                    <div class="radio">
+                    <label for="yeswiki-farm-theme-{{ key }}">
+                        <input id="yeswiki-farm-theme-{{ key }}" type="radio" value="{{ key }}" name="yeswiki-farm-theme" {% if loop.first %}checked{% endif %} />
+                        <span>{{ theme.label }}</span>
+                    </label>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-md-6">
+            {% for key, theme in farmThemes %}
+            <img 
+                class="theme-screenshot img-responsive{% if not loop.first %} hide {% endif %}"
+                src="{{ theme.screenshot }}"
+                alt="screenshot for theme {{ theme.label }}"
+            />
+            {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <input type="hidden" name="yeswiki-farm-theme" value="0">
+    {% endif %}
+
+    {% if farmModels|length > 1 %}
+    <div class="yeswiki-farm-section yeswiki-farm-section-models">
+        <h5>{{ _t('FERME_MODEL_OF_WIKI') }}</h5>
+        <div class="input-radio bazar-radio radio_required">
+            {% for key, model in farmModels %}
+                <div class="radio">
+                <label for="yeswiki-farm-model-{{ key }}">
+                    <input id="yeswiki-farm-model-{{ key }}" type="radio" value="{{ key }}" name="yeswiki-farm-model" {% if loop.first %}checked{% endif %} />
+                    <span>{{ model.label }}</span>
+                </label>
+                </div>
+            {% endfor %}
         </div>
     </div>
-</div>
+    {% else %}
+    <input type="hidden" name="yeswiki-farm-model" value="0">
+    {% endif %}
 
+    {% if farmAcls|length > 1 %}
+    <div class="yeswiki-farm-section yeswiki-farm-section-acls">
+        <h5>{{ _t('FERME_ACCESS_RIGHTS') }}</h5>
+        <div class="input-radio bazar-radio radio_required">
+            {% for key, acls in farmAcls %}
+                <div class="radio">
+                <label for="yeswiki-farm-acls-{{ key }}">
+                    <input id="yeswiki-farm-acls-{{ key }}"{% if acls.create_user %} class="create_user"{% endif %} type="radio" value="{{ key }}" name="yeswiki-farm-acls" {% if loop.first %}checked{% endif %} />
+                    <span>{{ acls.label }}</span>
+                </label>
+                </div>
+            {% endfor %}
+        </div>
+        <div id="access-control" class="hide">
+            <input type="text" class="form-control" name="access-username" required placeholder="{{ _t('FERME_ACCESS_ID') }}">
+            <input type="password" class="form-control" name="access-password" required placeholder="{{ _t('FERME_ACCESS_PASSWORD') }}">
+        </div>
+    </div>
+    {% else %}
+    <input type="hidden" name="yeswiki-farm-acls" value="0">
+    {% endif %}
+
+    {% if farmOptions|length > 1 %}
+    <div class="yeswiki-farm-section yeswiki-farm-section-options">
+        <h5>{{ _t('FERME_EXTRA_OPTIONS') }}</h5>
+        {% for key, option in farmOptions %}
+        <div class="checkbox">
+            <label>
+            <input type="checkbox"{% if option.checked %} checked{% endif %} name="yeswiki-farm-options{{ key }}" value="{{ key }}" />
+            {{ option.label }}
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+  {% endif %}
+</div> <!-- end .yeswiki-form -->
+
+<style>
+.yeswiki-form {
+    background-color:#f3f3f3;
+    padding:.5em 1em;
+    border-radius:1em;
+    margin-bottom:1em;
+}
+.yeswiki-farm-section {
+    margin: 2em 0 1em;
+}
+.theme-screenshot {
+    width: 400px;
+    height: 225px;
+    object-fit: cover;
+}
+.bazar-radio {
+    margin-bottom:1em
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  $('.yeswiki-farm-section-themes input[type="radio"]').click(function() {
+      console.log($(this).prop('checked'))
+    if ($(this).prop('checked')) {
+      $('.theme-screenshot').addClass('hide');
+      $('.theme-screenshot:eq('+parseInt($(this).val())+')').removeClass('hide');
+    }
+  });
+
+  $('#yeswiki-farm-acls').on('change', function() {
+    if ($(this).find('option:selected').hasClass('create_user')) {
+    $('#access-control').removeClass('hide');
+    } else {
+    $('#access-control').addClass('hide');
+    }
+  });
+
+  $('#radioListeOuiNonoui').on('click', function(e) {
+    $('.btn-primary[type="submit"]').removeAttr('disabled');
+  });
+
+  // we don't allow to submit before CGUs and RGPD consent 
+  $('#radioListeOuiNonnon').on('click', function(e) {
+    $('.btn-primary[type="submit"]').attr('disabled','disabled');
+  });
+  $('#radioListeOuiNonnon').click();
+
+});
+</script>

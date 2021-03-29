@@ -22,14 +22,14 @@ class GenerateModelAction extends YesWikiAction
 
             // get all custom models
             $modelsFile = glob('custom/wiki-models/*.sql');
-            $defaultModelIsAvailable = array_search('default-content.sql', array_column($this->wiki->config['yeswiki-farm-sql'], 'file'));
+            $defaultModelIsAvailable = array_search('default-content.sql', array_column($this->wiki->config['yeswiki-farm-models'], 'file'));
             $models = [];
             foreach ($modelsFile as $model) {
                 $model = str_replace('custom/wiki-models/', '', $model);
                 $models[$model]['file'] = $model;
                 $models[$model]['url'] = 'https://'.str_replace(['--', '.sql'], ['/', ''], $model);
                 $models[$model]['deleteurl'] = $this->wiki->href('', '', 'delete_model='.$model);
-                $models[$model]['isavailable'] = array_search($model, array_column($this->wiki->config['yeswiki-farm-sql'], 'file'));
+                $models[$model]['isavailable'] = array_search($model, array_column($this->wiki->config['yeswiki-farm-models'], 'file'));
             }
 
             $file = $this->wiki->GetParameter('template');
