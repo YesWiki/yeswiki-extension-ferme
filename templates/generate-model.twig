@@ -2,7 +2,7 @@
 <form method="POST">
 <ol>
 <li style="margin-bottom:1rem;">
-  {{ _t('FERME_BASIC_INSTALL') }} (default-content.sql)<br />
+  {{ _t('FERME_BASIC_INSTALL') }} <br />
   <label class="checkbox-inline">
     <input name="config[default-content.sql]" type="checkbox" {% if defaultModelIsAvailable is not same as(false) %} checked {% endif %} />
       {{ _t('FERME_PROPOSED_MODEL') }}
@@ -10,9 +10,9 @@
 </li>
 {% for model in models %}
     <li style="margin-bottom:1rem;">
-      {{ model.file }}<br />
+      <div class="model-label">{{ model.label }}</div>
       <label class="checkbox-inline">
-        <input name="config[{{ model.file }}]" type="checkbox" {% if model.isavailable %} checked {% endif %} />
+        <input name="config[{{ model.model }}]" type="checkbox" {% if model.isavailable %} checked {% endif %} />
           {{ _t('FERME_PROPOSED_MODEL') }}
       </label>
       <a target="_blank" href="{{ model.url }}" class="btn btn-xs btn-default"><i class="fas fa-eye"></i> {{ _t('FERME_VIEW_SOURCE') }}</a>

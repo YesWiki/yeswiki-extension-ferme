@@ -17,27 +17,31 @@ class GenerateModelAction extends YesWikiAction
             }
             // a model will be deleted
             if (!empty($_GET['delete_model'])) {
-                $output .= $this->deleteSqlModel($_GET['delete_model']);
+                $output .= $this->deleteModel($_GET['delete_model']);
             }
 
             // get all custom models
-            $modelsFile = glob('custom/wiki-models/*.sql');
-            $defaultModelIsAvailable = array_search('default-content.sql', array_column($this->wiki->config['yeswiki-farm-models'], 'file'));
+            $modelsFolder = glob('custom/wiki-models/*', GLOB_ONLYDIR);
+            $defaultModelIsAvailable = array_search('default-content', $this->wiki->config['yeswiki-farm-models']);
             $models = [];
-            foreach ($modelsFile as $model) {
-                $model = str_replace('custom/wiki-models/', '', $model);
-                $models[$model]['file'] = $model;
-                $models[$model]['url'] = 'https://'.str_replace(['--', '.sql'], ['/', ''], $model);
-                $models[$model]['deleteurl'] = $this->wiki->href('', '', 'delete_model='.$model);
-                $models[$model]['isavailable'] = array_search($model, array_column($this->wiki->config['yeswiki-farm-models'], 'file'));
+            foreach ($modelsFolder as $modelFolder) {
+                if (is_file($modelFolder.'/default-content.sql') && is_file($modelFolder.'/infos.json')) {
+                    $model = str_replace('custom/wiki-models/', '', $modelFolder);
+                    $json = json_decode(file_get_contents($modelFolder.'/infos.json', true), true);
+                    $models[$model]['label'] = $json['label'];
+                    $models[$model]['model'] = $model;
+                    $models[$model]['url'] = 'https://'.str_replace(['--'], ['/', ''], $model);
+                    $models[$model]['deleteurl'] = $this->wiki->href('', '', 'delete_model='.$model);
+                    $models[$model]['isavailable'] = array_search($model, $this->wiki->config['yeswiki-farm-models']);
+                }
             }
 
-            $file = $this->wiki->GetParameter('template');
-            if (empty($file)) {
-                $file = 'generate-model.twig';
+            $template = $this->wiki->GetParameter('template');
+            if (empty($template)) {
+                $template = 'generate-model.twig';
             }
             $output .= $this->render(
-                '@ferme/'.$file,
+                '@ferme/'.$template,
                 [
                   'formurl' => $this->wiki->href('', $this->wiki->GetPageTag()),
                   'models' => $models,
@@ -145,14 +149,38 @@ class GenerateModelAction extends YesWikiAction
         }
     }
 
-    public function deleteSqlModel($model)
+    public function deleteModel($model)
     {
-        if (file_exists('custom/wiki-models/'.$model)) {
-            unlink('custom/wiki-models/'.$model);
-            $output = '<div class="alert alert-success">Fichier custom/wiki-models/'.$model.' vient d\'être supprimé.</div>';
+        if (is_dir('custom/wiki-models/'.$model)) {
+            $this->rrmdir('custom/wiki-models/'.$model);
+            $output = '<div class="alert alert-success">Le modèle "custom/wiki-models/'.$model.'" vient d\'être supprimé.</div>';
         } else {
-            $output = '<div class="alert alert-warning">Fichier custom/wiki-models/'.$model.' non trouvé.</div>';
+            $output = '<div class="alert alert-warning">Le modèle "custom/wiki-models/'.$model.'" n\'a pas été trouvé.</div>';
         }
         return $output;
+    }
+
+
+    /**
+     * recursive remove file or folder
+     *
+     * @param string $src path
+     * @return void
+     */
+    protected function rrmdir($src)
+    {
+        $dir = opendir($src);
+        while (false !== ($file = readdir($dir))) {
+            if (($file != '.') && ($file != '..')) {
+                $full = $src . '/' . $file;
+                if (is_dir($full)) {
+                    $this->rrmdir($full);
+                } else {
+                    unlink($full);
+                }
+            }
+        }
+        closedir($dir);
+        rmdir($src);
     }
 }

@@ -28,6 +28,7 @@ class YesWikiField extends BazarField
 
     public function renderInput($entry)
     {
+        $models = $this->getService(FarmService::class)->getModelLabels();
         return $this->render("@ferme/inputs/yeswiki.twig", [
             'value' => $this->getValue($entry),
             'rootUrl' => $GLOBALS['wiki']->config['yeswiki-farm-root-url'],
@@ -35,7 +36,7 @@ class YesWikiField extends BazarField
             'adminEmail' => $GLOBALS['wiki']->config['yeswiki-farm-email-WikiAdmin'] ?? null,
             'adminPassword' => $GLOBALS['wiki']->config['yeswiki-farm-password-WikiAdmin'] ?? null,
             'farmThemes' => $GLOBALS['wiki']->config['yeswiki-farm-themes'] ?? null,
-            'farmModels' => $GLOBALS['wiki']->config['yeswiki-farm-models'] ?? null,
+            'farmModels' => $models ?? null,
             'farmAcls' => $GLOBALS['wiki']->config['yeswiki-farm-acls'] ?? null,
             'farmOptions' => $GLOBALS['wiki']->config['yeswiki-farm-options'] ?? null,
         ]);

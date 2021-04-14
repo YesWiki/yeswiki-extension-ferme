@@ -44,20 +44,11 @@ Il est possible de récupérer automatiquement les fichier sql des wikis qui doi
 - Il faut alors modifier le `wakka.config.php` comme suit.
 
 ```php
-  // fichiers sql du modele de wiki a installer par defaut
-  'yeswiki-farm-models' => array(
-    array(
-      'label' => 'Je veux un wiki vide pour commencer', //nom à l'écran
-      'file' => 'default-content.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
-    ),
-    array(
-      'label' => 'Je veux la configuration de départ pour un projet d\'oasis', //nom à l'écran
-      'file' => 'projet-oasis.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
-    ),
-    array(
-      'label' => 'Je veux la configuration standard de départ pour un projet', //nom à l'écran
-      'file' => 'projet.sql' //fichier sql source des wikis de la ferme présent dans tools/ferme/sql
-    )
+  // model folders in `custom/wiki-models`
+  'yeswiki-farm-models' => [
+    'default-content', // special alias for default installation model
+    'pnth-terreenaction.org--sourcecollectif' 
+  ],
   ),
 ```
 
