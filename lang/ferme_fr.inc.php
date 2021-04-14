@@ -1,25 +1,4 @@
 <?php
-/*vim: set expandtab tabstop=4 shiftwidth=4: */
-// +------------------------------------------------------------------------------------------------------+
-// | PHP version 5                                                                                        |
-// +------------------------------------------------------------------------------------------------------+
-// | Copyright (C) 2016 Outils-Réseaux (accueil@outils-reseaux.org)                                       |
-// +------------------------------------------------------------------------------------------------------+
-// | This library is free software; you can redistribute it and/or                                        |
-// | modify it under the terms of the GNU Lesser General Public                                           |
-// | License as published by the Free Software Foundation; either                                         |
-// | version 2.1 of the License, or (at your option) any later version.                                   |
-// |                                                                                                      |
-// | This library is distributed in the hope that it will be useful,                                      |
-// | but WITHOUT ANY WARRANTY; without even the implied warranty of                                       |
-// | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU                                    |
-// | Lesser General Public License for more details.                                                      |
-// |                                                                                                      |
-// | You should have received a copy of the GNU Lesser General Public                                     |
-// | License along with this library; if not, write to the Free Software                                  |
-// | Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA                            |
-// +------------------------------------------------------------------------------------------------------+
-//
 /**
 * Fichier de traduction en francais de l'extension Ferme
 *
@@ -67,5 +46,15 @@ $GLOBALS['translations'] = array_merge(
     'FERME_INSERTION_ERROR' => 'Erreur à l\'insertion',
     'FERME_INSERTION' => 'Insertion',
     'FERME_LINE_AFFECTED' => 'ligne(s) affectée(s)',
+    'FERME_NO_WIKIS' => 'Pas de wikis crées encore',
+    'FERME_WIKI_NAME' => 'Titre du wiki',
+    'FERME_WIKI_OWNER' => 'Personne référente',
+    'FERME_WIKI_OWNER_MAIL' => 'Mail référent',
+    'FERME_WIKI_LAST_UPDATE' => 'Derniers changements',
+    'FERME_WIKI_ADMIN' => 'Admin temporaire',
+    'FERME_WIKI_VERSION' => 'Version du wiki',
+    'FERME_WIKI_ACTION' => 'Actions',
+    'FERME_ADD_WIKI' => 'Ajouter un wiki',
+    'FERME_BACKUP' => 'Archive de sauvegarde du wiki',
     )
 );

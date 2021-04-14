@@ -3,9 +3,10 @@
 namespace YesWiki\Ferme\Service;
 
 use YesWiki\Wiki;
+use YesWiki\Core\Service\PageManager;
 use YesWiki\Bazar\Service\EntryManager;
 
-class FarmService
+class ImportService
 {
     protected $wiki;
     protected $sourceWikiVersion = '';
@@ -128,17 +129,21 @@ class FarmService
         // sql d'installation par défaut
         if (!isset($this->wiki->config['yeswiki-farm-models'])
         or !is_array($this->wiki->config['yeswiki-farm-models'])) {
-            $this->wiki->config['yeswiki-farm-models'][] = 'default-content';
+            $this->wiki->config['yeswiki-farm-models'][0]['label'] = 'Configuration de base';
+            $this->wiki->config['yeswiki-farm-models'][0]['file'] = 'default-content.sql';
         } else {
             // verifier l'existence des parametres des fichiers sql
-            foreach ($this->wiki->config['yeswiki-farm-models'] as $folder) {
-                if ($folder != 'default-content') {
-                    if (!is_dir('custom/wiki-models/'.$folder)) {
-                        exit('<div class="alert alert-danger">le dossier "custom/wiki-models/'.$folder.'" ne semble pas exister.</div>');
-                    }
-                    if (!is_file('custom/wiki-models/'.$folder.'/default-content.sql')) {
-                        exit('<div class="alert alert-danger">Le fichier sql "custom/wiki-models/'.$folder.'/default-content.sql" n\'a pas été trouvé.</div>');
-                    }
+            foreach ($this->wiki->config['yeswiki-farm-models'] as $key => $sql) {
+                if (!isset($sql['label']) or empty($sql['label'])) {
+                    exit('<div class="alert alert-danger">Au moins un label pour les configurations sql de la ferme n\'a'
+                    .' pas été bien renseigné.</div>');
+                }
+                if (!isset($sql['file']) or empty($sql['file'])) {
+                    exit('<div class="alert alert-danger">Au moins un fichier sql de configuration n\'a'
+                    .' pas été bien renseigné.</div>');
+                } elseif (!is_file('custom/wiki-models/'.$sql['file']) && !is_file('setup/sql/'.$sql['file'])) {
+                    exit('<div class="alert alert-danger">Le fichier sql "custom/wiki-models/'.$sql['file']
+                    .'" n\'a pas été trouvé.</div>');
                 }
             }
         }
@@ -458,16 +463,11 @@ class FarmService
                 $sqlReport = $this->querySqlFile($link, 'setup/sql/create-tables.sql', $replacements).'<hr />';
 
                 // get the datas to insert from the model
-                $sqlfilepath = ($_POST['yeswiki-farm-model'] == 'default-content') ? 'setup/sql/default-content.sql' : 'custom/wiki-models/'.$_POST['yeswiki-farm-model'].'/default-content.sql';
+                $sqlfile = $this->wiki->config['yeswiki-farm-models'][$_POST['yeswiki-farm-model']]['file'];
+                $sqlfilepath = ($sqlfile == 'default-content.sql') ? 'setup/sql/default-content.sql' : 'custom/wiki-models/'.$sqlfile;
                 $sqlReport .= $this->querySqlFile($link, $sqlfilepath, $replacements);
                 if (!empty($_GET['debug']) || $this->wiki->config['debug'] == 'yes') {
                     $this->wiki->SetMessage($sqlReport);
-                }
-
-                // copy model files
-                $modelFiles = 'custom/wiki-models/'.$_POST['yeswiki-farm-model'].'/files';
-                if (is_dir($modelFiles)) {
-                    $this->copyRecursive($modelFiles, $destfolder.'files');
                 }
 
                 if (!empty($entry["access-username"])) {
@@ -508,7 +508,6 @@ class FarmService
 
     public function updateWiki($wiki)
     {
-        $output = '';
         $srcfolder = getcwd().DIRECTORY_SEPARATOR;
         if ($this->wiki->config['yeswiki-farm-root-folder'] == '.') {
             $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR.$_GET['maj']).DIRECTORY_SEPARATOR;
@@ -520,30 +519,118 @@ class FarmService
         
         include_once $destfolder.'wakka.config.php';
         $output .=  '<div class="alert alert-info">'._t('FERME_UPDATING').$_GET['maj'].'.</div>';
-
         // nettoyage des anciens tools non utilises
-        $oldFoldersToDelete = ['tools/despam', 'tools/hashcash', 'tools/ipblock', 'tools/nospam'];
-        foreach ($oldFoldersToDelete as $folderToDelete) {
-            if (is_dir($destfolder.$folderToDelete)) {
-                $this->rrmdir($destfolder.$folderToDelete);
-            }
+        if (is_dir($destfolder.'tools/despam')) {
+            rrmdir($destfolder.'tools/despam');
         }
-
-        // mise a jour des fichier de YesWiki
-        foreach ($this->wiki->config['yeswiki_files'] as $file) {
-            $this->copyRecursive($srcfolder.$file, $destfolder.$file);
+        if (is_dir($destfolder.'tools/hashcash')) {
+            rrmdir($destfolder.'tools/hashcash');
         }
-
+        if (is_dir($destfolder.'tools/ipblock')) {
+            rrmdir($destfolder.'tools/ipblock');
+        }
+        if (is_dir($destfolder.'tools/nospam')) {
+            rrmdir($destfolder.'tools/nospam');
+        }
+        copyRecursive($srcfolder.'index.php', $destfolder.'index.php');
+        copyRecursive($srcfolder.'interwiki.conf', $destfolder.'interwiki.conf');
+        copyRecursive($srcfolder.'robots.txt', $destfolder.'robots.txt');
+        copyRecursive($srcfolder.'tools.php', $destfolder.'tools.php');
+        copyRecursive($srcfolder.'wakka.basic.css', $destfolder.'wakka.basic.css');
+        copyRecursive($srcfolder.'wakka.css', $destfolder.'wakka.css');
+        copyRecursive($srcfolder.'wakka.php', $destfolder.'wakka.php');
+        
+        // les dossiers de base des yeswiki
+        copyRecursive($srcfolder.'actions', $destfolder.'actions');
+        copyRecursive($srcfolder.'formatters', $destfolder.'formatters');
+        copyRecursive($srcfolder.'handlers', $destfolder.'handlers');
+        copyRecursive($srcfolder.'includes', $destfolder.'includes');
+        copyRecursive($srcfolder.'vendor', $destfolder.'vendor');
+        copyRecursive($srcfolder.'custom', $destfolder.'custom');
+        copyRecursive($srcfolder.'lang', $destfolder.'lang');
+        copyRecursive($srcfolder.'setup', $destfolder.'setup');
+        
+        // themes
+        copyRecursive($srcfolder.'themes', $destfolder.'themes');
+        
+        // templates
+        copyRecursive(
+            $srcfolder.'themes'.DIRECTORY_SEPARATOR.'tools',
+            $destfolder.'themes'.DIRECTORY_SEPARATOR.'tools'
+        );
+        // extensions de base
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'aceditor',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'aceditor'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'attach',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'attach'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'contact',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'contact'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'security',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'security'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'lang',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'lang'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'login',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'login'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'progressBar',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'progressBar'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'tableau',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'tableau'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'toc',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'toc'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'autoupdate',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'autoupdate'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'rss',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'rss'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'tags',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'tags'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'toolsmng',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'toolsmng'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'bazar',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'bazar'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'syndication',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'syndication'
+        );
+        copyRecursive(
+            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'templates',
+            $destfolder.'tools'.DIRECTORY_SEPARATOR.'templates'
+        );
+        
         // change the config file to update yeswiki version
         include_once 'tools/templates/libs/Configuration.php';
-        $config = new \Configuration($destfolder.'wakka.config.php');
+        $config = new Configuration($destfolder.'wakka.config.php');
         $config->load();
         $config->yeswiki_version = $this->wiki->config['yeswiki_version'];
         $config->yeswiki_release = $this->wiki->config['yeswiki_release'];
         $config->write();
-
-        // execute post update
-
         $output .=  '<div class="alert alert-success">'._t('FERME_WIKI').$_GET['maj']._t('FERME_UPDATED').'</div>';
         return $output;
     }
@@ -707,6 +794,7 @@ class FarmService
             $queries = [];
             preg_match_all('/^.*?;$(?:\r\n|\n)?/ms', $sql, $queries);
             foreach ($queries[0] as $index => $query) {
+                dump($query);
                 if (!mysqli_query($dblink, $query)) {
                     throw new \Exception(_t('FERME_INSERTION_ERROR').' n°' . ($index + 1) . ' : ' . mysqli_error($dblink));
                 }
@@ -716,21 +804,5 @@ class FarmService
             throw new \Exception(_t('SQL_FILE_NOT_FOUND').' "'.$sqlFile.'".');
         }
         return $sqlReport;
-    }
-
-    public function getModelLabels()
-    {
-        // get labels for models 
-        $models = [];
-        foreach ($this->wiki->config['yeswiki-farm-models'] as $model) {
-            if ($model != 'default-content') {
-                $json = \json_decode(\file_get_contents('custom/wiki-models/'.$model.'/infos.json'), true);
-            } else {
-                $json = [];
-                $json['label'] = _t('FERME_BASIC_INSTALL');
-            }
-            $models[$model] = $json['label'];
-        }
-        return $models;
     }
 }

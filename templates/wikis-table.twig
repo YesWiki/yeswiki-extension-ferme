@@ -1,0 +1,67 @@
+
+{{ include_javascript('tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.js') }}
+{{ include_javascript('tools/templates/libs/vendor/datatables/jquery.dataTables.min.js') }}
+{{ include_css('tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.css') }}
+<h2>{{ _t('FERME_ALL_WIKIS_ADMIN') }}</h2>
+{% if wikis|length > 0 %}
+<div class="table-responsive">
+  <table id="wikis-table" class="datatable bazar-table table table-condensed table-striped">
+    <thead>
+      <tr>
+        <th>{{ _t('FERME_WIKI_NAME') }}</th>
+        <th>{{ _t('FERME_WIKI_OWNER') }}</th>
+        <th>{{ _t('FERME_WIKI_OWNER_MAIL') }}</th>
+        <th>{{ _t('FERME_WIKI_LAST_UPDATE') }}</th>
+        <th>{{ _t('FERME_WIKI_ADMIN') }}</th>
+        <th>{{ _t('FERME_WIKI_VERSION') }}</th>
+        <th>{{ _t('FERME_WIKI_ACTION') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for key, wiki in wikis %}
+        <tr>
+          <td>
+            <strong class="wiki-title">
+              <a href="{{ wiki.url }}">{{ wiki.bf_titre }}</a>
+            </strong>
+            {% if wiki.bf_description %}
+            <div class="wiki-desc">{{ wiki.bf_description }}</div>
+            {% endif %}
+          </td>
+          <td>
+            {{ wiki.bf_referent }}
+          </td>
+          <td>
+            <a href="mailto:{{ wiki.bf_mail }}">{{ wiki.bf_mail }}</a>
+          </td>
+          <td>
+            <a class="modalbox" href="{{ wiki.dashboard_link }}">{{ wiki.last_modification }}</a> 
+          </td>
+          <td>
+            {{ wiki.admin|raw }}
+          </td>
+          <td>
+            {{ wiki.version|raw }}
+          </td>
+          <td>
+            <a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('BAZ_SEE_ENTRY') }}" href="{{ url({tag: wiki.id_fiche}) }}">
+              <i class="fa fa-eye-open"></i>
+            </a>
+            <a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('BAZ_MODIFIER') }}" href="{{ url({tag: wiki.id_fiche, handler: 'edit'}) }}">
+              <i class="fa fa-pencil-alt"></i>
+            </a>
+            <a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('FERME_BACKUP') }}" href="">
+              <i class="fas fa-file-archive"></i>
+            </a>
+            <a href="{{ url({tag: wiki.id_fiche, handler: 'deletepage'}) }}" class="btn btn-danger btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('BAZ_SUPPRIMER') }}"  onclick="javascript:return confirm('{{ _t('BAZ_CONFIRMATION_SUPPRESSION') }} ?');" data-toggle="tooltip" data-placement="bottom">
+              <i class="fa fa-trash"></i>
+            </a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div> <!-- /.table-responsive -->
+{% else %}
+<div class="alert alert-info">{{ _t('FERME_NO_WIKIS') }}.</div>
+{% endif %}
