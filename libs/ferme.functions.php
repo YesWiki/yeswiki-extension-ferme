@@ -411,6 +411,13 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                         // le repertoire racine et les fichiers de la racine
                         mkdir($destfolder);
                         copyRecursive($srcfolder.'index.php', $destfolder.'index.php');
+                        if (!empty($GLOBALS['wiki']->config['yeswiki-farm-copy-custom-folder'])
+                                && $GLOBALS['wiki']->config['yeswiki-farm-copy-custom-folder']
+                        ) {
+                            copyRecursive($srcfolder.'custom', $destfolder.'custom');
+                        } else {
+                            mkdir($destfolder.'custom');
+                        }
                         copyRecursive($srcfolder.'interwiki.conf', $destfolder.'interwiki.conf');
                         copyRecursive($srcfolder.'robots.txt', $destfolder.'robots.txt');
                         copyRecursive($srcfolder.'tools.php', $destfolder.'tools.php');
@@ -422,7 +429,7 @@ function yeswiki(&$formtemplate, $tableau_template, $mode, $valeurs_fiche)
                         copyRecursive($srcfolder.'actions', $destfolder.'actions');
                         mkdir($destfolder.'cache');
                         mkdir($destfolder.'files');
-                        mkdir($destfolder.'custom');
+                        copyRecursive($srcfolder.'custom', $destfolder.'custom');
                         mkdir($destfolder.'templates');
                         copyRecursive($srcfolder.'formatters', $destfolder.'formatters');
                         copyRecursive($srcfolder.'handlers', $destfolder.'handlers');

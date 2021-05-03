@@ -89,6 +89,9 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
   // tools supplémentaires (doivent etre présents dans le dossier tools du wiki source)
   'yeswiki-farm-extra-tools' => array(),
 
+  // cas où l'on veut copier les paramétrages 'custom' du wiki source (le dossier /custom doit être présent)
+  'yeswiki-farm-copy-custom-folder' => true,
+
   // tableau des choix de themes (ne s'affiche pas si qu'un choix possible)
   'yeswiki-farm-themes' => array(
     array(
