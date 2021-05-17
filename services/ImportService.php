@@ -307,7 +307,7 @@ class ImportService
                 foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
                     mkdir($destfolder.$folder, 0777, true);
                 }
-                
+
                 // main yeswiki files
                 foreach ($this->wiki->config['yeswiki_files'] as $file) {
                     $this->copyRecursive($srcfolder.$file, $destfolder.$file);
@@ -516,114 +516,30 @@ class ImportService
                         .$this->wiki->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
                         .$_GET['maj']).DIRECTORY_SEPARATOR;
         }
-        
+
         include_once $destfolder.'wakka.config.php';
         $output .=  '<div class="alert alert-info">'._t('FERME_UPDATING').$_GET['maj'].'.</div>';
-        // nettoyage des anciens tools non utilises
-        if (is_dir($destfolder.'tools/despam')) {
-            rrmdir($destfolder.'tools/despam');
+        // main yeswiki files
+        foreach ($this->wiki->config['yeswiki_files'] as $file) {
+            $this->copyRecursive($srcfolder.$file, $destfolder.$file);
         }
-        if (is_dir($destfolder.'tools/hashcash')) {
-            rrmdir($destfolder.'tools/hashcash');
+
+        // extra themes
+        foreach ($this->wiki->config['yeswiki-farm-extra-themes'] as $themes) {
+            $this->copyRecursive(
+                $srcfolder.'themes'.DIRECTORY_SEPARATOR.$themes,
+                $destfolder.'themes'.DIRECTORY_SEPARATOR.$themes
+            );
         }
-        if (is_dir($destfolder.'tools/ipblock')) {
-            rrmdir($destfolder.'tools/ipblock');
+
+        // extra extensions
+        foreach ($this->wiki->config['yeswiki-farm-extra-tools'] as $tools) {
+            $this->copyRecursive(
+                $srcfolder.'tools'.DIRECTORY_SEPARATOR.$tools,
+                $destfolder.'tools'.DIRECTORY_SEPARATOR.$tools
+            );
         }
-        if (is_dir($destfolder.'tools/nospam')) {
-            rrmdir($destfolder.'tools/nospam');
-        }
-        copyRecursive($srcfolder.'index.php', $destfolder.'index.php');
-        copyRecursive($srcfolder.'interwiki.conf', $destfolder.'interwiki.conf');
-        copyRecursive($srcfolder.'robots.txt', $destfolder.'robots.txt');
-        copyRecursive($srcfolder.'tools.php', $destfolder.'tools.php');
-        copyRecursive($srcfolder.'wakka.basic.css', $destfolder.'wakka.basic.css');
-        copyRecursive($srcfolder.'wakka.css', $destfolder.'wakka.css');
-        copyRecursive($srcfolder.'wakka.php', $destfolder.'wakka.php');
-        
-        // les dossiers de base des yeswiki
-        copyRecursive($srcfolder.'actions', $destfolder.'actions');
-        copyRecursive($srcfolder.'formatters', $destfolder.'formatters');
-        copyRecursive($srcfolder.'handlers', $destfolder.'handlers');
-        copyRecursive($srcfolder.'includes', $destfolder.'includes');
-        copyRecursive($srcfolder.'vendor', $destfolder.'vendor');
-        copyRecursive($srcfolder.'custom', $destfolder.'custom');
-        copyRecursive($srcfolder.'lang', $destfolder.'lang');
-        copyRecursive($srcfolder.'setup', $destfolder.'setup');
-        
-        // themes
-        copyRecursive($srcfolder.'themes', $destfolder.'themes');
-        
-        // templates
-        copyRecursive(
-            $srcfolder.'themes'.DIRECTORY_SEPARATOR.'tools',
-            $destfolder.'themes'.DIRECTORY_SEPARATOR.'tools'
-        );
-        // extensions de base
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'aceditor',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'aceditor'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'attach',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'attach'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'contact',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'contact'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'security',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'security'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'lang',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'lang'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'login',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'login'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'progressBar',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'progressBar'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'tableau',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'tableau'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'toc',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'toc'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'autoupdate',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'autoupdate'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'rss',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'rss'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'tags',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'tags'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'toolsmng',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'toolsmng'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'bazar',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'bazar'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'syndication',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'syndication'
-        );
-        copyRecursive(
-            $srcfolder.'tools'.DIRECTORY_SEPARATOR.'templates',
-            $destfolder.'tools'.DIRECTORY_SEPARATOR.'templates'
-        );
-        
+
         // change the config file to update yeswiki version
         include_once 'tools/templates/libs/Configuration.php';
         $config = new Configuration($destfolder.'wakka.config.php');
