@@ -273,7 +273,7 @@ class FarmService
         if ($this->wiki->config['yeswiki-farm-create-user']) {
             if ($this->wiki->LoadUser($entry[$fieldName.'_wikiname'])) {
                 throw new \Exception('L\'utilisateur '.$entry[$fieldName.'_wikiname']
-                    .' existe déjà, veuillez trouver un autre nom pour votre wiki.');
+                    .' existe déjà, veuillez trouver un autre nom pour votre utilisateur.');
             }
             $this->wiki->Query(
                 "insert into ".$this->wiki->config["table_prefix"]."users set ".
@@ -302,7 +302,7 @@ class FarmService
                 foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
                     mkdir($destfolder.$folder, 0777, true);
                 }
-                
+
                 // main yeswiki files
                 foreach ($this->wiki->config['yeswiki_files'] as $file) {
                     $this->copyRecursive($srcfolder.$file, $destfolder.$file);
@@ -470,6 +470,12 @@ class FarmService
                     $this->copyRecursive($modelFiles, $destfolder.'files');
                 }
 
+                // copy model custom files
+                $modelCustomFiles = 'custom/wiki-models/'.$_POST['yeswiki-farm-model'].'/custom';
+                if (is_dir($modelCustomFiles)) {
+                    $this->copyRecursive($modelCustomFiles, $destfolder.'custom');
+                }
+
                 if (!empty($entry["access-username"])) {
                     $this->wiki->Query("INSERT INTO `".$prefix."__users` (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) VALUES ('".$entry["access-username"]."', md5('".$entry["access-password"]."'), '".$entry[$fieldName.'_email']."', '', '20', '50', 1, now(), 2);");
                 }
@@ -517,7 +523,7 @@ class FarmService
                         .$this->wiki->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
                         .$_GET['maj']).DIRECTORY_SEPARATOR;
         }
-        
+
         include_once $destfolder.'wakka.config.php';
         $output .=  '<div class="alert alert-info">'._t('FERME_UPDATING').$_GET['maj'].'.</div>';
 
@@ -720,7 +726,7 @@ class FarmService
 
     public function getModelLabels()
     {
-        // get labels for models 
+        // get labels for models
         $models = [];
         foreach ($this->wiki->config['yeswiki-farm-models'] as $model) {
             if ($model != 'default-content') {

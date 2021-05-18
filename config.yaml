@@ -2,6 +2,10 @@ parameters:
   bazar_farm_id: 1100
   contact_wikis:
     default_template: 'list-email.twig'
+  yeswiki_empty_folders:
+   - 'cache'
+   - 'custom'
+   - 'files'
   yeswiki_files: 
    - 'index.php'
    - 'composer.json'
@@ -18,6 +22,8 @@ parameters:
    - 'wakka.php'
    - 'actions'
    - 'docs'
+   - 'files/AdaLovelace_ada_byron.jpg'
+   - 'files/ElizabethJFeinler_elizabethfeinler.jpg'
    - 'formatters'
    - 'handlers'
    - 'includes'
@@ -43,10 +49,6 @@ parameters:
    - 'tools/security'
    - 'tools/tags'
    - 'vendor'
-  yeswiki_empty_folders:
-   - 'cache'
-   - 'custom'
-   - 'files'
 
 services:
   _defaults:
