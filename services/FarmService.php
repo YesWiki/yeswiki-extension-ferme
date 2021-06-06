@@ -458,22 +458,26 @@ class FarmService
                 $sqlReport = $this->querySqlFile($link, 'setup/sql/create-tables.sql', $replacements).'<hr />';
 
                 // get the datas to insert from the model
-                $sqlfilepath = ($_POST['yeswiki-farm-model'] == 'default-content') ? 'setup/sql/default-content.sql' : 'custom/wiki-models/'.$_POST['yeswiki-farm-model'].'/default-content.sql';
+                $sqlfilepath = $_POST['yeswiki-farm-model'] == 'default-content' ?
+                    'setup/sql/default-content.sql'
+                    : 'custom/wiki-models/' . $_POST['yeswiki-farm-model'] . '/default-content.sql';
                 $sqlReport .= $this->querySqlFile($link, $sqlfilepath, $replacements);
                 if (!empty($_GET['debug']) || $this->wiki->config['debug'] == 'yes') {
                     $this->wiki->SetMessage($sqlReport);
                 }
 
-                // copy model files
-                $modelFiles = 'custom/wiki-models/'.$_POST['yeswiki-farm-model'].'/files';
-                if (is_dir($modelFiles)) {
-                    $this->copyRecursive($modelFiles, $destfolder.'files');
-                }
+                if ($_POST['yeswiki-farm-model'] != 'default-content'){
+                    // copy model files
+                    $modelFiles = 'custom/wiki-models/' . $_POST['yeswiki-farm-model'] . '/files';
+                    if (is_dir($modelFiles)) {
+                        $this->copyRecursive($modelFiles, $destfolder . 'files');
+                    }
 
-                // copy model custom files
-                $modelCustomFiles = 'custom/wiki-models/'.$_POST['yeswiki-farm-model'].'/custom';
-                if (is_dir($modelCustomFiles)) {
-                    $this->copyRecursive($modelCustomFiles, $destfolder.'custom');
+                    // copy model custom files
+                    $modelCustomFiles = 'custom/wiki-models/' . $_POST['yeswiki-farm-model'] . '/custom';
+                    if (is_dir($modelCustomFiles)) {
+                        $this->copyRecursive($modelCustomFiles, $destfolder . 'custom');
+                    }
                 }
 
                 if (!empty($entry["access-username"])) {
@@ -710,18 +714,49 @@ class FarmService
                     $sql
                 );
             }
-            $queries = [];
-            preg_match_all('/^.*?;$(?:\r\n|\n)?/ms', $sql, $queries);
-            foreach ($queries[0] as $index => $query) {
+            $queries = $this->splitQueries($sql);
+            foreach ($queries as $index => $query) {
                 if (!mysqli_query($dblink, $query)) {
                     throw new \Exception(_t('FERME_INSERTION_ERROR').' n°' . ($index + 1) . ' : ' . mysqli_error($dblink));
                 }
-                $sql_report .= _t('FERME_INSERTION').' n°' . ($index + 1) . ' : ' . mysqli_affected_rows($dblink) . ' '._t('FERME_LINE_AFFECTED').'<br/>';
+                $sqlReport .= _t('FERME_INSERTION'). ' n°' . ($index + 1) . ' : ' . mysqli_affected_rows($dblink) . ' ' ._t('FERME_LINE_AFFECTED') . '<br/>';
             }
         } else {
-            throw new \Exception(_t('SQL_FILE_NOT_FOUND').' "'.$sqlFile.'".');
+            throw new \Exception(_t('SQL_FILE_NOT_FOUND') . ' "' . $sqlFile . '".');
         }
         return $sqlReport;
+    }
+
+    /**
+     * Extract from the a sql string the differents queries which compose it
+     * Each query is finished by a semicolon but this semicolon have not to be inside simple quotes : '. Moreover, inside two
+     * quotes it's possible to have escaped quotes : \'.
+     * Caution 1 : the double quotes are not recognized
+     * Caution 2 : not to insert the char ' inside the sql comments : #
+     * The last query don't need to be finished by a semi colon.
+     * @param string $raw the sql raw string containing all the sql statements
+     * @return array the array of queries (string)
+     */
+    private function splitQueries(string $raw) : array
+    {
+        $open = false;
+        $buffer = '';
+        $queries = [];
+        for($i = 0, $l = strlen($raw); $i < $l; $i++) {
+            if ($raw[$i] == ';' && !$open) {
+                $queries[] = trim($buffer) . ';';
+                $buffer = '';
+                continue;
+            }
+            if ($raw[$i] == "'" && ($i == 0 || $raw[$i-1] != '\\')) {
+                $open = $open ? false : true;
+            }
+            $buffer .= $raw[$i];
+        }
+        if (trim($buffer)) {
+            $queries[] = trim($buffer);
+        }
+        return $queries;
     }
 
     public function getModelLabels()
