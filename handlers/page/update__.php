@@ -19,7 +19,7 @@ if (!defined("WIKINI_VERSION")) {
 /**
  * Constants to define the Oui Non list
  */
-!defined('OUINON_LIST_JSON') && define('OUINON_LIST_JSON', '{"label":{"oui":"Oui","non":"Non"},"titre_liste":"Oui Non"}');
+!defined('OUINON_LIST_FARM_JSON') && define('OUINON_LIST_FARM_JSON', '{"label":{"oui":"Oui","non":"Non"},"titre_liste":"Oui Non"}');
 
 /**
  * Constants to define the contents of the LMS forms
@@ -91,7 +91,7 @@ if ($this->UserIsAdmin()) {
     if (!$this->LoadPage('ListeOuiNon')) {
         $output .= 'ℹ️ Adding the <em>Oui Non</em> list<br />';
         // save the page with the list value
-        $this->SavePage('ListeOuiNon', OUINON_LIST_JSON);
+        $this->SavePage('ListeOuiNon', OUINON_LIST_FARM_JSON);
         // in case, there is already some triples for 'ListOuinonLms', delete them
         $this->DeleteTriple('ListeOuiNon', 'http://outils-reseaux.org/_vocabulary/type', null);
         // create the triple to specify this page is a list
