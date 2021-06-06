@@ -147,6 +147,7 @@ class GenerateModelAction extends YesWikiAction
                    ._t('Le fichier <a href="'.$filename.'">'.$filename.'</a> vient d\'être enregistré avec succès.')
                    .'</div>'."\n";
         }
+        return $output;
     }
 
     public function deleteModel($model)
