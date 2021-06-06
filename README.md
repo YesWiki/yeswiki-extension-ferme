@@ -4,7 +4,7 @@ Permet de créer automatiquement un wiki en créant une fiche bazar
 
 1) Copier l'extension dans votre dossier tools ou installez-la depuis la page `GererMisesAJour`.
 2) Mettre un `/update` en fin d'url pour finaler l'installation
-3) Dans la roue crantée, vous trouverez un menu pour administrer la ferme
+3) Vous pouvez alors accéder à la page AdminWikis pour administrer la ferme
 
 ## Gestion de la ferme à wikis
 
@@ -30,7 +30,7 @@ Pour ce faire, ajouter les deux lignes suivantes à `wakka.config.php`
 ```
 
 Ceci fait apparaître un bouton `ajouter le compte` en regard de chaque wiki dans la page d'administration des wikis.
-Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans a page d'administration des wikis devient rouge avec le libellé `supprimer le compte`. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
+Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans la page d'administration des wikis devient rouge avec le libellé `supprimer le compte`. Appuyer sur ce bouton ne supprime que le compte super administrateur sur le wiki en question.
 
 ## Récupérer les fichiers sql de wikis sources
 
@@ -47,9 +47,8 @@ Il est possible de récupérer automatiquement les fichier sql des wikis qui doi
   // model folders in `custom/wiki-models`
   'yeswiki-farm-models' => [
     'default-content', // special alias for default installation model
-    'pnth-terreenaction.org--sourcecollectif' 
+    'pnth-terreenaction.org--sourcecollectif',
   ],
-  ),
 ```
 
 ## Paramétrer le dossier de stockage des wikis
@@ -85,87 +84,84 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
 
 ```php
   // themes supplémentaires (doivent etre présents dans le dossier themes du wiki source)
-  'yeswiki-farm-extra-themes' => array('bootstrap3'),
+  'yeswiki-farm-extra-themes' => ['bootstrap3'],
 
   // tools supplémentaires (doivent etre présents dans le dossier tools du wiki source)
-  'yeswiki-farm-extra-tools' => array(),
-
-  // cas où l'on veut copier les paramétrages 'custom' du wiki source (le dossier /custom doit être présent)
-  'yeswiki-farm-copy-custom-folder' => true,
+  'yeswiki-farm-extra-tools' => [],
 
   // tableau des choix de themes (ne s'affiche pas si qu'un choix possible)
-  'yeswiki-farm-themes' => array(
-    array(
+  'yeswiki-farm-themes' => [
+    [
       'label' => 'Margot (thème par défaut de YesWiki)', //nom du thème à l'écran
       'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/margot.jpg', //screenshot du theme dans tools/ferme/screenshots
       'theme' => 'margot', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'margot.css' //style par defaut
-    ),
-    array(
+    ],
+    [
       'label' => 'Bootstrap (très simple)', //nom du thème à l'écran
       'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/bootstrap.jpg', //screenshot du theme dans tools/ferme/screenshots
       'theme' => 'bootstrap3', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'bootstrap.min.css' //style par defaut
-    ),
-    array(
+    ],
+    [
       'label' => 'Paper (material design de google)', //nom du thème à l'écran
       'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/paper.jpg', //screenshot du theme dans tools/ferme/screenshots
       'theme' => 'bootstrap3', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'paper.bootstrap.min.css' //style par defaut
-    ),
-    array(
+    ],
+    [
       'label' => 'Cyborg (theme sombre, fond noir)', //nom du thème à l'écran
       'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/cyborg.jpg', //screenshot du theme dans tools/ferme/screenshots
       'theme' => 'bootstrap3', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'cyborg.bootstrap.min.css' //style par defaut
-    )
-  ),
+    ],
+  ],
   // image de fond par défaut des wikis créés
   'yeswiki-farm-bg-img' => '',
 
   // droits d'acces (ne s'affiche pas si qu'un choix possible)
-  'yeswiki-farm-acls' => array(
-    array(
+  'yeswiki-farm-acls' => [
+    [
       'label'    => 'Wiki ouvert', //Description des droits d'acces
       'read'     => '*', // lecture
       'write'    => '*', // ecriture
       'comments' => '*' // commentaires
-    ),
-    array(
+    ],
+    [
       'label'    => 'Wiki protégé par un identifiant / mot de passe unique', //Description des droits d'acces
       'read'     => '{{user}}', // lecture
       'write'    => '{{user}}', // ecriture
       'comments' => '{{user}}',  // commentaires
       'create_user' => true
-    )
-  ),
+    ]
+  ],
 
   // nom de la page d'accueil par défaut
   'yeswiki-farm-homepage' => 'PagePrincipale',
 
   // options d'ajout sur certaines pages
-  'yeswiki-farm-options' => array(
-    array(
+  'yeswiki-farm-options' => [
+    [
       'label'    => 'Je souhaite intégrer un pad dans mon wiki', //Description de l'ajout
       'checked'  => false, // coche par defaut ?
       'page'    => 'PageMenuHaut', // Page
       'content' => " - [[EtherPad Pad]]\n" // Contenu en syntaxe wiki de l'ajout
-    ),
-    array(
+    ],
+    [
       'label'    => 'Je souhaite recevoir les informations sur mon wiki des autres projets', //Description de l'ajout
       'checked'  => true, // coche par defaut ?
       'page'    => 'PageMenuHaut', // Page
       'content' => " - [[InfosMutualisees Infos mutualisées]]\n" // Contenu en syntaxe wiki de l'ajout
-    )
-  ),
+    ]
+  ],
 
   // cas spécifique ou l'on veut créer un user sur le wiki source
   'yeswiki-farm-create-user' => false,
   
   // ajouter des valeurs dans le fichier de configuration des wikis créés
-  'yeswiki-farm-extra-config' => array( 'BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'),
+  'yeswiki-farm-extra-config' => ['BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'],
 ```
