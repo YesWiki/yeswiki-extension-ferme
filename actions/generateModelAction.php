@@ -62,15 +62,28 @@ class GenerateModelAction extends YesWikiAction
     public function generateSqlModel($data)
     {
         $output = '';
+        $infos = [];
         $f = explode('/wakka.php', $data["url-import"]);
         $f = explode('/?', $f[0]);
-        $filename = 'custom/wiki-models/'.str_replace(
+        $url = rtrim($f[0], '/');
+
+        $foldername = 'custom/wiki-models/'.str_replace(
             array('http://', 'https://', '/'),
             array('', '', '--'),
-            $f[0]
-        ).'.sql';
+            $url
+        );
+        if (!is_dir($foldername)) {
+            @mkdir($foldername, 0777, true);
+        }
+        $infos['label'] = !empty($_POST['model_label']) ? $_POST['model_label'] : $url;
+        $infos['sourceUrl'] = $url;
+        $infos['dateOfCreation'] = date("Y-m-d H:i:s");
+        $jsonData = json_encode($infos);
+        file_put_contents($foldername.'/infos.json', $jsonData);
+
+        $filename = $foldername.'/default-content.sql';
         $sql = '';
-  
+
         $pages = json_decode(html_entity_decode($data["wiki-import-pages"]), 1);
         if (is_array($pages)) {
             $sql .= '# YesWiki pages'."\n";
@@ -83,7 +96,7 @@ class GenerateModelAction extends YesWikiAction
                         .implode(','."\n", $tabpages).";\n";
             $sql .= '# end YesWiki pages'."\n\n";
         }
-  
+
         $forms = json_decode(html_entity_decode($data["wiki-import-forms"]), 1);
         if (is_array($forms)) {
             $sql .= '# Bazar forms'."\n";
@@ -101,7 +114,7 @@ class GenerateModelAction extends YesWikiAction
                 ." VALUES\n".implode(','."\n", $tabforms).";\n";
             $sql .= '# end Bazar forms'."\n\n";
         }
-  
+
         $lists = json_decode(html_entity_decode($data["wiki-import-lists"]), 1);
         if (is_array($lists)) {
             $sql .= '# Bazar lists'."\n";
@@ -118,7 +131,7 @@ class GenerateModelAction extends YesWikiAction
                 .implode(','."\n", $tabliststriple).";\n";
             $sql .= '# end Bazar lists'."\n\n";
         }
-  
+
         $entries = json_decode(html_entity_decode($data["wiki-import-entries"]), 1);
         if (is_array($entries)) {
             $sql .= '# Bazar entries'."\n";
@@ -135,7 +148,7 @@ class GenerateModelAction extends YesWikiAction
                 .implode(','."\n", $tabentriestriple).";\n";
             $sql .= '# end Bazar entries'."\n\n";
         }
-  
+
         // creation du fichier sql
         if (!file_put_contents($filename, $sql)) {
             $output .= '<div class="alert alert-danger">'.

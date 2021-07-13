@@ -96,7 +96,7 @@ $(document).ready(function () {
         + '</div>');
       $.ajax({
         method: 'GET',
-        url: url + '?BazaR/json&demand=entries',
+        url: url + '?api/entries',
       }).done(function (data) {
         $results.find('.loading').remove();
         var count = 0;
