@@ -24,6 +24,8 @@ parameters:
    - 'docs'
    - 'files/AdaLovelace_ada_byron.jpg'
    - 'files/ElizabethJFeinler_elizabethfeinler.jpg'
+   - 'files/PageHeader_bandeau_20200101000000_29991231000000.png'
+   - 'files/yeswiki-logo.png'
    - 'formatters'
    - 'handlers'
    - 'includes'
