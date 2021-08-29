@@ -50,29 +50,26 @@ class YesWikiField extends BazarField
             if (!empty($value) && preg_match('/^[0-9a-zA-Z-_]*$/', $value)) {
                 $farm = $this->getService(FarmService::class);
                 $farm->createWikiFromEntry($entry, $this->propertyName);
-                return [
-                    $this->propertyName => $value
-                ];
             } else {
                 // If no new value was set, keep the old encoded one
-                return [
-                    $this->propertyName => $entry[$this->propertyName.'-previous'] ?? null
-                ];
+                $value = $entry[$this->propertyName.'-previous'] ?? null;
             }
-        } else {
-            return [
-                $this->propertyName => $value ?? null,
-                'fields-to-remove' => [
-                    $this->propertyName.'-previous',
-                    'bf_dossier-wiki_wikiname',
-                    'bf_dossier-wiki_email',
-                    'bf_dossier-wiki_password',
-                    'yeswiki-farm-theme',
-                    'yeswiki-farm-model',
-                    'yeswiki-farm-acls'
-                ]
-            ];
         }
+        return [
+            $this->propertyName => $value ?? null,
+            'fields-to-remove' => [
+                $this->propertyName.'-previous',
+                'bf_dossier-wiki_wikiname',
+                'bf_dossier-wiki_email',
+                'bf_dossier-wiki_password',
+                $this->propertyName.'_wikiname',
+                $this->propertyName.'_email',
+                $this->propertyName.'_password',
+                'yeswiki-farm-theme',
+                'yeswiki-farm-model',
+                'yeswiki-farm-acls'
+            ]
+        ];
     }
 
     public function renderStatic($entry)
