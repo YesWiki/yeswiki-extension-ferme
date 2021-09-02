@@ -119,7 +119,6 @@ if ($this->UserIsAdmin()) {
     } else {
         $output .= '✅ The <em>AdminWikis</em> page already exists.<br />';
     }
-    $output .= '<hr />';
 
     // remove bf_dossier fields
     $entryManager = $this->services->get(EntryManager::class);
@@ -133,6 +132,8 @@ if ($this->UserIsAdmin()) {
     } else {
         $output .= '! Not possible to remove bf_dossier fields from bazar entries in ' . $this->config['table_prefix'].'pages table.<br />';
     }
+    
+    $output .= '<hr />';
 }
 
 // add the content before footer
