@@ -11,6 +11,8 @@
  * @link     https://yeswiki.net
  */
 
+use YesWiki\Bazar\Service\EntryManager;
+
 // Verification de securite
 if (!defined("WIKINI_VERSION")) {
     die("acc&egrave;s direct interdit");
@@ -118,6 +120,19 @@ if ($this->UserIsAdmin()) {
         $output .= '✅ The <em>AdminWikis</em> page already exists.<br />';
     }
     $output .= '<hr />';
+
+    // remove bf_dossier fields
+    $entryManager = $this->services->get(EntryManager::class);
+    if (method_exists(EntryManager::class, 'removeAttributes')) {
+        if ($entryManager->removeAttributes([], ['bf_dossier-wiki_wikiname','bf_dossier-wiki_email','bf_dossier-wiki_password'], true)) {
+            $output .= 'ℹ️ Removing bf_dossier fields from bazar entries in ' . $this->config['table_prefix'].'pages table.<br />';
+            $output .= '✅ Done !<br />';
+        } else {
+            $output .= '✅ The table '.$this->config['table_prefix'].'pages is already free of bf_dossier fields in bazar entries !<br />';
+        }
+    } else {
+        $output .= '! Not possible to remove bf_dossier fields from bazar entries in ' . $this->config['table_prefix'].'pages table.<br />';
+    }
 }
 
 // add the content before footer
