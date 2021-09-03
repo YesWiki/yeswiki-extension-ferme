@@ -269,6 +269,10 @@ class FarmService
             }
         }
 
+        // replace e_mail with the right email if referenced via other field like bf_mail
+        $entry[$fieldName.'_email'] = (!empty($entry[$fieldName.'_email']) && !empty($entry[$entry[$fieldName.'_email']]))
+                        ? $entry[$entry[$fieldName.'_email']] : $entry[$fieldName.'_email'];
+
         // creation d'un user?
         if ($this->wiki->config['yeswiki-farm-create-user']) {
             if ($this->wiki->LoadUser($entry[$fieldName.'_wikiname'])) {
@@ -466,7 +470,7 @@ class FarmService
                     $this->wiki->SetMessage($sqlReport);
                 }
 
-                if ($_POST['yeswiki-farm-model'] != 'default-content'){
+                if ($_POST['yeswiki-farm-model'] != 'default-content') {
                     // copy model files
                     $modelFiles = 'custom/wiki-models/' . $_POST['yeswiki-farm-model'] . '/files';
                     if (is_dir($modelFiles)) {
@@ -742,7 +746,7 @@ class FarmService
         $open = false;
         $buffer = '';
         $queries = [];
-        for($i = 0, $l = strlen($raw); $i < $l; $i++) {
+        for ($i = 0, $l = strlen($raw); $i < $l; $i++) {
             if ($raw[$i] == ';' && !$open) {
                 $queries[] = trim($buffer) . ';';
                 $buffer = '';
