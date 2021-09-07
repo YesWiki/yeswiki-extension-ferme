@@ -88,6 +88,8 @@ class GenerateModelAction extends YesWikiAction
         if (is_array($pages)) {
             $sql .= '# YesWiki pages'."\n";
             foreach ($pages as $page) {
+                // remove hardcoded source urls in pages
+                $page['body'] = str_replace(str_replace('/', '\\/', $data["url-import"]).'\\/?', '{{url}}', $page['body']);
                 $tabpages[] = "('".$page['tag']."',  now(), '".addslashes($page['body'])
                     ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
             }
@@ -136,6 +138,7 @@ class GenerateModelAction extends YesWikiAction
         if (is_array($entries)) {
             $sql .= '# Bazar entries'."\n";
             foreach ($entries as $id => $item) {
+                $item['url'] = '{{url}}'.$item['id_fiche'];
                 $json = json_encode($item);
                 $tabentries[] = "('".$id."',  now(), '".addslashes($json)
                     ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";

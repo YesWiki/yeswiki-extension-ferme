@@ -457,6 +457,7 @@ class ImportService
                     'password' => $entry[$fieldName.'_password'],
                     'email' => $entry[$fieldName.'_email'],
                     'rootPage' => $config['root_page'],
+                    'url' => $config['base_url'],
                 ];
 
                 // default tables
