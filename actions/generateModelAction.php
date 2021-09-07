@@ -138,7 +138,17 @@ class GenerateModelAction extends YesWikiAction
         if (is_array($entries)) {
             $sql .= '# Bazar entries'."\n";
             foreach ($entries as $id => $item) {
-                $item['url'] = '{{url}}'.$item['id_fiche'];
+                
+                // remove not needed fields (to synchronize with EntryManager::formatDataBeforeSave)
+                unset($item['valider']);
+                unset($item['MAX_FILE_SIZE']);
+                unset($item['antispam']);
+                unset($item['mot_de_passe_wikini']);
+                unset($item['mot_de_passe_repete_wikini']);
+                unset($item['html_data']);
+                unset($item['url']);
+                unset($item['owner']);
+
                 $json = json_encode($item);
                 $tabentries[] = "('".$id."',  now(), '".addslashes($json)
                     ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
