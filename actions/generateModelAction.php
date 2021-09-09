@@ -5,10 +5,6 @@ use YesWiki\Ferme\Service\FarmService;
 
 class GenerateModelAction extends YesWikiAction
 {
-    private const MODE_WAKKA = 0;
-    private const MODE_STD = 1;
-    private const MODE_SHORT_URL = 2;
-
     public function formatArguments($args)
     {
         return [
@@ -81,7 +77,7 @@ class GenerateModelAction extends YesWikiAction
                 'message' => _t('FERME_NOT_POSSIBLE_TO_IMPORT_MODEL').' : '.$data["url-import"],
             ]);
         }
-        list($baseUrl, $rootPage, $mode) = $extraction;
+        list($baseUrl, $rootPage, $rewriteModeEnabled) = $extraction;
 
         $foldername = 'custom/wiki-models/'.str_replace(
             array('http://', 'https://', '/'),
@@ -105,7 +101,7 @@ class GenerateModelAction extends YesWikiAction
             $sql .= '# YesWiki pages'."\n";
             foreach ($pages as $page) {
                 // remove hardcoded source urls in pages
-                if (in_array($mode, [self::MODE_WAKKA,self::MODE_STD])) {
+                if (!$rewriteModeEnabled) {
                     $page['body'] = str_replace(str_replace('/', '\\/', $baseUrl).'\\/wakka.php?', '{{url}}', $page['body']);
                     $page['body'] = str_replace(str_replace('/', '\\/', $baseUrl).'\\/?', '{{url}}', $page['body']);
                 }
@@ -235,7 +231,7 @@ class GenerateModelAction extends YesWikiAction
     /**
      * extract baseUrl and rootPage
      * @param string $inputUrl
-     * @return array [$baseUrl,$rootPage,$mode]
+     * @return array [$baseUrl,$rootPage,$rewriteModeEnabled]
      */
     private function extractBaseUrlAndRootPage(string $inputUrl): array
     {
@@ -244,52 +240,52 @@ class GenerateModelAction extends YesWikiAction
         if (empty($extraction)) {
             return [];
         }
-        list($baseUrl, $mode, $tag) = $extraction;
+        list($baseUrl, $rewriteModeEnabled, $tag) = $extraction;
         $redirectedRootUrl = $this->retrieveUrlAfterRedirect($baseUrl.'/');
         $extraction = $this->extractBaseUrlModeAndTag($redirectedInputUrl);
         if (empty($extraction)) {
             return [];
         }
-        list($baseUrl, $mode, $rootPage) = $extraction;
-        return [$baseUrl,$rootPage,$mode];
+        list($baseUrl, $rewriteModeEnabled, $rootPage) = $extraction;
+        return [$baseUrl,$rootPage,$rewriteModeEnabled];
     }
 
     /**
-     * extract baseUrl, mode and tag
+     * extract baseUrl, rewriteModeEnabled and tag
      * @param string $inputUrl
-     * @return array [$baseUrl, $mode, $tag]
+     * @return array [$baseUrl, $rewriteModeEnabled, $tag]
      */
     private function extractBaseUrlModeAndTag($inputUrl): array
     {
         if (preg_match('/wiki=('.WN_CAMEL_CASE_EVOLVED.')/u', $inputUrl, $matches)) {
             $tag = $matches[1];
             if (preg_match('/(.*)\/wakka.php\?.*wiki='.$tag.'/u', $inputUrl, $matches)) {
-                $mode = self::MODE_WAKKA;
+                $rewriteModeEnabled = false;
                 $baseUrl = $matches[1];
             } elseif (preg_match('/(.*)\/\?.*wiki='.$tag.'/u', $inputUrl, $matches)) {
-                $mode = self::MODE_STD;
+                $rewriteModeEnabled = false;
                 $baseUrl = $matches[1];
             } elseif (preg_match('/(.*)\/[^\/]*wiki='.$tag.'/u', $inputUrl, $matches)) {
-                $mode = self::MODE_SHORT_URL;
+                $rewriteModeEnabled = true;
                 $baseUrl = $matches[1];
             }
         } elseif (preg_match('/(.*)\/wakka.php\?('.WN_CAMEL_CASE_EVOLVED.')/u', $inputUrl, $matches)) {
-            $mode = self::MODE_WAKKA;
+            $rewriteModeEnabled = false;
             $tag = $matches[2];
             $baseUrl = $matches[1];
         } elseif (preg_match('/(.*)\/\?('.WN_CAMEL_CASE_EVOLVED.')/u', $inputUrl, $matches)) {
-            $mode = self::MODE_STD;
+            $rewriteModeEnabled = false;
             $tag = $matches[2];
             $baseUrl = $matches[1];
         } elseif (preg_match('/(https?:\/\/(?:localhost|[0-9]{3}:[0-9]{3}:[0-9]{3}:[0-9]{3}|(?:[^\/]*\.[a-z]{3})).*)\/('.WN_CAMEL_CASE_EVOLVED.')(?:\/)?$/u', $inputUrl, $matches)) {
-            $mode = self::MODE_SHORT_URL;
+            $rewriteModeEnabled = true;
             $tag = $matches[2];
             $baseUrl = $matches[1];
         }
-        if (empty($baseUrl) || empty($mode) || empty($tag)) {
+        if (empty($baseUrl) || is_null($rewriteModeEnabled) || empty($tag)) {
             return [];
         } else {
-            return [$baseUrl,$mode,$tag];
+            return [$baseUrl,$rewriteModeEnabled,$tag];
         }
     }
 
