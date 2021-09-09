@@ -5,6 +5,10 @@ use YesWiki\Ferme\Service\FarmService;
 
 class GenerateModelAction extends YesWikiAction
 {
+    private const MODE_WAKKA = 0;
+    private const MODE_STD = 1;
+    private const MODE_SHORT_URL = 2;
+
     public function formatArguments($args)
     {
         return [
@@ -70,20 +74,25 @@ class GenerateModelAction extends YesWikiAction
     {
         $output = '';
         $infos = [];
-        $f = explode('/wakka.php', $data["url-import"]);
-        $f = explode('/?', $f[0]);
-        $url = rtrim($f[0], '/');
+        $extraction = $this->extractBaseUrlAndRootPage($data["url-import"]);
+        if (empty($extraction)) {
+            return $this->render('@templates/alert-message.twig', [
+                'type' => 'warning',
+                'message' => _t('FERME_NOT_POSSIBLE_TO_IMPORT_MODEL').' : '.$data["url-import"],
+            ]);
+        }
+        list($baseUrl, $rootPage, $mode) = $extraction;
 
         $foldername = 'custom/wiki-models/'.str_replace(
             array('http://', 'https://', '/'),
             array('', '', '--'),
-            $url
+            $baseUrl
         );
         if (!is_dir($foldername)) {
             @mkdir($foldername, 0777, true);
         }
-        $infos['label'] = !empty($this->arguments['model_label']) ? $this->arguments['model_label'] : $url;
-        $infos['sourceUrl'] = $url;
+        $infos['label'] = !empty($this->arguments['model_label']) ? $this->arguments['model_label'] : $baseUrl;
+        $infos['sourceUrl'] = $baseUrl;
         $infos['dateOfCreation'] = date("Y-m-d H:i:s");
         $jsonData = json_encode($infos);
         file_put_contents($foldername.'/infos.json', $jsonData);
@@ -96,8 +105,13 @@ class GenerateModelAction extends YesWikiAction
             $sql .= '# YesWiki pages'."\n";
             foreach ($pages as $page) {
                 // remove hardcoded source urls in pages
-                $page['body'] = str_replace(str_replace('/', '\\/', $data["url-import"]).'\\/?', '{{url}}', $page['body']);
-                $tabpages[] = "('".$page['tag']."',  now(), '".addslashes($page['body'])
+                if (in_array($mode, [self::MODE_WAKKA,self::MODE_STD])) {
+                    $page['body'] = str_replace(str_replace('/', '\\/', $baseUrl).'\\/wakka.php?', '{{url}}', $page['body']);
+                    $page['body'] = str_replace(str_replace('/', '\\/', $baseUrl).'\\/?', '{{url}}', $page['body']);
+                }
+                // replace rootPage
+                $page['body'] = str_replace($rootPage, '{{rootPage}}', $page['body']);
+                $tabpages[] = "('".($page['tag'] ==  $rootPage ? '{{rootPage}}' : $page['tag'])."',  now(), '".addslashes($page['body'])
                     ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
             }
             $sql .= "INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`,"
@@ -216,5 +230,85 @@ class GenerateModelAction extends YesWikiAction
         }
         closedir($dir);
         rmdir($src);
+    }
+
+    /**
+     * extract baseUrl and rootPage
+     * @param string $inputUrl
+     * @return array [$baseUrl,$rootPage,$mode]
+     */
+    private function extractBaseUrlAndRootPage(string $inputUrl): array
+    {
+        $redirectedInputUrl = $this->retrieveUrlAfterRedirect($inputUrl);
+        $extraction = $this->extractBaseUrlModeAndTag($redirectedInputUrl);
+        if (empty($extraction)) {
+            return [];
+        }
+        list($baseUrl, $mode, $tag) = $extraction;
+        $redirectedRootUrl = $this->retrieveUrlAfterRedirect($baseUrl.'/');
+        $extraction = $this->extractBaseUrlModeAndTag($redirectedInputUrl);
+        if (empty($extraction)) {
+            return [];
+        }
+        list($baseUrl, $mode, $rootPage) = $extraction;
+        return [$baseUrl,$rootPage,$mode];
+    }
+
+    /**
+     * extract baseUrl, mode and tag
+     * @param string $inputUrl
+     * @return array [$baseUrl, $mode, $tag]
+     */
+    private function extractBaseUrlModeAndTag($inputUrl): array
+    {
+        if (preg_match('/wiki=('.WN_CAMEL_CASE_EVOLVED.')/u', $inputUrl, $matches)) {
+            $tag = $matches[1];
+            if (preg_match('/(.*)\/wakka.php\?.*wiki='.$tag.'/u', $inputUrl, $matches)) {
+                $mode = self::MODE_WAKKA;
+                $baseUrl = $matches[1];
+            } elseif (preg_match('/(.*)\/\?.*wiki='.$tag.'/u', $inputUrl, $matches)) {
+                $mode = self::MODE_STD;
+                $baseUrl = $matches[1];
+            } elseif (preg_match('/(.*)\/[^\/]*wiki='.$tag.'/u', $inputUrl, $matches)) {
+                $mode = self::MODE_SHORT_URL;
+                $baseUrl = $matches[1];
+            }
+        } elseif (preg_match('/(.*)\/wakka.php\?('.WN_CAMEL_CASE_EVOLVED.')/u', $inputUrl, $matches)) {
+            $mode = self::MODE_WAKKA;
+            $tag = $matches[2];
+            $baseUrl = $matches[1];
+        } elseif (preg_match('/(.*)\/\?('.WN_CAMEL_CASE_EVOLVED.')/u', $inputUrl, $matches)) {
+            $mode = self::MODE_STD;
+            $tag = $matches[2];
+            $baseUrl = $matches[1];
+        } elseif (preg_match('/(https?:\/\/(?:localhost|[0-9]{3}:[0-9]{3}:[0-9]{3}:[0-9]{3}|(?:[^\/]*\.[a-z]{3})).*)\/('.WN_CAMEL_CASE_EVOLVED.')(?:\/)?$/u', $inputUrl, $matches)) {
+            $mode = self::MODE_SHORT_URL;
+            $tag = $matches[2];
+            $baseUrl = $matches[1];
+        }
+        if (empty($baseUrl) || empty($mode) || empty($tag)) {
+            return [];
+        } else {
+            return [$baseUrl,$mode,$tag];
+        }
+    }
+
+    /**
+     * retrieve url after redirection
+     * @param string $inputUrl
+     * @return string $outputUrl
+     */
+    private function retrieveUrlAfterRedirect(string $inputUrl): string
+    {
+        $headers = get_headers($inputUrl, true);
+        $outputUrl = $inputUrl;
+        if (!empty($headers['Location'])) {
+            if (is_array($headers['Location'])) {
+                $outputUrl = $headers['Location'][count($headers['Location'])-1];
+            } elseif (is_string($headers['Location'])) {
+                $outputUrl = $headers['Location'];
+            }
+        }
+        return $outputUrl;
     }
 }
