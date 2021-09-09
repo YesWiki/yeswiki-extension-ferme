@@ -5,6 +5,7 @@ namespace YesWiki\Ferme\Field;
 use Psr\Container\ContainerInterface;
 use YesWiki\Bazar\Field\BazarField;
 use YesWiki\Ferme\Service\FarmService;
+use YesWiki\Wiki;
 
 /**
  * add fields to create custom yeswiki instance on a yeswiki farm
@@ -15,6 +16,7 @@ use YesWiki\Ferme\Service\FarmService;
 class YesWikiField extends BazarField
 {
     protected $emailField;
+    protected $wiki;
 
     protected const FIELD_EMAIL_FIELD = 3;
 
@@ -24,6 +26,7 @@ class YesWikiField extends BazarField
 
         $this->emailField = $values[self::FIELD_EMAIL_FIELD];
         $this->getService(FarmService::class)->initFarmConfig();
+        $this->wiki = $this->getService(Wiki::class);
     }
 
     public function renderInput($entry)
@@ -31,14 +34,14 @@ class YesWikiField extends BazarField
         $models = $this->getService(FarmService::class)->getModelLabels();
         return $this->render("@ferme/inputs/yeswiki.twig", [
             'value' => $this->getValue($entry),
-            'rootUrl' => $GLOBALS['wiki']->config['yeswiki-farm-root-url'],
-            'adminUsername' => $GLOBALS['wiki']->config['yeswiki-farm-default-WikiAdmin'] ?? null,
-            'adminEmail' => $GLOBALS['wiki']->config['yeswiki-farm-email-WikiAdmin'] ?? null,
-            'adminPassword' => $GLOBALS['wiki']->config['yeswiki-farm-password-WikiAdmin'] ?? null,
-            'farmThemes' => $GLOBALS['wiki']->config['yeswiki-farm-themes'] ?? null,
+            'rootUrl' => $this->wiki->config['yeswiki-farm-root-url'],
+            'adminUsername' => $this->wiki->config['yeswiki-farm-default-WikiAdmin'] ?? null,
+            'adminEmail' => $this->wiki->config['yeswiki-farm-email-WikiAdmin'] ?? null,
+            'adminPassword' => $this->wiki->config['yeswiki-farm-password-WikiAdmin'] ?? null,
+            'farmThemes' => $this->wiki->config['yeswiki-farm-themes'] ?? null,
             'farmModels' => $models ?? null,
-            'farmAcls' => $GLOBALS['wiki']->config['yeswiki-farm-acls'] ?? null,
-            'farmOptions' => $GLOBALS['wiki']->config['yeswiki-farm-options'] ?? null,
+            'farmAcls' => $this->wiki->config['yeswiki-farm-acls'] ?? null,
+            'farmOptions' => $this->wiki->config['yeswiki-farm-options'] ?? null,
         ]);
     }
 
@@ -75,8 +78,8 @@ class YesWikiField extends BazarField
     public function renderStatic($entry)
     {
         $value = $this->getValue($entry);
-        if ($value && !empty($GLOBALS['wiki']->config['yeswiki-farm-root-url'])) {
-            $url = $GLOBALS['wiki']->config['yeswiki-farm-root-url'].$value;
+        if ($value && !empty($this->wiki->config['yeswiki-farm-root-url'])) {
+            $url = $this->wiki->config['yeswiki-farm-root-url'].$value;
             return $this->render("@ferme/fields/yeswiki.twig", [
                 'url' => $url
             ]);

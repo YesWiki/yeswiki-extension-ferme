@@ -16,7 +16,7 @@
           {{ _t('FERME_PROPOSED_MODEL') }}
       </label>
       <a target="_blank" href="{{ model.url }}" class="btn btn-xs btn-default"><i class="fas fa-eye"></i> {{ _t('FERME_VIEW_SOURCE') }}</a>
-      <a onclick="return confirm('{{ _t('FERME_CONFIRM_DELETE_MODEL') }}')" href="{{ model.deleteurl }}" class="btn btn-xs btn-danger"><i class="fas fa-trash"></i> {{ _t('FERME_DELETE') }}</a>
+      <a onclick="return confirm('{{ _t('FERME_CONFIRM_DELETE_MODEL') }}')" href="{{ model.deleteurl|raw }}" class="btn btn-xs btn-danger"><i class="fas fa-trash"></i> {{ _t('FERME_DELETE') }}</a>
     </li>
 {% endfor %}
 </ol>

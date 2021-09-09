@@ -5,6 +5,17 @@ use YesWiki\Ferme\Service\FarmService;
 
 class GenerateModelAction extends YesWikiAction
 {
+    public function formatArguments($args)
+    {
+        return [
+            'template' => !empty($args['template']) ? $args['template'] : 'generate-model.twig',
+            'wiki-import-forms' => $_POST['wiki-import-forms'] ?? null,
+            'model_label' => !empty($_POST['model_label']) ? $_POST['model_label'] : null,
+            'POST' => $_POST,
+            'delete_model' => $_GET['delete_model'] ?? null,
+        ];
+    }
+
     public function run()
     {
         $output = '';
@@ -12,12 +23,12 @@ class GenerateModelAction extends YesWikiAction
             $farm = $this->getService(FarmService::class);
             $farm->initFarmConfig();
             // a model will be imported
-            if (isset($_POST['wiki-import-forms'])) {
-                $output .= $this->generateSqlModel($_POST);
+            if (!is_null($this->arguments['wiki-import-forms'])) {
+                $output .= $this->generateSqlModel($this->arguments['POST']);
             }
             // a model will be deleted
-            if (!empty($_GET['delete_model'])) {
-                $output .= $this->deleteModel($_GET['delete_model']);
+            if (!empty($this->arguments['delete_model'])) {
+                $output .= $this->deleteModel($this->arguments['delete_model']);
             }
 
             // get all custom models
@@ -36,12 +47,8 @@ class GenerateModelAction extends YesWikiAction
                 }
             }
 
-            $template = $this->wiki->GetParameter('template');
-            if (empty($template)) {
-                $template = 'generate-model.twig';
-            }
             $output .= $this->render(
-                '@ferme/'.$template,
+                '@ferme/'.$this->arguments['template'],
                 [
                   'formurl' => $this->wiki->href('', $this->wiki->GetPageTag()),
                   'models' => $models,
@@ -49,7 +56,7 @@ class GenerateModelAction extends YesWikiAction
 
                 ]
             );
-            $GLOBALS['wiki']->AddJavascriptFile('tools/ferme/javascripts/ferme-import.js');
+            $this->wiki->AddJavascriptFile('tools/ferme/javascripts/ferme-import.js');
         } else {
             $output .=  '<div class="alert alert-danger">'
             .'  <strong>'._t('TEMPLATE_ACTION').' {{generatemodel}}</strong> : '
@@ -75,7 +82,7 @@ class GenerateModelAction extends YesWikiAction
         if (!is_dir($foldername)) {
             @mkdir($foldername, 0777, true);
         }
-        $infos['label'] = !empty($_POST['model_label']) ? $_POST['model_label'] : $url;
+        $infos['label'] = !empty($this->arguments['model_label']) ? $this->arguments['model_label'] : $url;
         $infos['sourceUrl'] = $url;
         $infos['dateOfCreation'] = date("Y-m-d H:i:s");
         $jsonData = json_encode($infos);
