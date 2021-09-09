@@ -2,6 +2,7 @@
 
 namespace YesWiki\Ferme\Service;
 
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use YesWiki\Wiki;
 use YesWiki\Bazar\Service\EntryManager;
 
@@ -9,11 +10,13 @@ class FarmService
 {
     protected $wiki;
     protected $sourceWikiVersion = '';
+    protected $params;
 
     public function __construct(Wiki $wiki)
     {
         $this->wiki = $wiki;
-        $this->sourceWikiVersion = $this->wiki->config['yeswiki_release'];
+        $this->params = $this->wiki->services->get(ParameterBagInterface::class);
+        $this->sourceWikiVersion = $this->params->get('yeswiki_release');
         $this->initFarmConfig();
     }
 
@@ -566,7 +569,7 @@ class FarmService
     {
         $entryManager = $this->wiki->services->get(EntryManager::class);
         $fiches = $entryManager->search([
-            'formsIds' => ['1100']
+            'formsIds' => [$this->params->get('bazar_farm_id')]
         ]);
         $GLOBALS['ordre'] = 'asc';
         $GLOBALS['champ'] = 'bf_titre';
