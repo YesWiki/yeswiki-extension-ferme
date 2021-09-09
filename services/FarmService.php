@@ -568,8 +568,11 @@ class FarmService
     public function getWikiList()
     {
         $entryManager = $this->wiki->services->get(EntryManager::class);
+        $bazarFarmId = $this->params->get('bazar_farm_id');
+        // check id if wakka.config.phph contains a bad value (like string not corresponding to a form's id)
+        $bazarFarmId = (!empty($bazarFarmId) && (strval($bazarFarmId) == stral(intval($bazarFarmId)))) ? $bazarFarmId : '1100';
         $fiches = $entryManager->search([
-            'formsIds' => [$this->params->get('bazar_farm_id')]
+            'formsIds' => [$bazarFarmId]
         ]);
         $GLOBALS['ordre'] = 'asc';
         $GLOBALS['champ'] = 'bf_titre';
