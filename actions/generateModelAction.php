@@ -109,6 +109,8 @@ class GenerateModelAction extends YesWikiAction
                 $page['body'] = str_replace($rootPage, '{{rootPage}}', $page['body']);
                 $tabpages[] = "('".($page['tag'] ==  $rootPage ? '{{rootPage}}' : $page['tag'])."',  now(), '".addslashes($page['body'])
                     ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
+                // extract images
+                $this->extractPageImages($page, $baseUrl, $rewriteModeEnabled, $foldername);
             }
             $sql .= "INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`,"
                         ." `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES\n"
@@ -170,6 +172,8 @@ class GenerateModelAction extends YesWikiAction
                 $tabentries[] = "('".$id."',  now(), '".addslashes($json)
                     ."', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
                 $tabentriestriple[] = "('".$id."', 'http://outils-reseaux.org/_vocabulary/type', 'fiche_bazar')";
+                // extract images
+                $this->extractEntryImages($item, $baseUrl, $rewriteModeEnabled, $foldername);
             }
             $sql .= "INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`,"
                 ." `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES\n"
@@ -306,5 +310,80 @@ class GenerateModelAction extends YesWikiAction
             }
         }
         return $outputUrl;
+    }
+
+    /**
+     * extract existing images from pages
+     * @param array $page
+     * @param string $baseUrl
+     * @param bool $rewriteModeEnabled
+     * @param string $foldername
+     */
+    private function extractPageImages(array $page, string $baseUrl, bool $rewriteModeEnabled, string $foldername)
+    {
+        if (!is_dir($foldername)) {
+            return null;
+        }
+        // download file
+        if (preg_match_all('/{{(?:attach|section)[\s]+[^}]*file=\\"([^"]+)?\\"[^}]*}/m', $page['body'], $matches)) {
+            foreach ($matches[0] as $id => $match) {
+                $fileName = trim($matches[1][$id] ?? '');
+                if (preg_match('/(.+)\.([^\.]+)$/u', $fileName, $matches)) {
+                    $name = $matches[1];
+                    $ext = $matches[2];
+                }
+                if (empty($ext)) {
+                    $newFileName = $page['tag'].'_'.$fileName.'_19880101000000_23001231235959_';
+                } elseif (in_array($ext, ['jpg','jpeg','png','bmp'])) {
+                    $newFileName = $page['tag'].'_'.$name.'_19880101000000_23001231235959.'.$ext;
+                } else {
+                    $newFileName = $page['tag'].'_'.$name.'_19880101000000_23001231235959.'.$ext.'_';
+                }
+                if (!empty($fileName)) {
+                    $fileUrl = $baseUrl.'/'.($rewriteModeEnabled ? '' : '?').$page['tag'].'/download'.($rewriteModeEnabled ? '?' : '&').'file='.$fileName;
+                    $fileContent = file_get_contents($fileUrl);
+                    if (strlen($fileContent) > 0) {
+                        if (!is_dir($foldername.'/files')) {
+                            mkdir($foldername.'/files');
+                        }
+                        if (is_dir($foldername.'/files')) {
+                            file_put_contents($foldername.'/files/'.$newFileName, $fileContent);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    /**
+     * extract existing images from entries
+     * @param array $page
+     * @param string $baseUrl
+     * @param bool $rewriteModeEnabled
+     * @param string $foldername
+     */
+    private function extractEntryImages(array $entry, string $baseUrl, bool $rewriteModeEnabled, string $foldername)
+    {
+        if (!is_dir($foldername)) {
+            return null;
+        }
+        // download file
+        $filesToImport = [];
+        foreach (['bf_image','imagebf_image','bf_file','filebf_file'] as $key) {
+            if (!empty($entry[$key])) {
+                $filesToImport[] = $entry[$key];
+            }
+        }
+        foreach ($filesToImport as $file) {
+            $fileUrl = $baseUrl.'/files/'.$file;
+            $fileContent = file_get_contents($fileUrl);
+            if (strlen($fileContent) > 0) {
+                if (!is_dir($foldername.'/files')) {
+                    mkdir($foldername.'/files');
+                }
+                if (is_dir($foldername.'/files')) {
+                    file_put_contents($foldername.'/files/'.$file, $fileContent);
+                }
+            }
+        }
     }
 }
