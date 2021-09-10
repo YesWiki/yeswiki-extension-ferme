@@ -56,5 +56,6 @@ $GLOBALS['translations'] = array_merge(
     'FERME_WIKI_ACTION' => 'Actions',
     'FERME_ADD_WIKI' => 'Ajouter un wiki',
     'FERME_BACKUP' => 'Archive de sauvegarde du wiki',
+    'FERME_NOT_POSSIBLE_TO_IMPORT_MODEL' => 'Il n\' pas été possible d\'importer le modèle',
     )
 );
