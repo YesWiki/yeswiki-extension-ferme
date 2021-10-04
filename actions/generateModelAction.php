@@ -31,9 +31,15 @@ class GenerateModelAction extends YesWikiAction
                 $output .= $this->deleteModel($this->arguments['delete_model']);
             }
 
+            if (isset($this->arguments['POST']['save_config'])) {
+                list($outputTmp, $yeswikiFarmModels) = $this->saveConfig($this->arguments['POST']);
+                $output .= $outputTmp;
+            }
+
             // get all custom models
             $modelsFolder = glob('custom/wiki-models/*', GLOB_ONLYDIR);
-            $defaultModelIsAvailable = array_search('default-content', $this->wiki->config['yeswiki-farm-models']);
+            $defaultModelIsAvailable = (isset($yeswikiFarmModels) && in_array('default-content', $yeswikiFarmModels)) ||
+                (!isset($yeswikiFarmModels) && in_array('default-content', $this->wiki->config['yeswiki-farm-models']));
             $models = [];
             foreach ($modelsFolder as $modelFolder) {
                 if (is_file($modelFolder.'/default-content.sql') && is_file($modelFolder.'/infos.json')) {
@@ -43,7 +49,8 @@ class GenerateModelAction extends YesWikiAction
                     $models[$model]['model'] = $model;
                     $models[$model]['url'] = 'https://'.str_replace(['--'], ['/', ''], $model);
                     $models[$model]['deleteurl'] = $this->wiki->href('', '', 'delete_model='.$model);
-                    $models[$model]['isavailable'] = array_search($model, $this->wiki->config['yeswiki-farm-models']);
+                    $models[$model]['isavailable'] = (isset($yeswikiFarmModels) && in_array($model, $yeswikiFarmModels)) ||
+                        (!isset($yeswikiFarmModels) && in_array($model, $this->wiki->config['yeswiki-farm-models']));
                 }
             }
 
@@ -306,5 +313,46 @@ class GenerateModelAction extends YesWikiAction
             }
         }
         return $outputUrl;
+    }
+
+    /**
+     * save config
+     * @param array $data
+     * @return array [string $output,array $yeswikiFarmModels]
+     */
+    private function saveConfig(array $data): array
+    {
+        $output = '';
+        $resetConfig = !isset($data['config']) ||
+            !is_array($data['config']) ||
+            (count($data['config']) == 1 && isset($data['config']['default-content.sql']) && in_array($data['config']['default-content.sql'], ['on',1,true,'1']));
+        // get Config
+        
+        include_once 'tools/templates/libs/Configuration.php';
+        $config = new Configuration('wakka.config.php');
+        $config->load();
+        $key = 'yeswiki-farm-models';
+        $models = [];
+        if ($resetConfig) {
+            if (isset($config->$key)) {
+                unset($config->$key);
+            }
+            $models[] = 'default-content';
+            $output = '<div class="alert alert-success">La configuration a été remise à zéro.</div>';
+        } else {
+            foreach ($data['config'] as $name => $state) {
+                if (in_array($state, ['on',1,true,'1'])) {
+                    if ($name == 'default-content.sql') {
+                        $models[] = 'default-content' ;
+                    } else {
+                        $models[] = $name ;
+                    }
+                }
+            }
+            $config->$key = $models;
+            $output = '<div class="alert alert-success">La configuration a été sauvegardée avec les modèles : \''.implode("','", $models).'\'.</div>';
+        }
+        $config->write();
+        return [$output,$models] ;
     }
 }
