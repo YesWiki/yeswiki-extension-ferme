@@ -57,5 +57,14 @@ $GLOBALS['translations'] = array_merge(
     'FERME_ADD_WIKI' => 'Ajouter un wiki',
     'FERME_BACKUP' => 'Archive de sauvegarde du wiki',
     'FERME_NOT_POSSIBLE_TO_IMPORT_MODEL' => 'Il n\' pas été possible d\'importer le modèle',
+
+    // Action Builder
+    'AB_FERME_GROUP_LABEL' => 'Ferme',
+    'AB_FERME_ADMINWIKIS_LABEL' => 'Administrer les wikis',
+    'AB_FERME_CONTACTWIKIS_LABEL' => 'Contacter les responsables des wikis',
+    'AB_FERME_GENERATEMODEL_LABEL' => 'Générer des modèles de wikis',
+    'AB_FERME_GENERATEMODEL_TEMPLATE_LABEL' => 'Template',
+    'AB_FERME_GENERATEMODEL_TEMPLATE_HINT' => 'Vide = generate-model.twig',
+
     )
 );

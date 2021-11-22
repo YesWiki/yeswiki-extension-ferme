@@ -1,0 +1,18 @@
+label: _t(AB_FERME_GROUP_LABEL)
+position: 1200
+previewHeight: 200px
+onlyForAdmins: true
+actions:
+  # admintag: moved to /docs/actions/management.yaml
+  adminwikis:
+    label: _t(AB_FERME_ADMINWIKIS_LABEL)
+  contactwikis:
+    label: _t(AB_FERME_CONTACTWIKIS_LABEL)
+  generatemodel:
+    label: _t(AB_FERME_GENERATEMODEL_LABEL)
+    properties:
+      template:
+        label: _t(AB_FERME_GENERATEMODEL_TEMPLATE_LABEL)
+        type: text
+        hint:  _t(AB_FERME_GENERATEMODEL_TEMPLATE_HINT)
+        
