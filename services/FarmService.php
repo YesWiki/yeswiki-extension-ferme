@@ -134,13 +134,14 @@ class FarmService
             $this->wiki->config['yeswiki-farm-models'][] = 'default-content';
         } else {
             // verifier l'existence des parametres des fichiers sql
-            foreach ($this->wiki->config['yeswiki-farm-models'] as $folder) {
+            foreach ($this->wiki->config['yeswiki-farm-models'] as $key => $folder) {
                 if ($folder != 'default-content') {
                     if (!is_dir('custom/wiki-models/'.$folder)) {
-                        exit('<div class="alert alert-danger">le dossier "custom/wiki-models/'.$folder.'" ne semble pas exister.</div>');
-                    }
-                    if (!is_file('custom/wiki-models/'.$folder.'/default-content.sql')) {
-                        exit('<div class="alert alert-danger">Le fichier sql "custom/wiki-models/'.$folder.'/default-content.sql" n\'a pas été trouvé.</div>');
+                        unset($this->wiki->config['yeswiki-farm-models'][$key]);
+                        trigger_error('<div class="alert alert-danger">le dossier "custom/wiki-models/'.$folder.'" ne semble pas exister.</div>');
+                    } elseif (!is_file('custom/wiki-models/'.$folder.'/default-content.sql')) {
+                        unset($this->wiki->config['yeswiki-farm-models'][$key]);
+                        trigger_error('<div class="alert alert-danger">Le fichier sql "custom/wiki-models/'.$folder.'/default-content.sql" n\'a pas été trouvé.</div>');
                     }
                 }
             }
