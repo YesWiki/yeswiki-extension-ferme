@@ -29,17 +29,21 @@
 */
 
 $GLOBALS['translations'] = array_merge(
-	$GLOBALS['translations'],
-	array(
-	'FERME_IMPORT' => 'Import',
-	'FERME_GENERATE_MODEL_FROM_URL' => 'Use an URL to generate a model',
-	'FERME_URL_IMPORT_INFO' => 'Key a YesWiki page URL in',
-	'FERME_ALL_WIKIS_ADMIN' => 'Wikis management',
-	'FERME_UPDATING' => 'Updating ',
-	'FERME_WIKI' => 'Wiki ',
-	'FERME_UPDATED' => ' has properly been updated',
-	'FERME_FILE' => 'File ',
-	'FERME_NOT_FOUND' => ' not found',
-	'FERME_ADMIN_REQUIRED' => 'You must be part of @admins group to manage wikis',
-	)
+    $GLOBALS['translations'],
+    array(
+    'FERME_IMPORT' => 'Import',
+    'FERME_GENERATE_MODEL_FROM_URL' => 'Use an URL to generate a model',
+    'FERME_URL_IMPORT_INFO' => 'Key a YesWiki page URL in',
+    'FERME_ALL_WIKIS_ADMIN' => 'Wikis management',
+    'FERME_UPDATING' => 'Updating ',
+    'FERME_WIKI' => 'Wiki ',
+    'FERME_UPDATED' => ' has properly been updated',
+    'FERME_FILE' => 'File ',
+    'FERME_NOT_FOUND' => ' not found',
+    'FERME_ADMIN_REQUIRED' => 'You must be part of @admins group to manage wikis',
+
+    // for edit config
+    'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',
+    'EDIT_CONFIG_GROUP_FERME' => 'Farm',
+    )
 );

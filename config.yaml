@@ -61,6 +61,9 @@ parameters:
    - 'tools/security'
    - 'tools/tags'
    - 'vendor'
+  # for edit config action
+  ferme_editable_config_params:
+    - 'bazar_farm_id'
 
 services:
   _defaults:

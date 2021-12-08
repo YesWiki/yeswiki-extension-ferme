@@ -65,6 +65,10 @@ $GLOBALS['translations'] = array_merge(
     'AB_FERME_GENERATEMODEL_LABEL' => 'Générer des modèles de wikis',
     'AB_FERME_GENERATEMODEL_TEMPLATE_LABEL' => 'Template',
     'AB_FERME_GENERATEMODEL_TEMPLATE_HINT' => 'Vide = generate-model.twig',
+    
+    // for edit config
+    'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Id du formulaire pour la ferme',
+    'EDIT_CONFIG_GROUP_FERME' => 'Ferme',
 
     )
 );
