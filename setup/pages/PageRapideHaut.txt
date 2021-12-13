@@ -1,0 +1,2 @@
+ - ------
+ - {{button class="btn-primary" hideifnoaccess="true" icon="fas fa-warehouse" link="AdminWikis" nobtn="1" text="Gestion ferme à wikis" }}

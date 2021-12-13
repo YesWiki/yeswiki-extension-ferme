@@ -1,0 +1,10 @@
+texte***bf_titre***Titre du wiki***255***255*** *** ***text***1*** *** *** * *** * *** *** ***
+texte***bf_description***Description courte***255***255*** *** ***text***1*** *** *** * *** * *** *** ***
+image***bf_image***Image représentative pour le listing des wikis***180***195***180***195***right***1*** ***Votre image sera retaillée et centrée pour s'adapter à la taille demandée*** * *** * *** *** ***
+texte***bf_referent***Nom de la personne référente du wiki***255***255*** *** ***text***1*** *** *** * *** * *** *** ***
+champs_mail***bf_mail***Email de la personne référente du wiki*** *** *** ***form*** ***1***1*** *** * *** * *** *** ***
+yeswiki***bf_dossier-wiki***Adresse URL du wiki***bf_mail*** *** *** *** ***1*** *** *** *** *** *** ***
+labelhtml***<div class="alert alert-info">*** *** ***
+labelhtml***Les données personnelles collectées (nom et adresse mail) ne seront pas diffusées. Leur utilisation se limite à un usage interne pour diffuser des informations importantes (cf. <a href="{UtilisationDonnees}" target="_blank">Politique de gestion des données</a>).<br />Vous pouvez demander la suppression de votre wiki et de vos données en passant par <a href="{Contact}">le formulaire de contact</a>.*** *** ***
+labelhtml***</div>*** *** ***
+radio***ListeOuiNon***Je donne mon accord pour que ces données soient collectées*** *** *** *** *** ***1*** *** *** * *** * *** *** ***

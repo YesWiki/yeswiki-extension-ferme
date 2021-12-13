@@ -1,0 +1,6 @@
+{{grid}}
+{{col size="2"}}{{nav class="nav-admin-wikis nav nav-pills nav-stacked" links="AjouterWiki,AdminWikis, ContactWikis, ModelesWiki" titles="Nouveau wiki, Wikis, Emails usagers, Modèles de wiki"}}{{end elem="col"}}
+{{col size="10"}}
+{{bazar vue="saisir" voirmenu="0" id="{FarmFormId}" }}
+{{end elem="col"}}
+{{end elem="grid"}}
