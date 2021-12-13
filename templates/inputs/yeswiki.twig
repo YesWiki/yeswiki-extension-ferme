@@ -120,6 +120,8 @@
             {% endfor %}
         </div>
     </div>
+    {% elseif farmModels|length > 0 %}
+    <input type="hidden" name="yeswiki-farm-model" value="{{ farmModels|keys|first }}">
     {% else %}
     <input type="hidden" name="yeswiki-farm-model" value="default-content">
     {% endif %}
