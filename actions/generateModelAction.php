@@ -28,6 +28,20 @@ class GenerateModelAction extends YesWikiAction
             }
             // a model will be deleted
             if (!empty($this->arguments['delete_model'])) {
+                if (in_array($this->arguments['delete_model'], $this->wiki->config['yeswiki-farm-models'])) {
+                    $yeswikiFarmModels = $this->wiki->config['yeswiki-farm-models'];
+                    $model = $this->arguments['delete_model'];
+                    $yeswikiFarmModels = array_filter($yeswikiFarmModels, function ($modelInConfig) use ($model) {
+                        return $modelInConfig !== $model;
+                    });
+                    $dataConfig = [];
+                    foreach ($yeswikiFarmModels as $modelName) {
+                        $dataConfig[$modelName] = 1;
+                    }
+                    list($outputTmp, $yeswikiFarmModels) = $this->saveConfig(['config'=>$dataConfig]);
+                    flash($outputTmp);
+                    $this->wiki->Redirect($this->wiki->Href('', '', ['delete_model'=>$this->arguments['delete_model']], false));
+                }
                 $output .= $this->deleteModel($this->arguments['delete_model']);
             }
 
@@ -325,6 +339,7 @@ class GenerateModelAction extends YesWikiAction
         $output = '';
         $resetConfig = !isset($data['config']) ||
             !is_array($data['config']) ||
+            empty($data['config']) ||
             (count($data['config']) == 1 && isset($data['config']['default-content.sql']) && in_array($data['config']['default-content.sql'], ['on',1,true,'1']));
         // get Config
         
