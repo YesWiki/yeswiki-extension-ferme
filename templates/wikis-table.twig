@@ -65,3 +65,4 @@
 {% else %}
 <div class="alert alert-info">{{ _t('FERME_NO_WIKIS') }}.</div>
 {% endif %}
+<a class="btn btn-primary" role="button" href="{{ url({handler: 'searchwiki'}) }}"><i class="fas fa-search-plus"></i> {{ _t('FERME_SEARCH_FOR_WIKIS') }}</a>

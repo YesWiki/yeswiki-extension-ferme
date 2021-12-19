@@ -565,11 +565,32 @@ class FarmService
         return $output;
     }
 
+    public function deleteWikiFromEntry($id)
+    {
+        $entryManager = $this->wiki->services->get(EntryManager::class);
+        if ($entryManager->isEntry($id) && !empty($_GET['confirme']) && $_GET['confirme'] == 'oui' && ($this->UserIsOwner() || $this->UserIsAdmin())) {
+            $tab_valeurs = $entryManager->getOne($this->GetPageTag());
+            if (isset($tab_valeurs["bf_dossier-wiki"]) && !empty($tab_valeurs["bf_dossier-wiki"])) {
+                $src = realpath(getcwd().'/'.(!empty($this->wiki->config['yeswiki-farm-root-folder']) ? $this->wiki->config['yeswiki-farm-root-folder'] : '.').'/'.$tab_valeurs["bf_dossier-wiki"]);
+                if (is_dir($src)) {
+                    // supprimer le wiki
+                    $farm->rrmdir($src);
+                    // supprime les tables mysql
+                    $prefix = empty($tab_valeurs['bf_prefixe']) ?
+                        $this->wiki->config['yeswiki-farm-prefix'].str_replace('-', '_', $tab_valeurs["bf_dossier-wiki"]) . '__' :
+                        $tab_valeurs['bf_prefixe'];
+                    $query = 'DROP TABLE `'.$prefix.'acls`, `'.$prefix.'links`, `'.$prefix.'nature`, `'.$prefix.'pages`, `'.$prefix.'referrers`, `'.$prefix.'triples`, `'.$prefix.'users`;';
+                    $this->wiki->Query($query);
+                }
+            }
+        }
+    }
+
     public function getWikiList()
     {
         $entryManager = $this->wiki->services->get(EntryManager::class);
         $bazarFarmId = $this->params->get('bazar_farm_id');
-        // check id if wakka.config.phph contains a bad value (like string not corresponding to a form's id)
+        // check id if wakka.config.php contains a bad value (like string not corresponding to a form's id)
         $bazarFarmId = (!empty($bazarFarmId) && (strval($bazarFarmId) == strval(intval($bazarFarmId)))) ? $bazarFarmId : '1100';
         $fiches = $entryManager->search([
             'formsIds' => [$bazarFarmId]
@@ -747,7 +768,7 @@ class FarmService
      * @param string $raw the sql raw string containing all the sql statements
      * @return array the array of queries (string)
      */
-    private function splitQueries(string $raw) : array
+    private function splitQueries(string $raw): array
     {
         $open = false;
         $buffer = '';

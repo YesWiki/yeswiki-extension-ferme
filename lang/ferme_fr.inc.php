@@ -57,6 +57,7 @@ $GLOBALS['translations'] = array_merge(
     'FERME_ADD_WIKI' => 'Ajouter un wiki',
     'FERME_BACKUP' => 'Archive de sauvegarde du wiki',
     'FERME_NOT_POSSIBLE_TO_IMPORT_MODEL' => 'Il n\' pas été possible d\'importer le modèle',
+    'FERME_SEARCH_FOR_WIKIS' => 'Rechercher d\'autres wikis sur ce serveur',
 
     // Action Builder
     'AB_FERME_GROUP_LABEL' => 'Ferme',
@@ -65,7 +66,7 @@ $GLOBALS['translations'] = array_merge(
     'AB_FERME_GENERATEMODEL_LABEL' => 'Générer des modèles de wikis',
     'AB_FERME_GENERATEMODEL_TEMPLATE_LABEL' => 'Template',
     'AB_FERME_GENERATEMODEL_TEMPLATE_HINT' => 'Vide = generate-model.twig',
-    
+
     // for edit config
     'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Id du formulaire pour la ferme',
     'EDIT_CONFIG_GROUP_FERME' => 'Ferme',

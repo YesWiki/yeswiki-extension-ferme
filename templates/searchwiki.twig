@@ -1,0 +1,11 @@
+<h2>{{ _t('FERME_SEARCH_FOR_WIKIS') }}</h2>
+<div class="content">
+<div class="alert alert-info">
+{{ wikis|length }} wiki(s) dans la base de données de la ferme.<br>
+{{ wikisonserver|length }} wiki(s) sur le serveur.
+</div>
+{{ output|raw }}
+</div>
+<a class="btn btn-sm btn-link" href="{{ url({handler: ''})}}">
+  <i class="fas fa-arrow-left"></i> {{ _t('GO_BACK') }}
+</a>
