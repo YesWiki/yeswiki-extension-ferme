@@ -568,13 +568,13 @@ class FarmService
     public function deleteWikiFromEntry($id)
     {
         $entryManager = $this->wiki->services->get(EntryManager::class);
-        if ($entryManager->isEntry($id) && !empty($_GET['confirme']) && $_GET['confirme'] == 'oui' && ($this->UserIsOwner() || $this->UserIsAdmin())) {
-            $tab_valeurs = $entryManager->getOne($this->GetPageTag());
+        if ($entryManager->isEntry($id) && !empty($_GET['confirme']) && $_GET['confirme'] == 'oui' && ($this->wiki->UserIsOwner() || $this->wiki->UserIsAdmin())) {
+            $tab_valeurs = $entryManager->getOne($this->wiki->GetPageTag());
             if (isset($tab_valeurs["bf_dossier-wiki"]) && !empty($tab_valeurs["bf_dossier-wiki"])) {
                 $src = realpath(getcwd().'/'.(!empty($this->wiki->config['yeswiki-farm-root-folder']) ? $this->wiki->config['yeswiki-farm-root-folder'] : '.').'/'.$tab_valeurs["bf_dossier-wiki"]);
                 if (is_dir($src)) {
                     // supprimer le wiki
-                    $farm->rrmdir($src);
+                    $this->rrmdir($src);
                     // supprime les tables mysql
                     $prefix = empty($tab_valeurs['bf_prefixe']) ?
                         $this->wiki->config['yeswiki-farm-prefix'].str_replace('-', '_', $tab_valeurs["bf_dossier-wiki"]) . '__' :
