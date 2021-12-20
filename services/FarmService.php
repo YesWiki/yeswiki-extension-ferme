@@ -575,12 +575,12 @@ class FarmService
                 if (is_dir($src)) {
                     // get the table prefix from the real config file, it's more secure
                     $config = $this->getWikiConfig($tab_valeurs["bf_dossier-wiki"]);
+                    echo $config['table_prefix'] ;
+                    exit;
                     // supprimer le wiki
                     $this->rrmdir($src);
                     // supprime les tables mysql
-                    $prefix = $config['table_prefix'] ?? empty($tab_valeurs['bf_prefixe']) ?
-                        $this->wiki->config['yeswiki-farm-prefix'].str_replace('-', '_', $tab_valeurs["bf_dossier-wiki"]) . '__' :
-                        $tab_valeurs['bf_prefixe'];
+                    $prefix = $config['table_prefix'];
                     $query = 'DROP TABLE `'.$prefix.'acls`, `'.$prefix.'links`, `'.$prefix.'nature`, `'.$prefix.'pages`, `'.$prefix.'referrers`, `'.$prefix.'triples`, `'.$prefix.'users`;';
                     $this->wiki->Query($query);
                 }
