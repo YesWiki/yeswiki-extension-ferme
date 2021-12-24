@@ -118,7 +118,7 @@ class GenerateModelAction extends YesWikiAction
         $sql = '';
 
         $pages = json_decode(html_entity_decode($data["wiki-import-pages"]), 1);
-        if (is_array($pages)) {
+        if (is_array($pages) && !empty($pages)) {
             $sql .= '# YesWiki pages'."\n";
             foreach ($pages as $page) {
                 // remove hardcoded source urls in pages
@@ -138,7 +138,7 @@ class GenerateModelAction extends YesWikiAction
         }
 
         $forms = json_decode(html_entity_decode($data["wiki-import-forms"]), 1);
-        if (is_array($forms)) {
+        if (is_array($forms) && !empty($forms)) {
             $sql .= '# Bazar forms'."\n";
             foreach ($forms as $form) {
                 $tabforms[] = "('".$form['bn_id_nature'] . "', '" . addslashes($form['bn_label_nature'])
@@ -156,7 +156,7 @@ class GenerateModelAction extends YesWikiAction
         }
 
         $lists = json_decode(html_entity_decode($data["wiki-import-lists"]), 1);
-        if (is_array($lists)) {
+        if (is_array($lists) && !empty($lists)) {
             $sql .= '# Bazar lists'."\n";
             foreach ($lists as $id => $list) {
                 $json = json_encode($list);
@@ -173,7 +173,7 @@ class GenerateModelAction extends YesWikiAction
         }
 
         $entries = json_decode(html_entity_decode($data["wiki-import-entries"]), 1);
-        if (is_array($entries)) {
+        if (is_array($entries) && !empty($entries)) {
             $sql .= '# Bazar entries'."\n";
             foreach ($entries as $id => $item) {
                 
