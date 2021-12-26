@@ -489,7 +489,11 @@ class FarmService
                 }
 
                 if (!empty($entry["access-username"])) {
-                    $this->wiki->Query("INSERT INTO `".$prefix."__users` (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) VALUES ('".$entry["access-username"]."', md5('".$entry["access-password"]."'), '".$entry[$fieldName.'_email']."', '', '20', '50', 1, now(), 2);");
+                    $this->wiki->Query("INSERT INTO `{$prefix}__users` ".
+                        "(`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) ".
+                        "VALUES ('".mysqli_real_escape_string($link, $entry["access-username"])."', ".
+                        "md5('".mysqli_real_escape_string($link, $entry["access-password"])."'), ".
+                        "'".$entry[$fieldName.'_email']."', '', '20', '50', 1, now(), 2);");
                 }
 
                 if (!empty($entry["yeswiki-farm-options"])) {
@@ -744,7 +748,7 @@ class FarmService
             foreach ($replacements as $keyword => $replace) {
                 $sql = str_replace(
                     '{{'.$keyword.'}}',
-                    $replace,
+                    mysqli_real_escape_string($dblink, $replace),
                     $sql
                 );
             }
