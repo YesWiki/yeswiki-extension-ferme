@@ -580,8 +580,6 @@ class FarmService
                 if (is_dir($src)) {
                     // get the table prefix from the real config file, it's more secure
                     $config = $this->getWikiConfig($tab_valeurs["bf_dossier-wiki"]);
-                    echo $config['table_prefix'] ;
-                    exit;
                     // supprimer le wiki
                     $this->rrmdir($src);
                     // supprime les tables mysql
