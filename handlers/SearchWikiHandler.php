@@ -55,7 +55,7 @@ class SearchWikiHandler extends YesWikiHandler
                     $tables = ['acls','links','nature','pages','referrers','triples','users'];
                     $allTablesfound = true;
                     foreach ($tables as $table) {
-                        $result = mysqli_query($conn, 'SHOW TABLES LIKE "'.$wakkaConfig['table_prefix'].'acls"');
+                        $result = mysqli_query($conn, "SHOW TABLES LIKE \"{$wakkaConfig['table_prefix']}$table\"");
                         if (mysqli_num_rows($result) == 0) {
                             $output .= ' - Table '.$table.' non trouvée';
                             $allTablesfound = false;
