@@ -616,9 +616,14 @@ class FarmService
                 if (!empty($wakkaConfig['table_prefix'])) {
                     $fiche['url'] = $wakkaConfig['base_url'].$wakkaConfig['root_page'];
 
-                    $fiche['version'] = (empty($wakkaConfig['yeswiki_release']) ? 'Inconnue' : $wakkaConfig['yeswiki_release']);
-                    if (empty($wakkaConfig['yeswiki_release']) || ($wakkaConfig['yeswiki_release'] < $this->wiki->config['yeswiki_release'])) {
-                        $fiche['version'] .= '<br /><a class="btn btn-xs btn-danger" href="'.$this->wiki->href('', $this->wiki->GetPageTag(), 'maj='.$fiche['bf_dossier-wiki']).'">Mettre à jour vers '.$mainWikiVersion.'</a>';
+                    $fiche['version'] = empty($wakkaConfig['yeswiki_version']) ? (empty($wakkaConfig['yeswiki_release']) ? '' : 'Inconnue') : $wakkaConfig['yeswiki_version'];
+                    $fiche['version'] .= !empty($fiche['version']) ? '<br />' : '';
+
+                    $fiche['version'] .= (empty($wakkaConfig['yeswiki_release']) ? 'Inconnue' : $wakkaConfig['yeswiki_release']);
+                    if ($this->wiki->config['yeswiki_version'] !== $wakkaConfig['yeswiki_version']) {
+                        $fiche['version'] .= '<br /><i>version principale différente du wiki source</i>';
+                    } elseif (empty($wakkaConfig['yeswiki_release']) || ($wakkaConfig['yeswiki_release'] < $this->wiki->config['yeswiki_release'])) {
+                        $fiche['version'] .= '<br /><a class="btn btn-xs btn-danger" href="'.$this->wiki->href('', $this->wiki->GetPageTag(), 'maj='.$fiche['bf_dossier-wiki']).'">Mettre à jour vers '.$this->wiki->config['yeswiki_version'].'</a>';
                     } else {
                         $fiche['version'] .= '<br /><i>à jour avec le wiki source</i>';
                     }
