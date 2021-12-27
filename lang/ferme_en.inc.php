@@ -41,6 +41,9 @@ $GLOBALS['translations'] = array_merge(
     'FERME_FILE' => 'File ',
     'FERME_NOT_FOUND' => ' not found',
     'FERME_ADMIN_REQUIRED' => 'You must be part of @admins group to manage wikis',
+    'FERME_REPORT' => 'Report',
+    'FERME_INSERTION_ERROR' => 'Error for insertion n°{num} from file {file} : {errorMsg}',
+    'FERME_INSERTION' => 'Insertion n°{num} : {nbRows} line(s) affected',
 
     // for edit config
     'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',
