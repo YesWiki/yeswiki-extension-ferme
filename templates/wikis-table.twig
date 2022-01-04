@@ -35,6 +35,7 @@
             <a href="mailto:{{ wiki.bf_mail }}">{{ wiki.bf_mail }}</a>
           </td>
           <td>
+            <!-- {{ wiki.last_modification_iso }} -->
             <a class="modalbox" href="{{ wiki.dashboard_link }}">{{ wiki.last_modification }}</a> 
           </td>
           <td>
@@ -62,6 +63,23 @@
     </tbody>
   </table>
 </div> <!-- /.table-responsive -->
+<div class="btn-group pull-right">
+  <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+    <i class="fas fa-sync-alt"></i> {{ _t('FERME_UPGRADE_ALL_WIKIS') }} <span class="caret"></span>
+  </button>
+  <ul class="dropdown-menu">
+    <li>
+      <a href="{{ url({handler: 'upgradeallwikis'}) }}">
+        {{ _t('FERME_UPGRADE_ALL_WIKIS_TO_LATEST_VERSION') }}
+      </a>
+    </li>
+    <li>
+      <a href="{{ url({handler: 'upgradeallwikis', params: { updatepage: '1'}}) }}">
+        {{ _t('FERME_UPGRADE_ALL_WIKIS_AND_PAGES_TO_LATEST_VERSION') }}
+      </a>
+    </li>
+  </ul>
+</div>
 {% else %}
 <div class="alert alert-info">{{ _t('FERME_NO_WIKIS') }}.</div>
 {% endif %}

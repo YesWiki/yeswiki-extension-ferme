@@ -533,15 +533,15 @@ class FarmService
         $output = '';
         $srcfolder = getcwd().DIRECTORY_SEPARATOR;
         if ($this->wiki->config['yeswiki-farm-root-folder'] == '.') {
-            $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR.$_GET['maj']).DIRECTORY_SEPARATOR;
+            $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR.$wiki).DIRECTORY_SEPARATOR;
         } else {
             $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR
                         .$this->wiki->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
-                        .$_GET['maj']).DIRECTORY_SEPARATOR;
+                        .$wiki).DIRECTORY_SEPARATOR;
         }
 
         include_once $destfolder.'wakka.config.php';
-        $output .=  '<div class="alert alert-info">'._t('FERME_UPDATING').$_GET['maj'].'.</div>';
+        $output .=  '<div class="alert alert-info">'._t('FERME_UPDATING').$wiki.'.</div>';
 
         // nettoyage des anciens tools non utilises
         $oldFoldersToDelete = ['tools/despam', 'tools/hashcash', 'tools/ipblock', 'tools/nospam'];
@@ -565,8 +565,10 @@ class FarmService
         $config->write();
 
         // execute post update
+        $output .= 'cd '.$destfolder.';chmod +x tools/autoupdate/commands/console;tools/autoupdate/commands/console update:postupdate 2>&1';
+        $output .= shell_exec('cd '.$destfolder.';chmod +x tools/autoupdate/commands/console;tools/autoupdate/commands/console update:postupdate 2>&1');
 
-        $output .=  '<div class="alert alert-success">'._t('FERME_WIKI').$_GET['maj']._t('FERME_UPDATED').'</div>';
+        $output .=  '<div class="alert alert-success">'._t('FERME_WIKI').$wiki._t('FERME_UPDATED').'</div>';
         return $output;
     }
 
@@ -643,6 +645,7 @@ class FarmService
                     // last modified time
                     $sql = 'SELECT time FROM `'.$wakkaConfig['table_prefix'].'pages` WHERE latest="Y" ORDER BY time DESC LIMIT 1';
                     $wikiresults = $this->wiki->LoadAll($sql);
+                    $fiche['last_modification_iso'] = $wikiresults[0]['time'];
                     $date = new \DateTime($wikiresults[0]['time']);
                     $fiche['last_modification'] = $date->format('d.m.Y H:i:s');
                     $fiche['dashboard_link'] = $wakkaConfig['base_url'].'TableauDeBord';

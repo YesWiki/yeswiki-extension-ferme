@@ -58,6 +58,9 @@ $GLOBALS['translations'] = array_merge(
     'FERME_BACKUP' => 'Archive de sauvegarde du wiki',
     'FERME_NOT_POSSIBLE_TO_IMPORT_MODEL' => 'Il n\' pas été possible d\'importer le modèle',
     'FERME_SEARCH_FOR_WIKIS' => 'Rechercher d\'autres wikis sur ce serveur',
+    'FERME_UPGRADE_ALL_WIKIS' => 'Mettre à jour tous les wikis',
+    'FERME_UPGRADE_ALL_WIKIS_TO_LATEST_VERSION' => 'Mettre à jour le logiciel',
+    'FERME_UPGRADE_ALL_WIKIS_AND_PAGES_TO_LATEST_VERSION' => 'Mettre à jour le logiciel et les pages par défaut',
 
     // Action Builder
     'AB_FERME_GROUP_LABEL' => 'Ferme',
