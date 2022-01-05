@@ -463,7 +463,7 @@ class FarmService
                 ];
 
                 $notExistingTables = array_filter(
-                    ['pages,links,acls,triples,nature,referrers,users'],
+                    ['pages','links','acls','triples','nature','referrers','users'],
                     function ($tableName) use ($link, $prefix) {
                         return (mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE '$prefix$tableName'")) === 0);
                     }
@@ -561,7 +561,7 @@ class FarmService
         foreach ($notExistingTables as $tableName) {
             try {
                 if (mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE \"$prefix$tableName\";")) !== 0
-                    && mysqli_num_rows(mysqli_query($link, "SELECT * FROM \`$prefix$tableName`;")) === 0) {
+                    && mysqli_num_rows(mysqli_query($link, "SELECT * FROM `$prefix$tableName`;")) === 0) {
                     mysqli_query($link, "DROP TABLE IF EXISTS `$prefix$tableName`;");
                 }
             } catch (\Throwable $th2) {
