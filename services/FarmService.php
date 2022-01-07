@@ -462,16 +462,42 @@ class FarmService
                     'rootPage' => $config['root_page'],
                 ];
 
+                $notExistingTables = array_filter(
+                    ['pages','links','acls','triples','nature','referrers','users'],
+                    function ($tableName) use ($link, $prefix) {
+                        return (mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE '$prefix$tableName'")) === 0);
+                    }
+                );
+
                 // default tables
-                $sqlReport = $this->querySqlFile($link, 'setup/sql/create-tables.sql', $replacements).'<hr />';
+                mysqli_begin_transaction($link);
+                mysqli_autocommit($link, false);
+                try {
+                    $sqlReport = $this->querySqlFile($link, 'setup/sql/create-tables.sql', $replacements).'<hr />';
+                } catch (\Throwable $th) {
+                    $this->resetSQLTransactionWhenError($link, $notExistingTables, $prefix);
+                    throw $th;
+                }
 
                 // get the datas to insert from the model
                 $sqlfilepath = $_POST['yeswiki-farm-model'] == 'default-content' ?
                     'setup/sql/default-content.sql'
                     : 'custom/wiki-models/' . $_POST['yeswiki-farm-model'] . '/default-content.sql';
-                $sqlReport .= $this->querySqlFile($link, $sqlfilepath, $replacements);
+                try {
+                    $sqlReport .= $this->querySqlFile($link, $sqlfilepath, $replacements);
+                } catch (\Throwable $th) {
+                    $this->resetSQLTransactionWhenError($link, $notExistingTables, $prefix);
+                    throw $th;
+                }
+                mysqli_commit($link);
+                mysqli_autocommit($link, true);
+
                 if (!empty($_GET['debug']) || $this->wiki->config['debug'] == 'yes') {
-                    $this->wiki->SetMessage($sqlReport);
+                    if (function_exists('flash')) {
+                        flash($sqlReport, 'success');
+                    } else {
+                        $this->wiki->SetMessage($sqlReport);
+                    }
                 }
 
                 if ($_POST['yeswiki-farm-model'] != 'default-content') {
@@ -525,6 +551,21 @@ class FarmService
             .' VALUES (\'ThisWikiGroup:'.$this->wiki->config['yeswiki-farm-group']['groupname'].'\','
             .' \'http://www.wikini.net/_vocabulary/acls\', \''.implode("\n", explode(',', $users)).'\');';
             $this->wiki->Query($addsql);
+        }
+    }
+
+    private function resetSQLTransactionWhenError($link, $notExistingTables, $prefix)
+    {
+        mysqli_rollback($link);
+        mysqli_autocommit($link, true);
+        foreach ($notExistingTables as $tableName) {
+            try {
+                if (mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE \"$prefix$tableName\";")) !== 0
+                    && mysqli_num_rows(mysqli_query($link, "SELECT * FROM `$prefix$tableName`;")) === 0) {
+                    mysqli_query($link, "DROP TABLE IF EXISTS `$prefix$tableName`;");
+                }
+            } catch (\Throwable $th2) {
+            }
         }
     }
 
@@ -741,6 +782,7 @@ class FarmService
 
     /**
      * replace tokens in sql file and query sql
+     * inspired from /setup/install.helpers.php ->querySqlFile()
      *
      * @param object $dblink mysqli link resource
      * @param string $sqlFile patho to sql file
@@ -758,49 +800,41 @@ class FarmService
                     $sql
                 );
             }
-            $queries = $this->splitQueries($sql);
-            foreach ($queries as $index => $query) {
-                if (!mysqli_query($dblink, $query)) {
-                    throw new \Exception(_t('FERME_INSERTION_ERROR').' n°' . ($index + 1) . ' : ' . mysqli_error($dblink));
+            // first statements
+            $index = 1;
+            if (!mysqli_multi_query($dblink, $sql)) {
+                throw new \Exception(str_replace(
+                    ['{num}','{file}','{errorMsg}'],
+                    [$index,$sqlFile,mysqli_error($dblink)],
+                    _t('FERME_INSERTION_ERROR')
+                ));
+            } else {
+                $sqlReport .= str_replace(
+                    ['{num}','{nbRows}'],
+                    [$index,mysqli_affected_rows($dblink)],
+                    _t('FERME_INSERTION')
+                ).'<br/>';
+                while (mysqli_more_results($dblink)) {
+                    $index = $index + 1;
+                    if (!mysqli_next_result($dblink)) {
+                        throw new \Exception(str_replace(
+                            ['{num}','{file}','{errorMsg}'],
+                            [$index,$sqlFile,mysqli_error($dblink)],
+                            _t('FERME_INSERTION_ERROR')
+                        ));
+                    } else {
+                        $sqlReport .= str_replace(
+                            ['{num}','{nbRows}'],
+                            [$index,mysqli_affected_rows($dblink)],
+                            _t('FERME_INSERTION')
+                        ).'<br/>';
+                    }
                 }
-                $sqlReport .= _t('FERME_INSERTION'). ' n°' . ($index + 1) . ' : ' . mysqli_affected_rows($dblink) . ' ' ._t('FERME_LINE_AFFECTED') . '<br/>';
             }
         } else {
             throw new \Exception(_t('SQL_FILE_NOT_FOUND') . ' "' . $sqlFile . '".');
         }
         return $sqlReport;
-    }
-
-    /**
-     * Extract from the a sql string the differents queries which compose it
-     * Each query is finished by a semicolon but this semicolon have not to be inside simple quotes : '. Moreover, inside two
-     * quotes it's possible to have escaped quotes : \'.
-     * Caution 1 : the double quotes are not recognized
-     * Caution 2 : not to insert the char ' inside the sql comments : #
-     * The last query don't need to be finished by a semi colon.
-     * @param string $raw the sql raw string containing all the sql statements
-     * @return array the array of queries (string)
-     */
-    private function splitQueries(string $raw): array
-    {
-        $open = false;
-        $buffer = '';
-        $queries = [];
-        for ($i = 0, $l = strlen($raw); $i < $l; $i++) {
-            if ($raw[$i] == ';' && !$open) {
-                $queries[] = trim($buffer) . ';';
-                $buffer = '';
-                continue;
-            }
-            if ($raw[$i] == "'" && ($i == 0 || $raw[$i-1] != '\\')) {
-                $open = $open ? false : true;
-            }
-            $buffer .= $raw[$i];
-        }
-        if (trim($buffer)) {
-            $queries[] = trim($buffer);
-        }
-        return $queries;
     }
 
     public function getModelLabels()
