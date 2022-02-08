@@ -535,7 +535,7 @@ class FarmService
         }
 
         // creation d'un groupe et ajout des membres
-        if (is_array($this->wiki->config['yeswiki-farm-group'])) {
+        if (isset($this->wiki->config['yeswiki-farm-group']) && is_array($this->wiki->config['yeswiki-farm-group'])) {
             // generation du prefixe
             $tripletable = $this->wiki->config['yeswiki-farm-prefix'].str_replace('-', '_', $entry[$fieldName]).'__triples';
 
@@ -749,7 +749,7 @@ class FarmService
                 }
             }
             return true;
-        } elseif (is_file($path)) {
+        } elseif (is_file($path) && file_exists($path)) {
             return copy($path, $dest);
         } else {
             return false;
