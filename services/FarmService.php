@@ -3,6 +3,8 @@
 namespace YesWiki\Ferme\Service;
 
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use YesWiki\Wiki;
 use YesWiki\Bazar\Service\EntryManager;
 
@@ -617,18 +619,28 @@ class FarmService
     {
         $entryManager = $this->wiki->services->get(EntryManager::class);
         if ($entryManager->isEntry($id) && !empty($_GET['confirme']) && $_GET['confirme'] == 'oui' && ($this->wiki->UserIsOwner() || $this->wiki->UserIsAdmin())) {
-            $tab_valeurs = $entryManager->getOne($this->wiki->GetPageTag());
-            if (isset($tab_valeurs["bf_dossier-wiki"]) && !empty($tab_valeurs["bf_dossier-wiki"])) {
-                $src = realpath(getcwd().'/'.(!empty($this->wiki->config['yeswiki-farm-root-folder']) ? $this->wiki->config['yeswiki-farm-root-folder'] : '.').'/'.$tab_valeurs["bf_dossier-wiki"]);
-                if (is_dir($src)) {
-                    // get the table prefix from the real config file, it's more secure
-                    $config = $this->getWikiConfig($tab_valeurs["bf_dossier-wiki"]);
-                    // supprimer le wiki
-                    $this->rrmdir($src);
-                    // supprime les tables mysql
-                    $prefix = $config['table_prefix'];
-                    $query = 'DROP TABLE `'.$prefix.'acls`, `'.$prefix.'links`, `'.$prefix.'nature`, `'.$prefix.'pages`, `'.$prefix.'referrers`, `'.$prefix.'triples`, `'.$prefix.'users`;';
-                    $this->wiki->Query($query);
+            $csrfModeAvailable = $this->wiki->services->has(CsrfTokenManager::class);
+            if ($csrfModeAvailable) {
+                $inputToken = filter_input(INPUT_POST, 'crsf-token', FILTER_SANITIZE_STRING);
+                if (!is_null($inputToken) && $inputToken !== false) {
+                    $token = new CsrfToken("handler\deletepage\\$id", $inputToken);
+                }
+            }
+
+            if (!$csrfModeAvailable || (isset($token) && $this->wiki->services->get(CsrfTokenManager::class)->isTokenValid($token))) {
+                $tab_valeurs = $entryManager->getOne($this->wiki->GetPageTag());
+                if (isset($tab_valeurs["bf_dossier-wiki"]) && !empty($tab_valeurs["bf_dossier-wiki"])) {
+                    $src = realpath(getcwd().'/'.(!empty($this->wiki->config['yeswiki-farm-root-folder']) ? $this->wiki->config['yeswiki-farm-root-folder'] : '.').'/'.$tab_valeurs["bf_dossier-wiki"]);
+                    if (is_dir($src)) {
+                        // get the table prefix from the real config file, it's more secure
+                        $config = $this->getWikiConfig($tab_valeurs["bf_dossier-wiki"]);
+                        // supprimer le wiki
+                        $this->rrmdir($src);
+                        // supprime les tables mysql
+                        $prefix = $config['table_prefix'];
+                        $query = 'DROP TABLE `'.$prefix.'acls`, `'.$prefix.'links`, `'.$prefix.'nature`, `'.$prefix.'pages`, `'.$prefix.'referrers`, `'.$prefix.'triples`, `'.$prefix.'users`;';
+                        $this->wiki->Query($query);
+                    }
                 }
             }
         }
