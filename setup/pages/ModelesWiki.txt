@@ -1,5 +1,5 @@
 {{grid}}
-{{col size="2"}}{{nav class="nav-admin-wikis nav nav-pills nav-stacked" links="AjouterWiki,AdminWikis, ContactWikis, ModelesWiki" titles="Nouveau wiki, Wikis, Emails usagers, Modèles de wiki"}}{{end elem="col"}}
+{{col size="2"}}{{nav class="nav-admin-wikis nav nav-pills nav-stacked" links="AjouterWiki, AdminWikis, ModelesWiki" titles="Nouveau wiki, Wikis, Modèles de wiki"}}{{end elem="col"}}
 {{col size="10"}}
 {{generatemodel}}
 {{end elem="col"}}
