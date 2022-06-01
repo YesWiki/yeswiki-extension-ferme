@@ -70,8 +70,10 @@ $GLOBALS['translations'] = array_merge(
     'AB_FERME_GENERATEMODEL_TEMPLATE_HINT' => 'Vide = generate-model.twig',
 
     // for edit config
-    'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Id du formulaire pour la ferme',
     'EDIT_CONFIG_GROUP_FERME' => 'Ferme',
-
+    'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Id du formulaire pour la ferme',
+    'EDIT_CONFIG_HINT_YESWIKI-FARM-ADMIN-NAME' => 'Login du super admin',
+    'EDIT_CONFIG_HINT_YESWIKI-FARM-ADMIN-PASS' => 'Pass du super admin',
+    'EDIT_CONFIG_HINT_YESWIKI-FARM-EXTRA-THEMES' => 'Thèmes supplémentaires (doivent être présents dans le dossier thèmes du wiki source)',
     )
 );
