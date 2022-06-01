@@ -1,5 +1,6 @@
 parameters:
   bazar_farm_id: 1100
+  yeswiki-farm-root-folder: '.'
   contact_wikis:
     default_template: 'list-email.twig'
   yeswiki_empty_folders:
@@ -64,7 +65,11 @@ parameters:
   # for edit config action
   ferme_editable_config_params:
     - 'bazar_farm_id'
-
+    - 'yeswiki-farm-root-folder'
+    - 'yeswiki-farm-root-url'
+    - 'yeswiki-farm-admin-name'
+    - 'yeswiki-farm-admin-pass'
+    - 'yeswiki-farm-extra-themes'
 services:
   _defaults:
     autowire: true
