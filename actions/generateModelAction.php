@@ -1,10 +1,13 @@
 <?php
 
+use YesWiki\Core\Service\DbService;
 use YesWiki\Core\YesWikiAction;
 use YesWiki\Ferme\Service\FarmService;
 
 class GenerateModelAction extends YesWikiAction
 {
+    protected $dbService;
+
     public function formatArguments($args)
     {
         return [
@@ -21,6 +24,8 @@ class GenerateModelAction extends YesWikiAction
         $output = '';
         if ($this->wiki->UserIsAdmin()) {
             $farm = $this->getService(FarmService::class);
+            $this->dbService = $this->getService(DbService::class);
+
             $farm->initFarmConfig();
             // a model will be imported
             if (!is_null($this->arguments['wiki-import-forms'])) {
@@ -140,17 +145,39 @@ class GenerateModelAction extends YesWikiAction
         $forms = json_decode(html_entity_decode($data["wiki-import-forms"]), 1);
         if (is_array($forms) && !empty($forms)) {
             $sql .= '# Bazar forms'."\n";
+            $formDefault = [
+                'bn_id_nature' => "",
+                'bn_label_nature' => "",
+                'bn_description' => "",
+                'bn_condition' => "",
+                'bn_sem_context' => "",
+                'bn_sem_type' => "",
+                'bn_sem_use_template' => "1",
+                'bn_template' => "",
+                'bn_ce_i18n' => "fr-FR",
+                'bn_only_one_entry' => 'bn_only_one_entry',
+                'bn_only_one_entry_message' => "",
+            ];
             foreach ($forms as $form) {
-                $tabforms[] = "('".$form['bn_id_nature'] . "', '" . addslashes($form['bn_label_nature'])
-                    . "', '" . addslashes($form['bn_description']) . "', '" . addslashes($form['bn_condition'])
-                    . "', '" . (!empty($form['bn_sem_context'] ? addslashes($form['bn_sem_context']) : ''))
-                    . "', '" . (!empty($form['bn_sem_type'] ? addslashes($form['bn_sem_type']) : ''))
-                    . "', '" . (!empty($form['bn_sem_use_template'] ? addslashes($form['bn_sem_use_template']) : "1"))
-                    . "', '" . addslashes($form['bn_template'])."', 'fr-FR')";
+                $tabforms[] = "(".
+                    implode(
+                        ', ',
+                        array_map(
+                            function ($key) use ($formDefault, $form) {
+                                return empty($form[$key])
+                                    ? "'{$formDefault[$key]}'"
+                                    : "'{$this->dbService->escape($form[$key])}'";
+                            },
+                            array_keys($formDefault)
+                        )
+                    ).
+                    ")";
             }
-            $sql .= "INSERT INTO `{{prefix}}nature` (`bn_id_nature`, `bn_label_nature`"
-                .", `bn_description`, `bn_condition`, `bn_sem_context`, `bn_sem_type`"
-                .", `bn_sem_use_template`, `bn_template`, `bn_ce_i18n`)"
+            $sql .= "INSERT INTO `{{prefix}}nature` ("
+                .implode(', ', array_map(function ($key) {
+                    return "`$key`";
+                }, array_keys($formDefault)))
+                .")"
                 ." VALUES\n".implode(','."\n", $tabforms).";\n";
             $sql .= '# end Bazar forms'."\n\n";
         }
