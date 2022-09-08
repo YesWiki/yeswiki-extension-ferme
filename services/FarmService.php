@@ -621,7 +621,8 @@ class FarmService
         if ($entryManager->isEntry($id) && !empty($_GET['confirme']) && $_GET['confirme'] == 'oui' && ($this->wiki->UserIsOwner() || $this->wiki->UserIsAdmin())) {
             $csrfModeAvailable = $this->wiki->services->has(CsrfTokenManager::class);
             if ($csrfModeAvailable) {
-                $inputToken = filter_input(INPUT_POST, 'csrf-token', FILTER_SANITIZE_STRING);
+                $inputToken = filter_input(INPUT_POST, 'csrf-token', FILTER_UNSAFE_RAW);
+                $inputToken = in_array($inputToken,[false,null],true) ? $inputToken : htmlspecialchars(strip_tags($inputToken));
                 if (!is_null($inputToken) && $inputToken !== false) {
                     $token = new CsrfToken("handler\deletepage\\$id", $inputToken);
                 }
