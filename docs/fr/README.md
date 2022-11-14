@@ -1,14 +1,16 @@
 # Extension ferme
 
 **Ferme, ou comment créer des wiki depuis votre wiki**
-Vous aimez ""YesWiki"" ? Avec l'extention ferme, il vous suffira de remplir un formulaire et vous aurez un nouveau wiki !
+
+Vous aimez YesWiki ? Avec l'extention ferme, il vous suffira de remplir un formulaire et vous aurez un nouveau wiki !
 {{label class="label-danger" }}Attention{{end elem="label"}} Le clic est facile, cette extention peut devenir addictive, elle est donc à tenir éloignée des enfants. En effet, il est facile de créer des wiki, il faut penser qu'il faudra ensuite les faire vivre et les maintenir... Certes, la ferme vous aidera à les maintenir mais rien de pire que des wiki inutiles, qui laissent à penser que la coopération, ça ne fonctionne pas.
 
 **Préambule**
-L'extension "Ferme" a été développée principalement par Mrflos, alias, {{button class="new-window" link="http://www.cooperations.infini.fr/spip.php?article10947" nobtn="1" text="Florian Schmitt"}}.
-Elle correspond aux besoins, souvent énoncés par les usagers de ""YesWiki"", de pouvoir générer facilement des wiki sans avoir à passer par des fonctionnalités complexes tels que le FTP et la maîtrise des codes Mysql de leur serveur ;-)
 
-**Ce que la ferme permet de : **
+L'extension "Ferme" a été développée principalement par Mrflos, alias, {{button class="new-window" link="http://www.cooperations.infini.fr/spip.php?article10947" nobtn="1" text="Florian Schmitt"}}.
+Elle correspond aux besoins, souvent énoncés par les usagers de YesWiki, de pouvoir générer facilement des wiki sans avoir à passer par des fonctionnalités complexes tels que le FTP et la maîtrise des codes Mysql de leur serveur ;-)
+
+**Ce que la ferme permet de :**
  - **retrouver tous les wiki installés sur votre serveur** et de pouvoir les administrer facilement au travers d'une interface dédiée
  - **récupérer les mails** (bientôt) de tous les gestionnaires des wiki de la ferme pour pouvoir les informer de...
  - **créer de nouveaux wiki** au travers d'un formulaire à remplir
@@ -24,7 +26,7 @@ Et vous allez certainement inventer pleins de nouveaux usages !!!
 
 ## Les actions 
 
-Nous allons passer en revue les actions proposées par l'extension Ferme. Cette première découverte restera limitée aux fondamentaux que nous approfondirons lors du module suivant.
+Nous allons passer en revue les actions proposées par l'extension Ferme.
 
 ### Administrer les wikis de votre ferme : {{adminwikis}}
 Quand vous installez la ferme, à partir de "Gestion ferme à wikis" dans molette, vous accédez à la page suivante :
@@ -37,11 +39,11 @@ Si l'on liste les informations disponibles, vous obtenez :
  -  **Derniers changements** : La date du dernier changements sur ce wiki, pratique pour suivre l'activité. Quand on clique dessus, un pop-up avec les derniers changements du site s'affiche.
  -  **Admin temporaire** : selon votre configuration, un super admin pourra être installé sur ce wiki qui vous permettra de passer de l'un à l'autre, de le gérer sans avoir à gérer de nombreux mots de passe. Vous pourrez, ici, ajouter le super admin à ce wiki ou le supprimer.
  -  **Version du wiki** : vous pourrez mettre à jour votre wiki pour l'aligner sur la version du wiki qui héberge la ferme. En bas de cette colonne, il vous sera proposé de mettre à jour tous les wiki et éventuellement les pages par défaut
- -  **Actions** : là, 4 petits boutons vous permettent...
-  -  ""<i class="fa fa-eye"></i>"" de voir la fiche bazar correspondant à ce wiki
-  -  ""<i class="fa fa-pencil-alt"></i>"" d'éditer cette fiche pour en changer les valeurs
-  -  ""<i class="fas fa-file-archive"></i>"" de créer une archive de sauvegarde du wiki
-  -  ""<i class="fa fa-trash"></i>"" de supprimer ce wiki ainsi que la fiche liée
+-  **Actions** : là, 4 petits boutons vous permettent...
+ -  <i class="fa fa-eye"></i> de voir la fiche bazar correspondant à ce wiki
+ -  <i class="fa fa-pencil-alt"></i> d'éditer cette fiche pour en changer les valeurs
+ -  <i class="fas fa-file-archive"></i> de créer une archive de sauvegarde du wiki
+ -  <i class="fa fa-trash"></i> de supprimer ce wiki ainsi que la fiche liée
 
 {{attach file="basdepagebis.png" desc="image basdepage.png (0.1MB)" size="big" class="center"}}
 En bas de cette page 
@@ -54,9 +56,9 @@ Votre wiki est créé. Rien de complexe. Par défaut, ne vous sera proposé qu'u
 {{attach file="nouveauwiki.png" desc="image nouveauwiki.png (0.1MB)" size="original" class="center"}}
 
 ### Créer un modèle de wiki : {{generatemodel}}
-Page très intéressante, elle vous permet, en indiquant l'adresse d'un autre wiki que vous avez fabriqué ou qui vous semble intéressant comme base, d'en fabriquer un modèle qui sera ensuite proposé dans les choix d'installation.
+Cette page très intéressante vous permet, en indiquant l'adresse d'un autre wiki que vous avez fabriqué ou qui vous semble intéressant comme base, d'en fabriquer un modèle qui sera ensuite proposé dans les choix d'installation.
 {{attach file="nouveauModele.png" desc="image nouveauModele.png (89.5kB)" size="big" class="center"}}
-Sont fonctionnement est relativement aisé :
+Son fonctionnement est relativement aisé :
  - Entrer l'adresse du wiki que vous avez concocté comme modèle ou d'un wiki qui vous inspire
  - Cliquer sur "importer"
  - Cliquer sur "Générer le fichier MYSQL modèle pour ce wiki"
@@ -66,7 +68,7 @@ Sont fonctionnement est relativement aisé :
 
 ## Elements configurables
 ### Création de comptes super admin pour administrer des wikis hébergés
-{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
+!> Activable dans "Fichier de conf"
  - ajouter un super administrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ;
  - de supprimer, pour chaque wiki le compte superadmin.
 Pour ce faire deux solutions
@@ -79,7 +81,7 @@ Pour ce faire deux solutions
 Ceci fait apparaître un bouton "ajouter le compte" en regard de chaque wiki dans la page d'administration des wikis. Une fois qu'on s'est créé un compte super admin pour un wiki, le bouton en regard du wiki dans la page d'administration des wikis devient rouge avec le libellé "supprimer le compte". Appuyer sur ce bouton ne supprime le compte super administrateur que sur le wiki en question.
 
 ### Dossier de stockage des wikis
-{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
+!> Activable dans "Fichier de conf"
 
 Par défaut, lorsqu'un wiki est créé dans la ferme, les fichiers de ce wikis sont placés dans un dossier portant le nom du wiki et placé à la racine du wiki de la ferme. Si vous souhaitez que les dossiers de vos wikis ne soient pas mélés à ceux qui sont nécessaires à la ferme, vous pouvez paramétrer le comportement de votre ferme à cet égard. Il est nécessaire de jouer sur deux paramètres :
  - le nom du dossier de stockage des wikis,
