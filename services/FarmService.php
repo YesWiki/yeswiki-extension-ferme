@@ -211,9 +211,13 @@ class FarmService
 
     public function addFarmAdmin($wiki)
     {
-        $wikiConf = $this->getWikiConfig($wiki);
+        $wikiConf = $this->getWikiConfig($wiki);   
         if (!empty($this->wiki->config['yeswiki-farm-admin-name']) && !empty($this->wiki->config['yeswiki-farm-admin-pass'])) {
             if (!empty($wikiConf['table_prefix'])) {
+                // change database
+                $sql =  'USE '.$wikiConf['mysql_database'].';';
+                $this->wiki->query($sql);
+
                 $sql = 'SELECT value FROM `'.$wikiConf['table_prefix'].'triples` WHERE resource = "ThisWikiGroup:admins";';
                 $list = $this->wiki->LoadSingle($sql);
                 $list = explode("\n", $list['value']);
@@ -227,6 +231,11 @@ class FarmService
 
                 $sql = 'INSERT INTO `'.$wikiConf['table_prefix'].'users` (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) VALUES (\''.$this->wiki->config['yeswiki-farm-admin-name'].'\', MD5(\''.$this->wiki->config['yeswiki-farm-admin-pass'].'\'), \'\', \'\', \'20\', \'50\', \'Y\', NOW(), \'N\')';
                 $this->wiki->Query($sql);
+
+                // back to main database
+                $sql =  'USE '.$this->wiki->config['mysql_database'].';';
+                $this->wiki->query($sql);
+                
                 return [
                     'success' => [_t('Super user added for the wiki').' :'. $wiki . '.']
                 ];
@@ -246,6 +255,10 @@ class FarmService
     {
         $wikiConf = $this->getWikiConfig($wiki);
         if (!empty($wikiConf['table_prefix'])) {
+            // change database
+            $sql =  'USE '.$wikiConf['mysql_database'].';';
+            $this->wiki->query($sql);
+
             $sql = 'SELECT value FROM `'.$wikiConf['table_prefix'].'triples` WHERE resource = "ThisWikiGroup:admins";';
             $list = $this->wiki->LoadSingle($sql);
             $list = explode("\n", $list['value']);
@@ -259,6 +272,10 @@ class FarmService
 
             $sql = 'DELETE FROM '.$wikiConf['table_prefix'].'users WHERE name="'.$this->wiki->config['yeswiki-farm-admin-name'].'";';
             $this->wiki->Query($sql);
+
+            // back to main database
+            $sql =  'USE '.$this->wiki->config['mysql_database'].';';
+            $this->wiki->query($sql);
         }
     }
 
@@ -426,7 +443,7 @@ class FarmService
                 }
 
                 // convert config array into PHP code
-                $configCode = "<?php\n// wakka.config.php "._t('CREATED')." ".strftime("%c")."\n// ".
+                $configCode = "<?php\n// wakka.config.php "._t('CREATED')." ".date("Y-m-d H:i:s")."\n// ".
                                 _t('DONT_CHANGE_YESWIKI_VERSION_MANUALLY')." !\n\n\$wakkaConfig = ";
                 $configCode .= var_export($config, true) . ";\n?>";
 
@@ -527,7 +544,7 @@ class FarmService
                 if (!empty($entry["yeswiki-farm-options"])) {
                     $taboptions = explode(',', $entry["yeswiki-farm-options"]);
                     foreach ($taboptions as $option) {
-                        $this->wiki->Query('UPDATE `'.$prefix.'__pages` SET body=CONCAT(body, "'.utf8_decode($this->wiki->config['yeswiki-farm-options'][$option]['content']).'") WHERE tag="'.$this->wiki->config['yeswiki-farm-options'][$option]['page'].'" AND latest="Y";');
+                        $this->wiki->Query('UPDATE `'.$prefix.'__pages` SET body=CONCAT(body, "'.$this->wiki->config['yeswiki-farm-options'][$option]['content'].'") WHERE tag="'.$this->wiki->config['yeswiki-farm-options'][$option]['page'].'" AND latest="Y";');
                     }
                 }
             } else {
@@ -684,6 +701,10 @@ class FarmService
                         $fiche['version'] .= '<br /><i>à jour avec le wiki source</i>';
                     }
 
+                    // we use database name of local wiki 
+                    $sql =  'USE '.$wakkaConfig['mysql_database'].';';
+                    $this->wiki->query($sql);
+
                     // test de la presence d'un admin pour la ferme
                     if (!empty($this->wiki->config['yeswiki-farm-admin-name']) and !empty($this->wiki->config['yeswiki-farm-admin-pass'])) {
                         $sql = 'SELECT name FROM '.$wakkaConfig['table_prefix'].'users WHERE name="'.$this->wiki->config['yeswiki-farm-admin-name'].'"';
@@ -703,6 +724,10 @@ class FarmService
                     $date = new \DateTime($wikiresults[0]['time']);
                     $fiche['last_modification'] = $date->format('d.m.Y H:i:s');
                     $fiche['dashboard_link'] = $wakkaConfig['base_url'].'TableauDeBord';
+
+                    // we go back to main wiki database
+                    $sql =  'USE '.$this->wiki->config['mysql_database'].';';
+                    $this->wiki->query($sql);
                 }
                 $fiches[$i] = $fiche;
             } else {
