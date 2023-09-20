@@ -107,7 +107,7 @@ class FarmService
             $this->wiki->config['yeswiki-farm-acls'][0]['label'] = 'Wiki ouvert';
             $this->wiki->config['yeswiki-farm-acls'][0]['read'] = '*';
             $this->wiki->config['yeswiki-farm-acls'][0]['write'] = '*';
-            $this->wiki->config['yeswiki-farm-acls'][0]['comments'] = '+';
+            $this->wiki->config['yeswiki-farm-acls'][0]['comments'] = 'comments-closed';
         } else {
             // verifier l'existence des acls
             foreach ($this->wiki->config['yeswiki-farm-acls'] as $key => $acls) {
@@ -211,7 +211,7 @@ class FarmService
 
     public function addFarmAdmin($wiki)
     {
-        $wikiConf = $this->getWikiConfig($wiki);   
+        $wikiConf = $this->getWikiConfig($wiki);
         if (!empty($this->wiki->config['yeswiki-farm-admin-name']) && !empty($this->wiki->config['yeswiki-farm-admin-pass'])) {
             if (!empty($wikiConf['table_prefix'])) {
                 // change database
@@ -235,7 +235,7 @@ class FarmService
                 // back to main database
                 $sql =  'USE '.$this->wiki->config['mysql_database'].';';
                 $this->wiki->query($sql);
-                
+
                 return [
                     'success' => [_t('Super user added for the wiki').' :'. $wiki . '.']
                 ];
@@ -701,7 +701,7 @@ class FarmService
                         $fiche['version'] .= '<br /><i>à jour avec le wiki source</i>';
                     }
 
-                    // we use database name of local wiki 
+                    // we use database name of local wiki
                     $sql =  'USE '.$wakkaConfig['mysql_database'].';';
                     $this->wiki->query($sql);
 
