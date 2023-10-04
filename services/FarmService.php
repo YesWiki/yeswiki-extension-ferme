@@ -380,6 +380,7 @@ class FarmService
                 $this->wiki->config['yeswiki-farm-fav-theme'] = $theme['theme'];
                 $this->wiki->config['yeswiki-farm-fav-style'] = $theme['style'];
                 $this->wiki->config['yeswiki-farm-fav-squelette'] = $theme['squelette'];
+                $this->wiki->config['yeswiki-farm-fav-preset'] = $theme['preset'];
                 $this->wiki->config['yeswiki-farm-bg-img'] = isset($theme['bg-img']) ? $theme['bg-img'] : '';
 
                 // generation du prefixe
@@ -422,6 +423,7 @@ class FarmService
                       'favorite_theme' => $this->wiki->config['yeswiki-farm-fav-theme'],
                       'favorite_style' => $this->wiki->config['yeswiki-farm-fav-style'],
                       'favorite_squelette' => $this->wiki->config['yeswiki-farm-fav-squelette'],
+                      'favorite_preset' => $this->wiki->config['yeswiki-farm-fav-preset'],
                       'favorite_background_image' => $this->wiki->config['yeswiki-farm-bg-img'],
                       'source_url' =>  $this->wiki->href('', $entry['id_fiche']),
                       'db_charset' =>  'utf8mb4',
