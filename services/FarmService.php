@@ -327,12 +327,22 @@ class FarmService
             if (is_writable($this->wiki->config['yeswiki-farm-root-folder'])) {
                 // create root folder and empty folders
                 foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
-                    mkdir($destfolder.$folder, 0777, true);
+                    // mise a jour des fichier de YesWiki qui ne sont pas des symlink
+                    if (!in_array($folder, $this->wiki->config['yeswiki_symlinked_files'])) {
+                        mkdir($destfolder.$folder, 0777, true);
+                    }
                 }
 
                 // main yeswiki files
                 foreach ($this->wiki->config['yeswiki_files'] as $file) {
-                    $this->copyRecursive($srcfolder.$file, $destfolder.$file);
+                    if (!in_array($file, $this->wiki->config['yeswiki_symlinked_files'])) {
+                        $this->copyRecursive($srcfolder.$file, $destfolder.$file);
+                    }
+                }
+
+                // symlinked files
+                foreach ($this->wiki->config['yeswiki_symlinked_files'] as $file) {
+                    symlink($srcfolder.$file, $destfolder.$file);
                 }
 
                 // extra themes
@@ -598,14 +608,14 @@ class FarmService
             $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR.$wiki).DIRECTORY_SEPARATOR;
         } else {
             $destfolder = realpath(getcwd().DIRECTORY_SEPARATOR
-                        .$this->wiki->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
-                        .$wiki).DIRECTORY_SEPARATOR;
+                .$this->wiki->config['yeswiki-farm-root-folder'].DIRECTORY_SEPARATOR
+                .$wiki).DIRECTORY_SEPARATOR;
         }
 
         include_once $destfolder.'wakka.config.php';
         $output .=  '<div class="alert alert-info">'._t('FERME_UPDATING').$wiki.'.</div>';
 
-        // nettoyage des anciens tools non utilises
+        // nettoyage des anciens tools non utilises TODO : make a migration
         $oldFoldersToDelete = ['tools/despam', 'tools/hashcash', 'tools/ipblock', 'tools/nospam'];
         foreach ($oldFoldersToDelete as $folderToDelete) {
             if (is_dir($destfolder.$folderToDelete)) {
@@ -613,9 +623,27 @@ class FarmService
             }
         }
 
-        // mise a jour des fichier de YesWiki
+        // mise a jour des fichier de YesWiki qui ne sont pas des symlink
         foreach ($this->wiki->config['yeswiki_files'] as $file) {
-            $this->copyRecursive($srcfolder.$file, $destfolder.$file);
+            if (!in_array($file, $this->wiki->config['yeswiki_symlinked_files'])){
+                if (
+                    file_exists($destfolder.$file)
+                    && !in_array($file, $this->wiki->config['yeswiki_empty_folders'])
+                ) {
+                    $this->rrmdir($destfolder.$file);
+                }
+                $this->copyRecursive($srcfolder.$file, $destfolder.$file);
+            }
+        }
+        // mise a jour des fichier de YesWiki qui ne sont pas des symlink
+        foreach ($this->wiki->config['yeswiki_symlinked_files'] as $file) {
+            if (
+                file_exists($destfolder.$file)
+                && !in_array($file, $this->wiki->config['yeswiki_empty_folders'])
+            ) {
+                $this->rrmdir($destfolder.$file);
+            }
+            symlink($srcfolder.$file, $destfolder.$file);
         }
 
         // change the config file to update yeswiki version

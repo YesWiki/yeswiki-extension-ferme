@@ -3,12 +3,16 @@ parameters:
   yeswiki-farm-root-folder: '.'
   contact_wikis:
     default_template: 'list-email.twig'
+  yeswiki_symlinked_files:
+  # this can remplace files and folders from yeswiki_empty_folders and yeswiki_files
+  # by symlinking from the main wiki folder
+  # - 'custom'
   yeswiki_empty_folders:
    - 'cache'
    - 'custom'
    - 'files'
    - 'private'
-  yeswiki_files: 
+  yeswiki_files:
    - 'index.php'
    - 'composer.json'
    - 'composer.lock'
