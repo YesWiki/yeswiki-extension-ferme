@@ -1,6 +1,5 @@
 texte***bf_titre***Titre du wiki***255***255*** *** ***text***1*** *** *** * *** * *** *** ***
 texte***bf_description***Description courte***255***255*** *** ***text***1*** *** *** * *** * *** *** ***
-image***bf_image***Image représentative pour le listing des wikis***180***195***180***195***right***1*** ***Votre image sera retaillée et centrée pour s'adapter à la taille demandée*** * *** * *** *** ***
 texte***bf_referent***Nom de la personne référente du wiki***255***255*** *** ***text***1*** *** *** * *** * *** *** ***
 champs_mail***bf_mail***Email de la personne référente du wiki*** *** *** ***form*** ***1***1*** *** * *** * *** *** ***
 yeswiki***bf_dossier-wiki***Adresse URL du wiki***bf_mail*** *** *** *** ***1*** *** *** *** *** *** ***
