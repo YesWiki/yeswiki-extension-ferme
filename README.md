@@ -14,7 +14,7 @@ Permet de créer automatiquement un wiki en créant une fiche bazar
 
 ### Suppression de wiki
 
-Pour supprimer un wiki, l'interface propose un bouton poubelle pour supprimer la fiche wiki et son contenu associé.  
+Pour supprimer un wiki, l'interface propose un bouton poubelle pour supprimer la fiche wiki et son contenu associé.
 On peut aussi supprimer par l'interface de bazar. Cela déclenche la suppression du wiki en question.
 
 ### Création de comptes admins temporaires pour administrer des wikis hébergés
@@ -161,7 +161,12 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
 
   // cas spécifique ou l'on veut créer un user sur le wiki source
   'yeswiki-farm-create-user' => false,
-  
+
   // ajouter des valeurs dans le fichier de configuration des wikis créés
   'yeswiki-farm-extra-config' => ['BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'],
+
+  // dossiers a mettre en lien symbolique dans les wikis créés
+  'yeswiki_symlinked_files' => [
+    'custom', // pour avoir le meme custom de partout, et ne changer qu'a un endroit
+  ]
 ```
