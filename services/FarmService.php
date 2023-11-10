@@ -97,6 +97,10 @@ class FarmService
             }
         }
 
+        if (is_null($this->wiki->config['yeswiki_symlinked_files'])) {
+            $this->wiki->config['yeswiki_symlinked_files'] = [];
+        }
+
         if (!isset($this->wiki->config['yeswiki-farm-bg-img'])) {
             $this->wiki->config['yeswiki-farm-bg-img'] = '';
         }
@@ -328,7 +332,7 @@ class FarmService
                 // create root folder and empty folders
                 foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
                     // mise a jour des fichier de YesWiki qui ne sont pas des symlink
-                    if (!in_array($folder, $this->wiki->config['yeswiki_symlinked_files'])) {
+                    if (!empty($this->wiki->config['yeswiki_symlinked_files']) && !in_array($folder, $this->wiki->config['yeswiki_symlinked_files'])) {
                         mkdir($destfolder.$folder, 0777, true);
                     }
                 }
