@@ -330,9 +330,10 @@ class FarmService
             // on copie les fichier du wiki si l'on a accès en écriture
             if (is_writable($this->wiki->config['yeswiki-farm-root-folder'])) {
                 // create root folder and empty folders
+                mkdir($destfolder, 0777, true);
                 foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
                     // mise a jour des fichier de YesWiki qui ne sont pas des symlink
-                    if (!empty($this->wiki->config['yeswiki_symlinked_files']) && !in_array($folder, $this->wiki->config['yeswiki_symlinked_files'])) {
+                    if (!in_array($folder, $this->wiki->config['yeswiki_symlinked_files'])) {
                         mkdir($destfolder.$folder, 0777, true);
                     }
                 }
@@ -627,7 +628,7 @@ class FarmService
             }
         }
 
-        // mise a jour des fichier de YesWiki qui ne sont pas des symlink
+        // mise a jour des fichiers de YesWiki qui ne sont pas des symlink
         foreach ($this->wiki->config['yeswiki_files'] as $file) {
             if (!in_array($file, $this->wiki->config['yeswiki_symlinked_files'])){
                 if (
@@ -639,7 +640,7 @@ class FarmService
                 $this->copyRecursive($srcfolder.$file, $destfolder.$file);
             }
         }
-        // mise a jour des fichier de YesWiki qui ne sont pas des symlink
+        // mise a jour des fichiers de YesWiki qui ne sont pas des symlink
         foreach ($this->wiki->config['yeswiki_symlinked_files'] as $file) {
             if (
                 file_exists($destfolder.$file)
