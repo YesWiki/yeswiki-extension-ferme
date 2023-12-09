@@ -15,7 +15,7 @@
                 <input type="hidden" name="{{ field.name }}_exists" value="1">
                 <input type="hidden" name="{{ field.name }}" value="{{ value }}">
             {% else %}
-                <input type="text" class="form-control" id="{{ field.name }}" name="{{ field.name }}" required value="" pattern="^[0-9a-zA-Z-]*$" placeholder="{{ _t('FERME_SITE_NAME') }}" />
+                <input type="text" class="form-control" id="{{ field.name }}" name="{{ field.name }}" required value="" oninput="var c = this.selectionStart,r = /[^a-z0-9\-_]/gi, v = this.value;if(r.test(v)) { this.value = v.replace(r, ''); c--; } this.setSelectionRange(c, c);" pattern="[a-zA-Z0-9\-_]+" placeholder="{{ _t('FERME_SITE_NAME') }}" />
             {% endif %}
         </div>        
     </div>
