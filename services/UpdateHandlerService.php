@@ -206,7 +206,7 @@ class UpdateHandlerService
         string $pageName,
         array &$messages,
         array $replacements = []
-    ): string {
+    ) {
         $lines = ["ℹ️ Adding the <em>$pageName</em> page"];
         $text = "Adding the \"$pageName\" page";
         $status = _t('AU_ERROR');
