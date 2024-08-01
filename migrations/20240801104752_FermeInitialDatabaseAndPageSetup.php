@@ -93,7 +93,7 @@ class FermeInitialDatabaseAndPageSetup extends YesWikiMigration
             }
         }
 
-        echo $output;
+        return $output;
     }
 
     private function checkAndAddForm($output, $formId, $formName, $formDescription, $formTemplate)
