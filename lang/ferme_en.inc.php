@@ -1,5 +1,6 @@
 <?php
-/*vim: set expandtab tabstop=4 shiftwidth=4: */
+
+/* vim: set expandtab tabstop=4 shiftwidth=4: */
 // +------------------------------------------------------------------------------------------------------+
 // | PHP version 5                                                                                        |
 // +------------------------------------------------------------------------------------------------------+
@@ -20,33 +21,33 @@
 // | Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA                            |
 // +------------------------------------------------------------------------------------------------------+
 //
-/**
-* Fichier de traduction en francais de l'extension Ferme
-*
-*@package       ferme
-*@author        Florian Schmitt <mrflos@gmail.com>
-*@copyright     2016 Outils-Réseaux
-*/
+/*
+ * Fichier de traduction en francais de l'extension Ferme
+ *
+ *@package       ferme
+ *@author        Florian Schmitt <mrflos@gmail.com>
+ *@copyright     2016 Outils-Réseaux
+ */
 
 $GLOBALS['translations'] = array_merge(
     $GLOBALS['translations'],
-    array(
-    'FERME_IMPORT' => 'Import',
-    'FERME_GENERATE_MODEL_FROM_URL' => 'Use an URL to generate a model',
-    'FERME_URL_IMPORT_INFO' => 'Key a YesWiki page URL in',
-    'FERME_ALL_WIKIS_ADMIN' => 'Wikis management',
-    'FERME_UPDATING' => 'Updating ',
-    'FERME_WIKI' => 'Wiki ',
-    'FERME_UPDATED' => ' has properly been updated',
-    'FERME_FILE' => 'File ',
-    'FERME_NOT_FOUND' => ' not found',
-    'FERME_ADMIN_REQUIRED' => 'You must be part of @admins group to manage wikis',
-    'FERME_REPORT' => 'Report',
-    'FERME_INSERTION_ERROR' => 'Error for insertion n°{num} from file {file} : {errorMsg}',
-    'FERME_INSERTION' => 'Insertion n°{num} : {nbRows} line(s) affected',
+    [
+        'FERME_IMPORT' => 'Import',
+        'FERME_GENERATE_MODEL_FROM_URL' => 'Use an URL to generate a model',
+        'FERME_URL_IMPORT_INFO' => 'Key a YesWiki page URL in',
+        'FERME_ALL_WIKIS_ADMIN' => 'Wikis management',
+        'FERME_UPDATING' => 'Updating ',
+        'FERME_WIKI' => 'Wiki ',
+        'FERME_UPDATED' => ' has properly been updated',
+        'FERME_FILE' => 'File ',
+        'FERME_NOT_FOUND' => ' not found',
+        'FERME_ADMIN_REQUIRED' => 'You must be part of @admins group to manage wikis',
+        'FERME_REPORT' => 'Report',
+        'FERME_INSERTION_ERROR' => 'Error for insertion n°{num} from file {file} : {errorMsg}',
+        'FERME_INSERTION' => 'Insertion n°{num} : {nbRows} line(s) affected',
 
-    // for edit config
-    'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',
-    'EDIT_CONFIG_GROUP_FERME' => 'Farm',
-    )
+        // for edit config
+        'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',
+        'EDIT_CONFIG_GROUP_FERME' => 'Farm',
+    ]
 );

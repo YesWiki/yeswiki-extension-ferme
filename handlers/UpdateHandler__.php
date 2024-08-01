@@ -4,17 +4,17 @@
  * needed ones.
  *
  * @category YesWiki
- * @package  ferme
+ *
  * @author   Adrien Cheype <adrien.cheype@gmail.com>
  * @author   Florian Schmitt <mrflos@lilo.org>
  * @author   Jérémy Dufraisse <jeremy.dufraisse-info@orange.fr>
  * @license  https://www.gnu.org/licenses/agpl-3.0.en.html AGPL 3.0
- * @link     https://yeswiki.net
+ *
+ * @see     https://yeswiki.net
  */
 
 namespace YesWiki\Ferme;
 
-use Exception;
 use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Bazar\Service\FormManager;
 use YesWiki\Core\Service\AclService;
@@ -52,20 +52,19 @@ class UpdateHandler__ extends YesWikiHandler
             $entryManager = $this->getService(EntryManager::class);
 
             $output .= '<strong>Extension Ferme</strong><br/>';
-        
+
             // Structure de répertoire désirée
             $customWikiModelDir = 'custom/wiki-models/';
             if (!is_dir($customWikiModelDir)) {
                 if (!mkdir($customWikiModelDir, 0777, true)) {
-                    throw new Exception('Folder creation failed...');
+                    throw new \Exception('Folder creation failed...');
                 } else {
                     $output .= "ℹ️ Creating the folder <em>$customWikiModelDir</em> for the wiki models<br/>✅Done !<br />";
                 }
             } else {
                 $output .= "✅ The folder <em>$customWikiModelDir</em> for the wiki models exists.<br />";
             }
-        
-        
+
             // if the OuiNon Lms list doesn't exist, create it
             if (!$pageManager->getOne('ListeOuiNon')) {
                 $output .= 'ℹ️ Adding the <em>Oui Non</em> list<br />';
@@ -79,24 +78,24 @@ class UpdateHandler__ extends YesWikiHandler
             } else {
                 $output .= '✅ The <em>Oui Non</em> list already exists.<br />';
             }
-        
+
             // test if the FARM form exists, if not, install it
             $formDescription = json_decode($this->loadFileContent('forms', 'Farm description'), true);
             $formTemplate = $this->loadFileContent('forms', 'Farm template');
             $formTemplate = str_replace('{UtilisationDonnees}', $this->wiki->Href('', 'UtilisationDonnees'), $formTemplate);
             $formTemplate = str_replace('{Contact}', $this->wiki->Href('', 'Contact'), $formTemplate);
             if (empty($formTemplate)) {
-                $output .= "! not possible to add <em>famr</em> form !<br />";
+                $output .= '! not possible to add <em>famr</em> form !<br />';
             } else {
                 $output = $this->checkAndAddForm(
                     $output,
                     $this->params->get('bazar_farm_id'),
-                    $formDescription["FARM_FORM_NOM"],
-                    $formDescription["FARM_FORM_DESCRIPTION"],
+                    $formDescription['FARM_FORM_NOM'],
+                    $formDescription['FARM_FORM_DESCRIPTION'],
                     $formTemplate
                 );
             }
-        
+
             if (empty($pageManager->getOne('AdminWikis'))) {
                 $output = $this->updatePageRapideHaut($output);
             }
@@ -104,10 +103,10 @@ class UpdateHandler__ extends YesWikiHandler
             $output = $this->updatePage('AjouterWiki', $output, ['{FarmFormId}' => $this->params->get('bazar_farm_id')]);
             // $output = $this->updatePage('ContactWikis', $output);
             $output = $this->updatePage('ModelesWiki', $output);
-        
+
             // remove bf_dossier fields
             if (method_exists(EntryManager::class, 'removeAttributes')) {
-                if ($entryManager->removeAttributes([], ['bf_dossier-wiki_wikiname','bf_dossier-wiki_email','bf_dossier-wiki_password'], true)) {
+                if ($entryManager->removeAttributes([], ['bf_dossier-wiki_wikiname', 'bf_dossier-wiki_email', 'bf_dossier-wiki_password'], true)) {
                     $output .= "ℹ️ Removing bf_dossier fields from bazar entries in {$dbService->prefixTable('pages')} table.<br />";
                     $output .= '✅ Done !<br />';
                 } else {
@@ -116,14 +115,14 @@ class UpdateHandler__ extends YesWikiHandler
             } else {
                 $output .= "! Not possible to remove bf_dossier fields from bazar entries in {$dbService->prefixTable('pages')} table.<br />";
             }
-            
+
             $output .= '<hr />';
         }
-        
+
         // add the content before footer
         $this->output = str_replace(
             '<!-- end handler /update -->',
-            $output.'<!-- end handler /update -->',
+            $output . '<!-- end handler /update -->',
             $this->output
         );
     }
@@ -153,19 +152,21 @@ class UpdateHandler__ extends YesWikiHandler
         } else {
             $output .= "✅ The <em>{$formName}</em> form already exists in the <em>{$dbService->prefixTable('nature')}</em> table.<br />";
         }
+
         return $output;
     }
 
-    private function loadFileContent(string $type, string $name):string
+    private function loadFileContent(string $type, string $name): string
     {
         if (!isset(self::PATHS[$type]) || !isset(self::PATHS[$type][$name])) {
             return '';
         }
         $path = self::PATHS[$type][$name];
+
         return file_get_contents($path);
     }
 
-    private function updatePage(string $pageName, string $output, array $replacements = []):string
+    private function updatePage(string $pageName, string $output, array $replacements = []): string
     {
         $aclService = $this->getService(AclService::class);
         $pageManager = $this->getService(PageManager::class);
@@ -179,11 +180,12 @@ class UpdateHandler__ extends YesWikiHandler
             $aclService->delete($pageName); // to clear acl cache
             $aclService->save($pageName, 'read', '@admins');
             $aclService->save($pageName, 'write', '@admins');
-            $pageManager->save($pageName, $content, "", true);
+            $pageManager->save($pageName, $content, '', true);
             $output .= '✅ Done !<br />';
         } else {
             $output .= "✅ The <em>$pageName</em> page already exists.<br />";
         }
+
         return $output;
     }
 
@@ -197,13 +199,14 @@ class UpdateHandler__ extends YesWikiHandler
         } else {
             if (!strstr($pageRapideHaut['body'], 'AdminWikis')) {
                 $content = $this->loadFileContent('pages', 'PageRapideHaut');
-                $output .= "ℹ️ Adding menu item in <em>PageRapideHaut</em> for the farm<br />";
-                $pageManager->save('PageRapideHaut', str_replace('{{end elem="buttondropdown"}}', "$content\n{{end elem=\"buttondropdown\"}}", $pageRapideHaut['body']), "", true);
+                $output .= 'ℹ️ Adding menu item in <em>PageRapideHaut</em> for the farm<br />';
+                $pageManager->save('PageRapideHaut', str_replace('{{end elem="buttondropdown"}}', "$content\n{{end elem=\"buttondropdown\"}}", $pageRapideHaut['body']), '', true);
                 $output .= '✅ Done !<br />';
             } else {
-                $output .= "! The menu items in <em>PageRapideHaut</em> already exist.<br />";
+                $output .= '! The menu items in <em>PageRapideHaut</em> already exist.<br />';
             }
         }
+
         return $output;
     }
 }

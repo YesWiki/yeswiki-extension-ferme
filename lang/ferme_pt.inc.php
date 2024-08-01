@@ -1,5 +1,6 @@
 <?php
-/*vim: set expandtab tabstop=4 shiftwidth=4: */
+
+/* vim: set expandtab tabstop=4 shiftwidth=4: */
 // +------------------------------------------------------------------------------------------------------+
 // | PHP version 5                                                                                        |
 // +------------------------------------------------------------------------------------------------------+
@@ -20,26 +21,26 @@
 // | Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA                            |
 // +------------------------------------------------------------------------------------------------------+
 //
-/**
-* Fichier de traduction en francais de l'extension Ferme
-*
-*@package       ferme
-*@author        Florian Schmitt <mrflos@gmail.com>
-*@copyright     2016 Outils-Réseaux
-*/
+/*
+ * Fichier de traduction en francais de l'extension Ferme
+ *
+ *@package       ferme
+ *@author        Florian Schmitt <mrflos@gmail.com>
+ *@copyright     2016 Outils-Réseaux
+ */
 
 $GLOBALS['translations'] = array_merge(
-	$GLOBALS['translations'],
-	array(
-	'FERME_IMPORT' => 'Importar',
-	'FERME_GENERATE_MODEL_FROM_URL' => 'Gerar um modelo a partir de um endereço URL',
-	'FERME_URL_IMPORT_INFO' => 'Digite o url de qualquer página do yeswiki ou sua pasta',
-	'FERME_ALL_WIKIS_ADMIN' => 'Administração de todos os wikis',
-	'FERME_UPDATING' => 'Atualização de',
-	'FERME_WIKI' => 'O wiki',
-	'FERME_UPDATED' => 'foi atualizado',
-	'FERME_FILE' => 'Arquivo',
-	'FERME_NOT_FOUND' => 'não encontrado',
-	'FERME_ADMIN_REQUIRED' => 'Você deve fazer parte do grupo @admins para administrar wikis',
-	)
+    $GLOBALS['translations'],
+    [
+        'FERME_IMPORT' => 'Importar',
+        'FERME_GENERATE_MODEL_FROM_URL' => 'Gerar um modelo a partir de um endereço URL',
+        'FERME_URL_IMPORT_INFO' => 'Digite o url de qualquer página do yeswiki ou sua pasta',
+        'FERME_ALL_WIKIS_ADMIN' => 'Administração de todos os wikis',
+        'FERME_UPDATING' => 'Atualização de',
+        'FERME_WIKI' => 'O wiki',
+        'FERME_UPDATED' => 'foi atualizado',
+        'FERME_FILE' => 'Arquivo',
+        'FERME_NOT_FOUND' => 'não encontrado',
+        'FERME_ADMIN_REQUIRED' => 'Você deve fazer parte do grupo @admins para administrar wikis',
+    ]
 );

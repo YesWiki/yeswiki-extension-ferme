@@ -22,14 +22,15 @@ class AdminWikisAction extends YesWikiAction
             }
 
             $wikis = $farm->getWikiList();
+
             return $this->render(
                 '@ferme/wikis-table.twig',
                 [
-                    'wikis' => $wikis
+                    'wikis' => $wikis,
                 ]
             );
         } else { // User isn't admin
-            return '<div class="alert alert-danger">'._t('FERME_ADMIN_REQUIRED').'</div>';
+            return '<div class="alert alert-danger">' . _t('FERME_ADMIN_REQUIRED') . '</div>';
         }
     }
 }

@@ -8,10 +8,11 @@ class ContactWikisAction extends YesWikiAction
     public function run()
     {
         $farm = $this->getService(FarmService::class);
+
         return $this->render(
-            '@ferme/'.$this->wiki->config['contact_wikis']['default_template'],
+            '@ferme/' . $this->wiki->config['contact_wikis']['default_template'],
             [
-                'wikiList' => $farm->getWikiList()
+                'wikiList' => $farm->getWikiList(),
             ]
         );
     }

@@ -4,17 +4,18 @@
  * needed ones.
  *
  * @category YesWiki
- * @package  ferme
+ *
  * @author   Florian Schmitt <mrflos@lilo.org>
  * @license  https://www.gnu.org/licenses/agpl-3.0.en.html AGPL 3.0
- * @link     https://yeswiki.net
+ *
+ * @see     https://yeswiki.net
  */
 
 namespace YesWiki\Ferme;
 
+use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Core\Service\PageManager;
 use YesWiki\Core\Service\TripleStore;
-use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Core\YesWikiHandler;
 
 class SearchWikiHandler extends YesWikiHandler
@@ -28,20 +29,20 @@ class SearchWikiHandler extends YesWikiHandler
             $pageManager = $this->wiki->services->get(PageManager::class);
             $tripleStore = $this->wiki->services->get(TripleStore::class);
             $wikis = $entryManager->search([
-                'formsIds' => [ $this->params->get('bazar_farm_id') ]
+                'formsIds' => [$this->params->get('bazar_farm_id')],
             ]);
             $wikisFolder = array_column($wikis, 'bf_dossier-wiki');
-            $wikisOnServer = glob(\getcwd()."/*/wakka.config.php");
+            $wikisOnServer = glob(\getcwd() . '/*/wakka.config.php');
             $wikisToImport = [];
             $output = '<ol>';
             foreach ($wikisOnServer as $path) {
-                $folder = str_replace([getcwd().'/', '/wakka.config.php'], '', $path);
+                $folder = str_replace([getcwd() . '/', '/wakka.config.php'], '', $path);
                 $wikiExistsInBazar = \in_array($folder, $wikisFolder);
                 $output .= '<li>';
                 $wakkaConfig = [];
                 include $path;
-                $url = $wakkaConfig['base_url'].$wakkaConfig['root_page'];
-                $output .= '<a href="'.$url.'" target="_blank">'.$folder.'</a> ';
+                $url = $wakkaConfig['base_url'] . $wakkaConfig['root_page'];
+                $output .= '<a href="' . $url . '" target="_blank">' . $folder . '</a> ';
                 if (!$wikiExistsInBazar) {
                     $output .= 'est importé dans la ferme.';
                 } else {
@@ -52,12 +53,12 @@ class SearchWikiHandler extends YesWikiHandler
                     $output .= 'Connexion SQL KO : ' . $conn->connect_error;
                 } else {
                     $output .= ' - Connexion SQL OK';
-                    $tables = ['acls','links','nature','pages','referrers','triples','users'];
+                    $tables = ['acls', 'links', 'nature', 'pages', 'referrers', 'triples', 'users'];
                     $allTablesfound = true;
                     foreach ($tables as $table) {
                         $result = mysqli_query($conn, "SHOW TABLES LIKE \"{$wakkaConfig['table_prefix']}$table\"");
                         if (mysqli_num_rows($result) == 0) {
-                            $output .= ' - Table '.$table.' non trouvée';
+                            $output .= ' - Table ' . $table . ' non trouvée';
                             $allTablesfound = false;
                         }
                     }
@@ -75,24 +76,24 @@ class SearchWikiHandler extends YesWikiHandler
                 $output .= $status;
                 if (!$wikiExistsInBazar) {
                     $wikisToImport[] = [
-                        "id_fiche" => genere_nom_wiki($wakkaConfig['wakka_name']),
-                        "id_typeannonce" => strval($this->params->get('bazar_farm_id')),
-                        "bf_titre" => $wakkaConfig['wakka_name'],
-                        "bf_description" => $wakkaConfig['meta_description'],
-                        "bf_referent" => 'À préciser (importé)',
-                        "bf_mail" => $adminMail,
-                        "bf_dossier-wiki" => $folder,
-                        "radioListeOuiNon" => 'oui',
-                        "imagebf_image" => 'wiki-imported-placeholder.png',
-                        "date_creation_fiche" => date("Y-m-d H:i:s"),
-                        "statut_fiche" => "1",
-                        "date_maj_fiche" => date("Y-m-d H:i:s")
+                        'id_fiche' => genere_nom_wiki($wakkaConfig['wakka_name']),
+                        'id_typeannonce' => strval($this->params->get('bazar_farm_id')),
+                        'bf_titre' => $wakkaConfig['wakka_name'],
+                        'bf_description' => $wakkaConfig['meta_description'],
+                        'bf_referent' => 'À préciser (importé)',
+                        'bf_mail' => $adminMail,
+                        'bf_dossier-wiki' => $folder,
+                        'radioListeOuiNon' => 'oui',
+                        'imagebf_image' => 'wiki-imported-placeholder.png',
+                        'date_creation_fiche' => date('Y-m-d H:i:s'),
+                        'statut_fiche' => '1',
+                        'date_maj_fiche' => date('Y-m-d H:i:s'),
                     ];
                 }
                 $output .= '</li>';
             }
             $output .= '</ol>';
-            # wikis to import!
+            // wikis to import!
             if (count($wikisToImport) > 0) {
                 if (!file_exists('files/wiki-imported-placeholder.png')) {
                     copy(
@@ -126,7 +127,7 @@ class SearchWikiHandler extends YesWikiHandler
             return $this->renderInSquelette('@ferme/searchwiki.twig', [
                 'output' => $output,
                 'wikis' => $wikis,
-                'wikisonserver' => $wikisOnServer
+                'wikisonserver' => $wikisOnServer,
             ]);
         }
     }

@@ -3,9 +3,9 @@
 namespace YesWiki\Ferme\Service;
 
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Wiki;
-use YesWiki\Bazar\Service\EntryManager;
 
 class FarmService
 {
@@ -21,16 +21,16 @@ class FarmService
         $this->initFarmConfig();
     }
 
-    /** initFarmConfig() - test le fichier de configuration et ajoute des valuers par defaut, si besoin
+    /** initFarmConfig() - test le fichier de configuration et ajoute des valuers par defaut, si besoin.
      *
-     * @return   void
+     * @return void
      */
     public function initFarmConfig()
     {
         // test de l'existence des variables de configuration de la ferme, mise en place de valeurs par défaut sinon
         if (!isset($this->wiki->config['yeswiki-farm-root-url'])) {
             $this->wiki->config['yeswiki-farm-root-url'] = str_replace(
-                array('wakka.php?wiki=', '?'),
+                ['wakka.php?wiki=', '?'],
                 '',
                 $this->wiki->config['base_url']
             );
@@ -44,7 +44,7 @@ class FarmService
             !isset($this->wiki->config['yeswiki-farm-extra-themes'])
             || !is_array($this->wiki->config['yeswiki-farm-extra-themes'])
         ) {
-            $this->wiki->config['yeswiki-farm-extra-themes'] = array();
+            $this->wiki->config['yeswiki-farm-extra-themes'] = [];
         }
 
         // extensions supplémentaires
@@ -52,7 +52,7 @@ class FarmService
             !isset($this->wiki->config['yeswiki-farm-extra-tools'])
             || !is_array($this->wiki->config['yeswiki-farm-extra-tools'])
         ) {
-            $this->wiki->config['yeswiki-farm-extra-tools'] = array();
+            $this->wiki->config['yeswiki-farm-extra-tools'] = [];
         }
 
         // theme par defaut
@@ -81,21 +81,21 @@ class FarmService
                 if (!isset($theme['theme']) or empty($theme['theme'])) {
                     exit('<div class="alert alert-danger">Au moins un theme pour les themes de la ferme n\'a'
                         . ' pas été bien renseigné.</div>');
-                } elseif (!is_dir('themes/' . $theme['theme']) and ($theme['theme'] == "yeswiki" and !is_dir('tools/templates/themes/' . $theme['theme']))) {
+                } elseif (!is_dir('themes/' . $theme['theme']) and ($theme['theme'] == 'yeswiki' and !is_dir('tools/templates/themes/' . $theme['theme']))) {
                     exit('<div class="alert alert-danger">Le dossier "themes/' . $theme['theme']
                         . '" n\'a pas été trouvé.</div>');
                 }
                 if (!isset($theme['squelette']) or empty($theme['squelette'])) {
                     exit('<div class="alert alert-danger">Au moins un squelette pour les themes de la ferme n\'a'
                         . ' pas été bien renseigné.</div>');
-                } elseif (!is_file('themes/' . $theme['theme'] . '/squelettes/' . $theme['squelette']) and ($theme['theme'] == "yeswiki" and !is_file('tools/templates/themes/' . $theme['theme'] . '/squelettes/' . $theme['squelette']))) {
+                } elseif (!is_file('themes/' . $theme['theme'] . '/squelettes/' . $theme['squelette']) and ($theme['theme'] == 'yeswiki' and !is_file('tools/templates/themes/' . $theme['theme'] . '/squelettes/' . $theme['squelette']))) {
                     exit('<div class="alert alert-danger">Le squelette "themes/' . $theme['theme']
                         . '/squelettes/' . $theme['squelette'] . '" n\'a pas été trouvé.</div>');
                 }
                 if (!isset($theme['style']) or empty($theme['style'])) {
                     exit('<div class="alert alert-danger">Au moins un style css pour les themes de la ferme n\'a'
                         . ' pas été bien renseigné.</div>');
-                } elseif (!is_file('themes/' . $theme['theme'] . '/styles/' . $theme['style']) and ($theme['theme'] == "yeswiki" and !is_file('tools/templates/themes/' . $theme['theme'] . '/styles/' . $theme['style']))) {
+                } elseif (!is_file('themes/' . $theme['theme'] . '/styles/' . $theme['style']) and ($theme['theme'] == 'yeswiki' and !is_file('tools/templates/themes/' . $theme['theme'] . '/styles/' . $theme['style']))) {
                     exit('<div class="alert alert-danger">Le style css "themes/' . $theme['theme'] . '/styles/' . $theme['style']
                         . '" n\'a pas été trouvé.</div>');
                 }
@@ -214,6 +214,7 @@ class FarmService
         if (file_exists($path)) {
             include_once realpath($path);
         }
+
         return $wakkaConfig;
     }
 
@@ -228,7 +229,7 @@ class FarmService
         if (!empty($this->wiki->config['yeswiki-farm-admin-name']) && !empty($this->wiki->config['yeswiki-farm-admin-pass'])) {
             if (!empty($wikiConf['table_prefix'])) {
                 // change database
-                $sql =  'USE ' . $wikiConf['mysql_database'] . ';';
+                $sql = 'USE ' . $wikiConf['mysql_database'] . ';';
                 $this->wiki->query($sql);
 
                 $sql = 'SELECT value FROM `' . $wikiConf['table_prefix'] . 'triples` WHERE resource = "ThisWikiGroup:admins";';
@@ -246,20 +247,20 @@ class FarmService
                 $this->wiki->Query($sql);
 
                 // back to main database
-                $sql =  'USE ' . $this->wiki->config['mysql_database'] . ';';
+                $sql = 'USE ' . $this->wiki->config['mysql_database'] . ';';
                 $this->wiki->query($sql);
 
                 return [
-                    'success' => [_t('Super user added for the wiki') . ' :' . $wiki . '.']
+                    'success' => [_t('Super user added for the wiki') . ' :' . $wiki . '.'],
                 ];
             } else {
                 return [
-                    'errors' => [_t('No table prefix found for the wiki') . ' :' . $wiki . '.']
+                    'errors' => [_t('No table prefix found for the wiki') . ' :' . $wiki . '.'],
                 ];
             }
         } else {
             return [
-                'errors' => [_t('No yeswiki-farm-admin-name or yeswiki-farm-admin-pass in config.')]
+                'errors' => [_t('No yeswiki-farm-admin-name or yeswiki-farm-admin-pass in config.')],
             ];
         }
     }
@@ -269,14 +270,14 @@ class FarmService
         $wikiConf = $this->getWikiConfig($wiki);
         if (!empty($wikiConf['table_prefix'])) {
             // change database
-            $sql =  'USE ' . $wikiConf['mysql_database'] . ';';
+            $sql = 'USE ' . $wikiConf['mysql_database'] . ';';
             $this->wiki->query($sql);
 
             $sql = 'SELECT value FROM `' . $wikiConf['table_prefix'] . 'triples` WHERE resource = "ThisWikiGroup:admins";';
             $list = $this->wiki->LoadSingle($sql);
             $list = explode("\n", $list['value']);
             if (in_array($this->wiki->config['yeswiki-farm-admin-name'], $list)) {
-                $list = array_diff($list, array($this->wiki->config['yeswiki-farm-admin-name']));
+                $list = array_diff($list, [$this->wiki->config['yeswiki-farm-admin-name']]);
             }
             $list = array_map('trim', $list);
             $list = implode("\n", $list);
@@ -287,7 +288,7 @@ class FarmService
             $this->wiki->Query($sql);
 
             // back to main database
-            $sql =  'USE ' . $this->wiki->config['mysql_database'] . ';';
+            $sql = 'USE ' . $this->wiki->config['mysql_database'] . ';';
             $this->wiki->query($sql);
         }
     }
@@ -300,8 +301,7 @@ class FarmService
                 0
             );
             if ($this->wiki->LoadUser($entry[$fieldName . '_wikiname'])) {
-                throw new \Exception('L\'utilisateur ' . $entry[$fieldName . '_wikiname']
-                    . ' existe déjà, veuillez trouver un autre nom pour votre wiki.');
+                throw new \Exception('L\'utilisateur ' . $entry[$fieldName . '_wikiname'] . ' existe déjà, veuillez trouver un autre nom pour votre wiki.');
             }
         }
 
@@ -312,12 +312,11 @@ class FarmService
         // creation d'un user?
         if ($this->wiki->config['yeswiki-farm-create-user']) {
             if ($this->wiki->LoadUser($entry[$fieldName . '_wikiname'])) {
-                throw new \Exception('L\'utilisateur ' . $entry[$fieldName . '_wikiname']
-                    . ' existe déjà, veuillez trouver un autre nom pour votre utilisateur.');
+                throw new \Exception('L\'utilisateur ' . $entry[$fieldName . '_wikiname'] . ' existe déjà, veuillez trouver un autre nom pour votre utilisateur.');
             }
             $this->wiki->Query(
-                "insert into " . $this->wiki->config["table_prefix"] . "users set " .
-                    "signuptime = now(), " .
+                'insert into ' . $this->wiki->config['table_prefix'] . 'users set ' .
+                    'signuptime = now(), ' .
                     "name = '" . mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName . '_wikiname']) . "', " .
                     "email = '" . mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName . '_email']) . "', " .
                     "password = md5('" . mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName . '_password']) . "')"
@@ -377,25 +376,25 @@ class FarmService
 
                 // droits d'accès par aux pages
                 $rights = $this->wiki->config['yeswiki-farm-acls'][$entry['yeswiki-farm-acls']];
-                if ($rights["write"] == '{{user}}') {
-                    if (!empty($entry["access-username"])) {
-                        $rights["write"] = $entry["access-username"];
+                if ($rights['write'] == '{{user}}') {
+                    if (!empty($entry['access-username'])) {
+                        $rights['write'] = $entry['access-username'];
                     } else {
-                        $rights["write"] = $entry[$fieldName . '_wikiname'];
+                        $rights['write'] = $entry[$fieldName . '_wikiname'];
                     }
                 }
-                if ($rights["read"] == '{{user}}') {
-                    if (!empty($entry["access-username"])) {
-                        $rights["read"] = $entry["access-username"];
+                if ($rights['read'] == '{{user}}') {
+                    if (!empty($entry['access-username'])) {
+                        $rights['read'] = $entry['access-username'];
                     } else {
-                        $rights["read"] = $entry[$fieldName . '_wikiname'];
+                        $rights['read'] = $entry[$fieldName . '_wikiname'];
                     }
                 }
-                if ($rights["comments"] == '{{user}}') {
-                    if (!empty($entry["access-username"])) {
-                        $rights["comments"] = $entry["access-username"];
+                if ($rights['comments'] == '{{user}}') {
+                    if (!empty($entry['access-username'])) {
+                        $rights['comments'] = $entry['access-username'];
                     } else {
-                        $rights["comments"] = $entry[$fieldName . '_wikiname'];
+                        $rights['comments'] = $entry[$fieldName . '_wikiname'];
                     }
                 }
 
@@ -413,7 +412,7 @@ class FarmService
                     $entry['bf_prefixe'];
 
                 // ecriture du fichier de configuration
-                $config = array(
+                $config = [
                     'wakka_version' => $this->wiki->config['wakka_version'],
                     'wikini_version' => $this->wiki->config['wikini_version'],
                     'yeswiki_version' => $this->wiki->config['yeswiki_version'],
@@ -438,9 +437,9 @@ class FarmService
                     'navigation_links' => $this->wiki->config['navigation_links'],
                     'referrers_purge_time' => $this->wiki->config['referrers_purge_time'],
                     'pages_purge_time' => $this->wiki->config['pages_purge_time'],
-                    'default_write_acl' => $rights["write"],
-                    'default_read_acl' => $rights["read"],
-                    'default_comment_acl' => $rights["comments"],
+                    'default_write_acl' => $rights['write'],
+                    'default_read_acl' => $rights['read'],
+                    'default_comment_acl' => $rights['comments'],
                     'preview_before_save' => $this->wiki->config['preview_before_save'],
                     'allow_raw_html' => $this->wiki->config['allow_raw_html'],
                     'default_language' => $this->wiki->config['default_language'],
@@ -449,9 +448,9 @@ class FarmService
                     'favorite_squelette' => $this->wiki->config['yeswiki-farm-fav-squelette'],
                     'favorite_preset' => $this->wiki->config['yeswiki-farm-fav-preset'],
                     'favorite_background_image' => $this->wiki->config['yeswiki-farm-bg-img'],
-                    'source_url' =>  $this->wiki->href('', $entry['id_fiche']),
-                    'db_charset' =>  'utf8mb4',
-                );
+                    'source_url' => $this->wiki->href('', $entry['id_fiche']),
+                    'db_charset' => 'utf8mb4',
+                ];
                 if (
                     isset($this->wiki->config['yeswiki-farm-extra-config'])
                     and is_array($this->wiki->config['yeswiki-farm-extra-config'])
@@ -470,11 +469,11 @@ class FarmService
                 }
 
                 // convert config array into PHP code
-                $configCode = "<?php\n// wakka.config.php " . _t('CREATED') . " " . date("Y-m-d H:i:s") . "\n// " .
+                $configCode = "<?php\n// wakka.config.php " . _t('CREATED') . ' ' . date('Y-m-d H:i:s') . "\n// " .
                     _t('DONT_CHANGE_YESWIKI_VERSION_MANUALLY') . " !\n\n\$wakkaConfig = ";
                 $configCode .= var_export($config, true) . ";\n?>";
 
-                if ($fp = @fopen($destfolder . 'wakka.config.php', "w")) {
+                if ($fp = @fopen($destfolder . 'wakka.config.php', 'w')) {
                     fwrite($fp, $configCode);
                     // write
                     fclose($fp);
@@ -482,13 +481,13 @@ class FarmService
                     throw new \Exception('Ecriture du fichier de configuration impossible');
                 }
                 // creation des tables de la base de données
-                /* create sql connection*/
+                /* create sql connection */
                 $link = mysqli_connect(
                     $this->wiki->config['mysql_host'],
                     $this->wiki->config['mysql_user'],
                     $this->wiki->config['mysql_password'],
                     $this->wiki->config['mysql_database'],
-                    isset($this->wiki->config['mysql_port']) ? $this->wiki->config['mysql_port'] : ini_get("mysqli.default_port")
+                    isset($this->wiki->config['mysql_port']) ? $this->wiki->config['mysql_port'] : ini_get('mysqli.default_port')
                 );
                 // necessaire pour les versions de mysql qui ont un autre encodage par defaut
                 mysqli_set_charset($link, 'utf8mb4');
@@ -511,7 +510,7 @@ class FarmService
                 $notExistingTables = array_filter(
                     ['pages', 'links', 'acls', 'triples', 'nature', 'referrers', 'users'],
                     function ($tableName) use ($link, $prefix) {
-                        return (mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE '$prefix$tableName'")) === 0);
+                        return mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE '$prefix$tableName'")) === 0;
                     }
                 );
 
@@ -560,23 +559,22 @@ class FarmService
                     }
                 }
 
-                if (!empty($entry["access-username"])) {
+                if (!empty($entry['access-username'])) {
                     $this->wiki->Query("INSERT INTO `{$prefix}__users` " .
-                        "(`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) " .
-                        "VALUES ('" . mysqli_real_escape_string($link, $entry["access-username"]) . "', " .
-                        "md5('" . mysqli_real_escape_string($link, $entry["access-password"]) . "'), " .
+                        '(`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) ' .
+                        "VALUES ('" . mysqli_real_escape_string($link, $entry['access-username']) . "', " .
+                        "md5('" . mysqli_real_escape_string($link, $entry['access-password']) . "'), " .
                         "'" . $entry[$fieldName . '_email'] . "', '', '20', '50', 1, now(), 2);");
                 }
 
-                if (!empty($entry["yeswiki-farm-options"])) {
-                    $taboptions = explode(',', $entry["yeswiki-farm-options"]);
+                if (!empty($entry['yeswiki-farm-options'])) {
+                    $taboptions = explode(',', $entry['yeswiki-farm-options']);
                     foreach ($taboptions as $option) {
                         $this->wiki->Query('UPDATE `' . $prefix . '__pages` SET body=CONCAT(body, "' . $this->wiki->config['yeswiki-farm-options'][$option]['content'] . '") WHERE tag="' . $this->wiki->config['yeswiki-farm-options'][$option]['page'] . '" AND latest="Y";');
                     }
                 }
             } else {
-                throw new \Exception('Le dossier ' . $this->wiki->config['yeswiki-farm-root-folder']
-                    . ' n\'est pas accessible en écriture');
+                throw new \Exception('Le dossier ' . $this->wiki->config['yeswiki-farm-root-folder'] . ' n\'est pas accessible en écriture');
             }
         }
 
@@ -630,7 +628,7 @@ class FarmService
         }
 
         include_once $destfolder . 'wakka.config.php';
-        $output .=  '<div class="alert alert-info">' . _t('FERME_UPDATING') . $wiki . '.</div>';
+        $output .= '<div class="alert alert-info">' . _t('FERME_UPDATING') . $wiki . '.</div>';
 
         // nettoyage des anciens tools non utilises TODO : make a migration
         $oldFoldersToDelete = ['tools/despam', 'tools/hashcash', 'tools/ipblock', 'tools/nospam'];
@@ -688,7 +686,8 @@ class FarmService
         $output .= 'cd ' . $destfolder . ';chmod +x tools/autoupdate/commands/console;tools/autoupdate/commands/console update:postupdate 2>&1';
         $output .= shell_exec('cd ' . $destfolder . ';chmod +x tools/autoupdate/commands/console;tools/autoupdate/commands/console update:postupdate 2>&1');
 
-        $output .=  '<div class="alert alert-success">' . _t('FERME_WIKI') . $wiki . _t('FERME_UPDATED') . '</div>';
+        $output .= '<div class="alert alert-success">' . _t('FERME_WIKI') . $wiki . _t('FERME_UPDATED') . '</div>';
+
         return $output;
     }
 
@@ -699,13 +698,12 @@ class FarmService
         if ($entryManager->isEntry($id) && $userCanDelete) {
             try {
                 if ($this->wiki->services->get(CsrfTokenController::class)->checkToken('main', 'POST', 'csrf-token', false)) {
-
                     $tab_valeurs = $entryManager->getOne($id);
-                    if (isset($tab_valeurs["bf_dossier-wiki"]) && !empty($tab_valeurs["bf_dossier-wiki"])) {
-                        $src = realpath(getcwd() . '/' . (!empty($this->wiki->config['yeswiki-farm-root-folder']) ? $this->wiki->config['yeswiki-farm-root-folder'] : '.') . '/' . $tab_valeurs["bf_dossier-wiki"]);
+                    if (isset($tab_valeurs['bf_dossier-wiki']) && !empty($tab_valeurs['bf_dossier-wiki'])) {
+                        $src = realpath(getcwd() . '/' . (!empty($this->wiki->config['yeswiki-farm-root-folder']) ? $this->wiki->config['yeswiki-farm-root-folder'] : '.') . '/' . $tab_valeurs['bf_dossier-wiki']);
                         if (is_dir($src)) {
                             // get the table prefix from the real config file, it's more secure
-                            $config = $this->getWikiConfig($tab_valeurs["bf_dossier-wiki"]);
+                            $config = $this->getWikiConfig($tab_valeurs['bf_dossier-wiki']);
                             // supprimer le wiki
                             $this->rrmdir($src);
                             // supprime les tables mysql
@@ -728,14 +726,14 @@ class FarmService
         // check id if wakka.config.php contains a bad value (like string not corresponding to a form's id)
         $bazarFarmId = (!empty($bazarFarmId) && (strval($bazarFarmId) == strval(intval($bazarFarmId)))) ? $bazarFarmId : '1100';
         $fiches = $entryManager->search([
-            'formsIds' => [$bazarFarmId]
+            'formsIds' => [$bazarFarmId],
         ]);
         $GLOBALS['ordre'] = 'asc';
         $GLOBALS['champ'] = 'bf_titre';
         usort($fiches, 'champCompare');
 
         foreach ($fiches as $i => $fiche) {
-            $wakkaConfig = array();
+            $wakkaConfig = [];
             if ($this->wiki->config['yeswiki-farm-root-folder'] == '.') {
                 $wikiConfigFile = realpath(getcwd() . '/' . $fiche['bf_dossier-wiki'] . '/wakka.config.php');
             } else {
@@ -759,7 +757,7 @@ class FarmService
                     }
 
                     // we use database name of local wiki
-                    $sql =  'USE ' . $wakkaConfig['mysql_database'] . ';';
+                    $sql = 'USE ' . $wakkaConfig['mysql_database'] . ';';
                     $this->wiki->query($sql);
 
                     // test de la presence d'un admin pour la ferme
@@ -783,7 +781,7 @@ class FarmService
                     $fiche['dashboard_link'] = $wakkaConfig['base_url'] . 'TableauDeBord';
 
                     // we go back to main wiki database
-                    $sql =  'USE ' . $this->wiki->config['mysql_database'] . ';';
+                    $sql = 'USE ' . $this->wiki->config['mysql_database'] . ';';
                     $this->wiki->query($sql);
                 }
                 $fiches[$i] = $fiche;
@@ -792,13 +790,15 @@ class FarmService
                 $fiches[$i] = $fiche;
             }
         }
+
         return $fiches;
     }
 
     /**
-     * recursive remove file or folder
+     * recursive remove file or folder.
      *
      * @param string $src path
+     *
      * @return void
      */
     public function rrmdir($src)
@@ -821,10 +821,11 @@ class FarmService
     }
 
     /**
-     * recursive copy file or filder
+     * recursive copy file or filder.
      *
      * @param string $path : source path
      * @param string $dest : destination path
+     *
      * @return void
      */
     public function copyRecursive($path, $dest)
@@ -834,7 +835,7 @@ class FarmService
             $objects = scandir($path);
             if (sizeof($objects) > 0) {
                 foreach ($objects as $file) {
-                    if ($file == "." || $file == ".." || $file == ".git" || $file == "bower_components") {
+                    if ($file == '.' || $file == '..' || $file == '.git' || $file == 'bower_components') {
                         continue;
                     }
                     // go on
@@ -845,6 +846,7 @@ class FarmService
                     }
                 }
             }
+
             return true;
         } elseif (is_file($path) && file_exists($path)) {
             return copy($path, $dest);
@@ -854,16 +856,17 @@ class FarmService
     }
 
     /**
-     * Returns the real path of given path even for non existent path, with trailing /
+     * Returns the real path of given path even for non existent path, with trailing /.
      *
      * @param string $path
+     *
      * @return string
      */
     public function getAbsolutePath($path)
     {
-        $path = str_replace(array('/', '\\'), DIRECTORY_SEPARATOR, $path);
+        $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
         $parts = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
-        $absolutes = array();
+        $absolutes = [];
         foreach ($parts as $part) {
             if ('.' == $part) {
                 continue;
@@ -874,16 +877,18 @@ class FarmService
                 $absolutes[] = $part;
             }
         }
+
         return DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $absolutes) . DIRECTORY_SEPARATOR;
     }
 
     /**
      * replace tokens in sql file and query sql
-     * inspired from /setup/install.helpers.php ->querySqlFile()
+     * inspired from /setup/install.helpers.php ->querySqlFile().
      *
-     * @param object $dblink mysqli link resource
-     * @param string $sqlFile patho to sql file
-     * @param array $replacements token to replace in sql file
+     * @param object $dblink       mysqli link resource
+     * @param string $sqlFile      patho to sql file
+     * @param array  $replacements token to replace in sql file
+     *
      * @return string the report of the queries
      */
     public function querySqlFile($dblink, $sqlFile, $replacements = [])
@@ -900,11 +905,7 @@ class FarmService
             // first statements
             $index = 1;
             if (!mysqli_multi_query($dblink, $sql)) {
-                throw new \Exception(str_replace(
-                    ['{num}', '{file}', '{errorMsg}'],
-                    [$index, $sqlFile, mysqli_error($dblink)],
-                    _t('FERME_INSERTION_ERROR')
-                ));
+                throw new \Exception(str_replace(['{num}', '{file}', '{errorMsg}'], [$index, $sqlFile, mysqli_error($dblink)], _t('FERME_INSERTION_ERROR')));
             } else {
                 $sqlReport .= str_replace(
                     ['{num}', '{nbRows}'],
@@ -914,11 +915,7 @@ class FarmService
                 while (mysqli_more_results($dblink)) {
                     $index = $index + 1;
                     if (!mysqli_next_result($dblink)) {
-                        throw new \Exception(str_replace(
-                            ['{num}', '{file}', '{errorMsg}'],
-                            [$index, $sqlFile, mysqli_error($dblink)],
-                            _t('FERME_INSERTION_ERROR')
-                        ));
+                        throw new \Exception(str_replace(['{num}', '{file}', '{errorMsg}'], [$index, $sqlFile, mysqli_error($dblink)], _t('FERME_INSERTION_ERROR')));
                     } else {
                         $sqlReport .= str_replace(
                             ['{num}', '{nbRows}'],
@@ -931,6 +928,7 @@ class FarmService
         } else {
             throw new \Exception(_t('SQL_FILE_NOT_FOUND') . ' "' . $sqlFile . '".');
         }
+
         return $sqlReport;
     }
 
@@ -947,6 +945,7 @@ class FarmService
             }
             $models[$model] = $json['label'];
         }
+
         return $models;
     }
 }

@@ -9,7 +9,7 @@ use YesWiki\Wiki;
 
 /**
  * add fields to create custom yeswiki instance on a yeswiki farm
- * yeswiki***bf_dossier-wiki***L\'adresse du site wiki***bf_mail***
+ * yeswiki***bf_dossier-wiki***L\'adresse du site wiki***bf_mail***.
  *
  * @Field({"yeswiki"})
  */
@@ -32,7 +32,8 @@ class YesWikiField extends BazarField
     public function renderInput($entry)
     {
         $models = $this->getService(FarmService::class)->getModelLabels();
-        return $this->render("@ferme/inputs/yeswiki.twig", [
+
+        return $this->render('@ferme/inputs/yeswiki.twig', [
             'value' => $this->getValue($entry),
             'rootUrl' => $this->wiki->config['yeswiki-farm-root-url'],
             'adminUsername' => $this->wiki->config['yeswiki-farm-default-WikiAdmin'] ?? null,
@@ -49,29 +50,30 @@ class YesWikiField extends BazarField
     {
         $value = $this->getValue($entry);
         // only create wiki on first time
-        if (empty($entry[$this->propertyName.'_exists']) && empty($entry[$this->propertyName.'-previous']) && $this->canEdit($entry)) {
+        if (empty($entry[$this->propertyName . '_exists']) && empty($entry[$this->propertyName . '-previous']) && $this->canEdit($entry)) {
             if (!empty($value) && preg_match('/^[0-9a-zA-Z-_]*$/', $value)) {
                 $farm = $this->getService(FarmService::class);
                 $farm->createWikiFromEntry($entry, $this->propertyName);
             } else {
                 // If no new value was set, keep the old encoded one
-                $value = $entry[$this->propertyName.'-previous'] ?? null;
+                $value = $entry[$this->propertyName . '-previous'] ?? null;
             }
         }
+
         return [
             $this->propertyName => $value ?? null,
             'fields-to-remove' => [
-                $this->propertyName.'-previous',
+                $this->propertyName . '-previous',
                 'bf_dossier-wiki_wikiname',
                 'bf_dossier-wiki_email',
                 'bf_dossier-wiki_password',
-                $this->propertyName.'_wikiname',
-                $this->propertyName.'_email',
-                $this->propertyName.'_password',
+                $this->propertyName . '_wikiname',
+                $this->propertyName . '_email',
+                $this->propertyName . '_password',
                 'yeswiki-farm-theme',
                 'yeswiki-farm-model',
-                'yeswiki-farm-acls'
-            ]
+                'yeswiki-farm-acls',
+            ],
         ];
     }
 
@@ -79,9 +81,10 @@ class YesWikiField extends BazarField
     {
         $value = $this->getValue($entry);
         if ($value && !empty($this->wiki->config['yeswiki-farm-root-url'])) {
-            $url = $this->wiki->config['yeswiki-farm-root-url'].$value;
-            return $this->render("@ferme/fields/yeswiki.twig", [
-                'url' => $url
+            $url = $this->wiki->config['yeswiki-farm-root-url'] . $value;
+
+            return $this->render('@ferme/fields/yeswiki.twig', [
+                'url' => $url,
             ]);
         } else {
             return null;
