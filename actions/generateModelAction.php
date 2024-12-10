@@ -124,6 +124,7 @@ class GenerateModelAction extends YesWikiAction
 
         $pages = json_decode(html_entity_decode($data['wiki-import-pages']), 1);
         if (is_array($pages) && !empty($pages)) {
+            $tabpages = [];
             $sql .= '# YesWiki pages' . "\n";
             foreach ($pages as $page) {
                 // remove hardcoded source urls in pages
