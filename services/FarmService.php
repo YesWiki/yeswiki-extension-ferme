@@ -573,6 +573,8 @@ class FarmService
                         $this->wiki->Query('UPDATE `' . $prefix . '__pages` SET body=CONCAT(body, "' . $this->wiki->config['yeswiki-farm-options'][$option]['content'] . '") WHERE tag="' . $this->wiki->config['yeswiki-farm-options'][$option]['page'] . '" AND latest="Y";');
                     }
                 }
+
+                $this->runMigrations($destfolder);
             } else {
                 throw new \Exception('Le dossier ' . $this->wiki->config['yeswiki-farm-root-folder'] . ' n\'est pas accessible en écriture');
             }
@@ -595,6 +597,19 @@ class FarmService
                 . ' VALUES (\'ThisWikiGroup:' . $this->wiki->config['yeswiki-farm-group']['groupname'] . '\','
                 . ' \'http://www.wikini.net/_vocabulary/acls\', \'' . implode("\n", explode(',', $users)) . '\');';
             $this->wiki->Query($addsql);
+        }
+    }
+
+    private function runMigrations($wikiFolder)
+    {
+        // we launch migrations if wiki has the feature
+        if (file_exists($wikiFolder . 'tools/autoupdate/services/MigrationService.php')) {
+            // ensure yeswicli is executable
+            chmod($wikiFolder . 'yeswicli', 0755);
+            $currentDir = getcwd();
+            chdir($wikiFolder);
+            exec('./yeswicli migrate');
+            chdir($currentDir);
         }
     }
 
@@ -683,8 +698,7 @@ class FarmService
         $config->write();
 
         // execute post update
-        $output .= 'cd ' . $destfolder . ';chmod +x tools/autoupdate/commands/console;tools/autoupdate/commands/console update:postupdate 2>&1';
-        $output .= shell_exec('cd ' . $destfolder . ';chmod +x tools/autoupdate/commands/console;tools/autoupdate/commands/console update:postupdate 2>&1');
+        $this->runMigrations($destfolder);
 
         $output .= '<div class="alert alert-success">' . _t('FERME_WIKI') . $wiki . _t('FERME_UPDATED') . '</div>';
 
