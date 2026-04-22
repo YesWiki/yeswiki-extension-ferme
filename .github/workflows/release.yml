@@ -22,13 +22,25 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.event.release.tag_name }}
 
       - uses: shivammathur/setup-php@v2
+        if: hashFiles('composer.json') != ''
         with:
           php-version: '8.3'
           extensions: mysqli
           tools: composer:v2
 
       - name: Install PHP dependencies
+        if: hashFiles('composer.json') != ''
         run: composer install --no-dev --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Setup Node.js
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install JS dependencies
+        if: hashFiles('package.json') != ''
+        run: yarn install
 
       - name: Create release archive
         run: |
