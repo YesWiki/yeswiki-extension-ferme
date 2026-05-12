@@ -67,6 +67,13 @@ $GLOBALS['translations'] = array_merge(
         'FERME_UPGRADING_STATUS' => 'En cours...',
         'FERME_UPGRADE_SUCCESS' => 'Succès',
         'FERME_UPGRADE_ERROR' => 'Erreur',
+        'FERME_DELETE_SELECTED_WIKIS' => 'Supprimer les wikis sélectionnés',
+        'FERME_DELETE_SELECTED_WARNING' => 'Cette action est irréversible. Les wikis suivants et toutes leurs données seront définitivement supprimés.',
+        'FERME_DELETE_CONFIRM_BTN' => 'Confirmer la suppression',
+        'FERME_DELETING_STATUS' => 'Suppression...',
+        'FERME_DELETE_SUCCESS' => 'Supprimé',
+        'FERME_DELETE_ERROR' => 'Erreur',
+        'FERME_CANCEL' => 'Annuler',
 
         // Action Builder
         'AB_FERME_GROUP_LABEL' => 'Ferme',

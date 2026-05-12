@@ -705,6 +705,51 @@ class FarmService
         return $output;
     }
 
+    public function deleteWikiForApi(string $idFiche): array
+    {
+        if (!$this->wiki->UserIsAdmin() && !$this->wiki->UserIsOwner()) {
+            return ['success' => false, 'error' => 'Unauthorized'];
+        }
+
+        $entryManager = $this->wiki->services->get(EntryManager::class);
+        if (!$entryManager->isEntry($idFiche)) {
+            return ['success' => false, 'error' => 'Entry not found: ' . $idFiche];
+        }
+
+        try {
+            $this->wiki->services->get(CsrfTokenController::class)->checkToken('main', 'POST', 'csrf-token', false);
+        } catch (\Throwable $th) {
+            return ['success' => false, 'error' => 'Invalid CSRF token'];
+        }
+
+        $tab_valeurs = $entryManager->getOne($idFiche);
+        if (empty($tab_valeurs['bf_dossier-wiki'])) {
+            return ['success' => false, 'error' => 'Wiki folder not set for entry: ' . $idFiche];
+        }
+
+        $rootFolder = !empty($this->wiki->config['yeswiki-farm-root-folder'])
+            ? $this->wiki->config['yeswiki-farm-root-folder']
+            : '.';
+        $src = realpath(getcwd() . '/' . $rootFolder . '/' . $tab_valeurs['bf_dossier-wiki']);
+
+        if ($src && is_dir($src)) {
+            $config = $this->getWikiConfig($tab_valeurs['bf_dossier-wiki']);
+            $this->rrmdir($src);
+            if (!empty($config['table_prefix'])) {
+                $prefix = $config['table_prefix'];
+                $this->wiki->Query('DROP TABLE IF EXISTS `' . $prefix . 'acls`, `' . $prefix . 'links`, `' . $prefix . 'nature`, `' . $prefix . 'pages`, `' . $prefix . 'referrers`, `' . $prefix . 'triples`, `' . $prefix . 'users`;');
+            }
+        }
+
+        try {
+            $entryManager->delete($idFiche, true);
+        } catch (\Throwable $th) {
+            return ['success' => false, 'error' => 'Entry deletion failed: ' . $th->getMessage()];
+        }
+
+        return ['success' => true];
+    }
+
     public function deleteWikiFromEntry($id)
     {
         $userCanDelete = $this->wiki->UserIsAdmin() || $this->wiki->UserIsOwner();

@@ -24,7 +24,9 @@ class AdminWikisAction extends YesWikiAction
             return $this->render(
                 '@ferme/wikis-table.twig',
                 [
-                    'api_url' => $this->wiki->href('', 'api/ferme/wikis'),
+                    'api_url'        => $this->wiki->href('', 'api/ferme/wikis'),
+                    'upgrade_api_url' => $this->wiki->href('', 'api/ferme/wikis/upgrade'),
+                    'delete_api_url' => $this->wiki->href('', 'api/ferme/wikis/delete'),
                 ]
             );
         } else { // User isn't admin

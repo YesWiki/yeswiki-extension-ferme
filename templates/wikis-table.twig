@@ -33,7 +33,6 @@
             <span>{{ _t("FERME_SELECT_ALL") }}</span>
         </label>
     </div>
-
     <button id="btn-upgrade-selected"
             type="button"
             class="btn btn-warning"
@@ -41,15 +40,33 @@
         <i class="fas fa-sync-alt"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}
         <span id="upgrade-selected-count" class="badge" style="display:none;"></span>
     </button>
+    <button id="btn-delete-selected"
+            type="button"
+            class="btn btn-danger"
+            disabled>
+        <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}
+        <span id="delete-selected-count" class="badge" style="display:none;"></span>
+    </button>
 </div>
 <div id="upgrade-wikis-config"
      style="display:none"
-     data-upgrade-url="{{ url({"handler": "upgradeselectedwiki"}) }}"
+     data-upgrade-url="{{ upgrade_api_url }}"
+     data-delete-url="{{ delete_api_url }}"
+     data-csrf-token="{{ csrfToken({id: "main", refresh: false}) }}"
      data-pending="{{ _t("FERME_UPGRADE_PENDING") }}"
      data-in-progress="{{ _t("FERME_UPGRADING_STATUS") }}"
      data-success="{{ _t("FERME_UPGRADE_SUCCESS") }}"
-     data-error="{{ _t("FERME_UPGRADE_ERROR") }}"></div>
+     data-error="{{ _t("FERME_UPGRADE_ERROR") }}"
+     data-delete-warning="{{ _t("FERME_DELETE_SELECTED_WARNING") }}"
+     data-delete-confirm-btn="{{ _t("FERME_DELETE_CONFIRM_BTN") }}"
+     data-deleting="{{ _t("FERME_DELETING_STATUS") }}"
+     data-delete-success="{{ _t("FERME_DELETE_SUCCESS") }}"
+     data-delete-error="{{ _t("FERME_DELETE_ERROR") }}"
+     data-cancel="{{ _t("FERME_CANCEL") }}"
+     data-close="{{ _t("FERME_UPGRADE_CLOSE") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
+
+{# Upgrade modal #}
 <div class="modal fade"
      id="upgrade-selected-modal"
      tabindex="-1"
@@ -68,8 +85,7 @@
                 <p class="text-muted">{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}</p>
                 <div id="upgrade-wikis-list"
                      class="list-group"
-                     style="max-height:400px;
-                            overflow-y:auto"></div>
+                     style="max-height:400px; overflow-y:auto"></div>
             </div>
             <div class="modal-footer">
                 <button type="button"
@@ -81,6 +97,54 @@
         </div>
     </div>
 </div>
+
+{# Delete modal #}
+<div class="modal fade"
+     id="delete-selected-modal"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="delete-selected-modal-label"
+     data-backdrop="static"
+     data-keyboard="false">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="delete-selected-modal-label">
+                    <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}
+                </h4>
+            </div>
+            <div class="modal-body">
+                <div id="delete-confirm-stage">
+                    <div class="alert alert-danger">{{ _t("FERME_DELETE_SELECTED_WARNING") }}</div>
+                    <div id="delete-wikis-preview" class="list-group" style="max-height:300px; overflow-y:auto"></div>
+                </div>
+                <div id="delete-progress-stage" style="display:none">
+                    <div id="delete-wikis-list" class="list-group" style="max-height:400px; overflow-y:auto"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div id="delete-footer-confirm">
+                    <button type="button"
+                            class="btn btn-default"
+                            data-dismiss="modal">{{ _t("FERME_CANCEL") }}</button>
+                    <button type="button"
+                            id="btn-start-delete"
+                            class="btn btn-danger">
+                        <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_CONFIRM_BTN") }}
+                    </button>
+                </div>
+                <div id="delete-footer-progress" style="display:none">
+                    <button type="button"
+                            id="btn-close-delete-modal"
+                            class="btn btn-default"
+                            data-dismiss="modal"
+                            disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <a class="btn btn-primary"
    role="button"
    href="{{ url({"handler": "searchwiki"}) }}"><i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}</a>

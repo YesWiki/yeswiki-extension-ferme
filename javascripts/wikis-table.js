@@ -6,6 +6,8 @@ $(document).ready(function() {
   var $config = $('#upgrade-wikis-config');
   var apiUrl = $table.data('api-url');
   var upgradeUrl = $config.data('upgrade-url');
+  var deleteUrl = $config.data('delete-url');
+  var csrfToken = $config.data('csrf-token');
   var i18n = $config.data();
   var tableI18n = {
     see: $table.data('i18n-see'),
@@ -34,7 +36,8 @@ $(document).ready(function() {
         return '<div class="checkbox"><label>'
           + '<input type="checkbox" class="wiki-checkbox"'
           + ' value="' + esc(row.folder) + '"'
-          + ' data-title="' + esc(row.title) + '">'
+          + ' data-title="' + esc(row.title) + '"'
+          + ' data-id-fiche="' + esc(row.id_fiche) + '">'
           + '<span></span></label></div>';
       }
     },
@@ -74,7 +77,7 @@ $(document).ready(function() {
         return '<a class="modalbox" href="' + esc(row.dashboard_link) + '">' + esc(row.last_modification) + '</a>';
       }
     },
-    { data: 'admin',   orderable: false, render: function(data) { return data || ''; } },
+    { data: 'admin', orderable: false, render: function(data) { return data || ''; } },
     { data: 'version', orderable: false, render: function(data) { return data || ''; } },
     {
       data: null,
@@ -89,11 +92,7 @@ $(document).ready(function() {
           + '<i class="fa fa-pencil-alt"></i></a> '
           + '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
           + ' title="' + esc(tableI18n.backup) + '" href="">'
-          + '<i class="fas fa-file-archive"></i></a> '
-          + '<a class="btn btn-danger btn-xs" data-toggle="tooltip" data-placement="bottom"'
-          + ' title="' + esc(tableI18n.del) + '" href="' + esc(row.delete_url) + '"'
-          + ' onclick="return confirm(\'' + esc(tableI18n.confirmDelete) + ' ?\');">'
-          + '<i class="fa fa-trash"></i></a>';
+          + '<i class="fas fa-file-archive"></i></a> ';
       }
     }
   ];
@@ -142,6 +141,18 @@ $(document).ready(function() {
     }
   }
 
+  function updateDeleteBtn() {
+    var count = Object.keys(selectedWikis).length;
+    var $btn = $('#btn-delete-selected');
+    var $badge = $('#delete-selected-count');
+    $btn.prop('disabled', count === 0);
+    if (count > 0) {
+      $badge.text(count).show();
+    } else {
+      $badge.hide();
+    }
+  }
+
   // Select/deselect all wikis on the current page
   $('#select-all-wikis').on('change', function() {
     var checked = $(this).is(':checked');
@@ -149,26 +160,30 @@ $(document).ready(function() {
       $(this).prop('checked', checked);
       var folder = $(this).val();
       var title = $(this).data('title');
+      var idFiche = $(this).data('id-fiche');
       if (checked) {
-        selectedWikis[folder] = title;
+        selectedWikis[folder] = { title: title, idFiche: idFiche };
       } else {
         delete selectedWikis[folder];
       }
     });
     updateUpgradeBtn();
+    updateDeleteBtn();
   });
 
   // Individual checkboxes — delegated for DataTables re-render safety
   $(document).on('change', '#wikis-table .wiki-checkbox', function() {
     var folder = $(this).val();
     var title = $(this).data('title');
+    var idFiche = $(this).data('id-fiche');
     if ($(this).is(':checked')) {
-      selectedWikis[folder] = title;
+      selectedWikis[folder] = { title: title, idFiche: idFiche };
     } else {
       delete selectedWikis[folder];
     }
     updateSelectAllState();
     updateUpgradeBtn();
+    updateDeleteBtn();
   });
 
   // Open modal — Bootstrap 3 ignores data-toggle on disabled buttons
@@ -181,7 +196,7 @@ $(document).ready(function() {
   // Populate list and start upgrades once the modal is visible
   $('#upgrade-selected-modal').on('shown.bs.modal', function() {
     var wikis = Object.keys(selectedWikis).map(function(folder) {
-      return { folder: folder, title: selectedWikis[folder] };
+      return { folder: folder, title: selectedWikis[folder].title };
     });
 
     var $list = $('#upgrade-wikis-list').empty();
@@ -201,6 +216,100 @@ $(document).ready(function() {
 
     upgradeSequential(wikis, 0);
   });
+
+  // ── Delete selected ──────────────────────────────────────────────────────
+
+  $('#btn-delete-selected').on('click', function() {
+    if ($(this).prop('disabled')) { return; }
+    var wikis = Object.keys(selectedWikis).map(function(folder) {
+      return { folder: folder, title: selectedWikis[folder].title, idFiche: selectedWikis[folder].idFiche };
+    });
+    // Populate confirmation preview
+    var $preview = $('#delete-wikis-preview').empty();
+    wikis.forEach(function(wiki) {
+      $preview.append($('<div class="list-group-item">').text(wiki.title));
+    });
+    // Reset modal to confirmation stage
+    $('#delete-confirm-stage').show();
+    $('#delete-progress-stage').hide();
+    $('#delete-footer-confirm').show();
+    $('#delete-footer-progress').hide();
+    $('#btn-close-delete-modal').prop('disabled', true);
+    $('#delete-selected-modal').modal('show');
+  });
+
+  $('#btn-start-delete').on('click', function() {
+    var wikis = Object.keys(selectedWikis).map(function(folder) {
+      return { folder: folder, title: selectedWikis[folder].title, idFiche: selectedWikis[folder].idFiche };
+    });
+    // Switch to progress stage
+    $('#delete-confirm-stage').hide();
+    $('#delete-footer-confirm').hide();
+    var $list = $('#delete-wikis-list').empty();
+    wikis.forEach(function(wiki) {
+      var $item = $('<div class="list-group-item">').attr('id', 'delete-item-' + wiki.folder);
+      var $header = $('<div>').css('display', 'flex').css('align-items', 'center').css('gap', '8px');
+      $header.append($('<i class="fas fa-clock delete-icon text-muted">'));
+      $header.append($('<strong class="flex-grow-1">').text(wiki.title));
+      $header.append($('<span class="badge delete-badge">').text(i18n.pending).css('margin-left', 'auto'));
+      $item.append($header);
+      $item.append(
+        $('<div class="delete-output" style="display:none; margin-top:8px;">')
+          .append($('<pre style="max-height:100px; overflow-y:auto; margin:0;">'))
+      );
+      $list.append($item);
+    });
+    $('#delete-progress-stage').show();
+    $('#delete-footer-progress').show();
+    deleteSequential(wikis, 0);
+  });
+
+  function deleteSequential(wikis, index) {
+    if (index >= wikis.length) {
+      $('#btn-close-delete-modal').prop('disabled', false);
+      wikisTable.ajax.reload(null, false); // refresh table without resetting pagination
+      return;
+    }
+
+    var wiki = wikis[index];
+    var $item = $('#delete-item-' + wiki.folder);
+    $item.find('.delete-icon').attr('class', 'fas fa-spinner fa-spin delete-icon text-info');
+    $item.find('.delete-badge').text(i18n.deleting).css('background-color', '#5bc0de');
+
+    $.ajax({
+      url: deleteUrl,
+      method: 'POST',
+      data: { id_fiche: wiki.idFiche, 'csrf-token': csrfToken },
+      dataType: 'json',
+      success: function(response) {
+        if (response.success) {
+          $item.find('.delete-icon').attr('class', 'fas fa-check delete-icon text-success');
+          $item.find('.delete-badge').text(i18n.deleteSuccess).css('background-color', '#5cb85c');
+          delete selectedWikis[wiki.folder];
+          updateUpgradeBtn();
+          updateDeleteBtn();
+          deleteSequential(wikis, index + 1);
+        } else {
+          $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
+          $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
+          if (response.error) {
+            $item.find('.delete-output pre').text(response.error);
+            $item.find('.delete-output').show();
+          }
+          $('#btn-close-delete-modal').prop('disabled', false);
+        }
+      },
+      error: function(xhr, status, error) {
+        $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
+        $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
+        $item.find('.delete-output pre').text('HTTP error: ' + error);
+        $item.find('.delete-output').show();
+        $('#btn-close-delete-modal').prop('disabled', false);
+      }
+    });
+  }
+
+  // ── Upgrade sequential ────────────────────────────────────────────────────
 
   function upgradeSequential(wikis, index) {
     if (index >= wikis.length) {
