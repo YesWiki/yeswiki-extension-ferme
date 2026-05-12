@@ -33,6 +33,7 @@ $GLOBALS['translations'] = array_merge(
     $GLOBALS['translations'],
     [
         'FERME_IMPORT' => 'Import',
+        'FERME_RENAME' => 'Rename',
         'FERME_GENERATE_MODEL_FROM_URL' => 'Use an URL to generate a model',
         'FERME_URL_IMPORT_INFO' => 'Key a YesWiki page URL in',
         'FERME_ALL_WIKIS_ADMIN' => 'Wikis management',
@@ -45,6 +46,15 @@ $GLOBALS['translations'] = array_merge(
         'FERME_REPORT' => 'Report',
         'FERME_INSERTION_ERROR' => 'Error for insertion n°{num} from file {file} : {errorMsg}',
         'FERME_INSERTION' => 'Insertion n°{num} : {nbRows} line(s) affected',
+
+        'FERME_SELECT_ALL' => 'Select all',
+        'FERME_UPGRADE_SELECTED_WIKIS' => 'Upgrade selected wikis',
+        'FERME_UPGRADE_SELECTED_INTRO' => 'The following wikis will be upgraded one by one. The process stops if any error occurs.',
+        'FERME_UPGRADE_CLOSE' => 'Close',
+        'FERME_UPGRADE_PENDING' => 'Pending',
+        'FERME_UPGRADING_STATUS' => 'In progress...',
+        'FERME_UPGRADE_SUCCESS' => 'Success',
+        'FERME_UPGRADE_ERROR' => 'Error',
 
         // for edit config
         'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',

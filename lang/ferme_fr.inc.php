@@ -15,6 +15,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_ACCESS_WIKI' => 'Accéder au site',
         'FERME_IMPORT' => 'Importer',
         'FERME_DELETE' => 'Supprimer',
+        'FERME_RENAME' => 'Renommer',
         'FERME_CONFIRM_DELETE_MODEL' => 'Êtes-vous sûr·e de vouloir supprimer ce modèle ?',
         'FERME_GENERATE_MODEL_FROM_URL' => 'Générer un modèle à partir d\'une adresse URL',
         'FERME_URL_IMPORT_INFO' => 'Entrer l\'url de n\'importe quelle page yeswiki ou de son dossier',
@@ -58,6 +59,14 @@ $GLOBALS['translations'] = array_merge(
         'FERME_UPGRADE_ALL_WIKIS' => 'Mettre à jour tous les wikis',
         'FERME_UPGRADE_ALL_WIKIS_TO_LATEST_VERSION' => 'Mettre à jour le logiciel',
         'FERME_UPGRADE_ALL_WIKIS_AND_PAGES_TO_LATEST_VERSION' => 'Mettre à jour le logiciel et les pages par défaut',
+        'FERME_SELECT_ALL' => 'Tout sélectionner',
+        'FERME_UPGRADE_SELECTED_WIKIS' => 'Mettre à jour les wikis sélectionnés',
+        'FERME_UPGRADE_SELECTED_INTRO' => 'Les wikis suivants vont être mis à jour un par un. Le processus s\'arrête dès qu\'une erreur survient.',
+        'FERME_UPGRADE_CLOSE' => 'Fermer',
+        'FERME_UPGRADE_PENDING' => 'En attente',
+        'FERME_UPGRADING_STATUS' => 'En cours...',
+        'FERME_UPGRADE_SUCCESS' => 'Succès',
+        'FERME_UPGRADE_ERROR' => 'Erreur',
 
         // Action Builder
         'AB_FERME_GROUP_LABEL' => 'Ferme',

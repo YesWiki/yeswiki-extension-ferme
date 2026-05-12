@@ -1,85 +1,145 @@
-
-{{ include_javascript('tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.js') }}
-{{ include_javascript('tools/templates/libs/vendor/datatables/jquery.dataTables.min.js') }}
-{{ include_css('tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.css') }}
-<h2>{{ _t('FERME_ALL_WIKIS_ADMIN') }}</h2>
+{{ include_javascript("tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.js") }}
+{{ include_javascript("tools/templates/libs/vendor/datatables/jquery.dataTables.min.js") }}
+{{ include_css("tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.css") }}
+<h2>{{ _t("FERME_ALL_WIKIS_ADMIN") }}</h2>
 {% if wikis|length > 0 %}
-<div class="table-responsive">
-  <table id="wikis-table" class="datatable bazar-table table table-condensed table-striped">
-    <thead>
-      <tr>
-        <th>{{ _t('FERME_WIKI_NAME') }}</th>
-        <th>{{ _t('FERME_WIKI_OWNER') }}</th>
-        <th>{{ _t('FERME_WIKI_OWNER_MAIL') }}</th>
-        <th>{{ _t('FERME_WIKI_LAST_UPDATE') }}</th>
-        <th>{{ _t('FERME_WIKI_ADMIN') }}</th>
-        <th>{{ _t('FERME_WIKI_VERSION') }}</th>
-        <th>{{ _t('FERME_WIKI_ACTION') }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for key, wiki in wikis %}
-        <tr>
-          <td>
-            <strong class="wiki-title">
-              <a href="{{ wiki.url }}">{{ wiki.bf_titre }}</a>
-            </strong>
-            {% if wiki.bf_description %}
-            <div class="wiki-desc">{{ wiki.bf_description }}</div>
-            {% endif %}
-          </td>
-          <td>
-            {{ wiki.bf_referent }}
-          </td>
-          <td>
-            <a href="mailto:{{ wiki.bf_mail }}">{{ wiki.bf_mail }}</a>
-          </td>
-          <td data-order="{{ wiki.last_modification_iso }}">
-            <a class="modalbox" href="{{ wiki.dashboard_link }}">{{ wiki.last_modification }}</a> 
-          </td>
-          <td>
-            {{ wiki.admin|raw }}
-          </td>
-          <td>
-            {{ wiki.version|raw }}
-          </td>
-          <td>
-            <a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('BAZ_SEE_ENTRY') }}" href="{{ url({tag: wiki.id_fiche}) }}">
-              <i class="fa fa-eye"></i>
-            </a>
-            <a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('BAZ_MODIFIER') }}" href="{{ url({tag: wiki.id_fiche, handler: 'edit'}) }}">
-              <i class="fa fa-pencil-alt"></i>
-            </a>
-            <a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('FERME_BACKUP') }}" href="">
-              <i class="fas fa-file-archive"></i>
-            </a>
-            <a href="{{ url({tag: wiki.id_fiche, handler: 'deletepage'}) }}" class="btn btn-danger btn-xs" data-toggle="tooltip" data-placement="bottom" title="{{ _t('BAZ_SUPPRIMER') }}"  onclick="javascript:return confirm('{{ _t('BAZ_CONFIRMATION_SUPPRESSION') }} ?');" data-toggle="tooltip" data-placement="bottom">
-              <i class="fa fa-trash"></i>
-            </a>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div> <!-- /.table-responsive -->
-<div class="btn-group pull-right">
-  <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-    <i class="fas fa-sync-alt"></i> {{ _t('FERME_UPGRADE_ALL_WIKIS') }} <span class="caret"></span>
-  </button>
-  <ul class="dropdown-menu">
-    <li>
-      <a href="{{ url({handler: 'upgradeallwikis'}) }}">
-        {{ _t('FERME_UPGRADE_ALL_WIKIS_TO_LATEST_VERSION') }}
-      </a>
-    </li>
-    <li>
-      <a href="{{ url({handler: 'upgradeallwikis', params: { updatepage: '1'}}) }}">
-        {{ _t('FERME_UPGRADE_ALL_WIKIS_AND_PAGES_TO_LATEST_VERSION') }}
-      </a>
-    </li>
-  </ul>
-</div>
+    <div class="table-responsive">
+        <table id="wikis-table"
+               class="no-dblclick datatable bazar-table table table-condensed table-striped">
+            <thead>
+                <tr>
+                    <th data-orderable="false" data-sortable="false"></th>
+                    <th>{{ _t("FERME_WIKI_NAME") }}</th>
+                    <th>{{ _t("FERME_WIKI_OWNER") }}</th>
+                    <th>{{ _t("FERME_WIKI_OWNER_MAIL") }}</th>
+                    <th>{{ _t("FERME_WIKI_LAST_UPDATE") }}</th>
+                    <th>{{ _t("FERME_WIKI_ADMIN") }}</th>
+                    <th>{{ _t("FERME_WIKI_VERSION") }}</th>
+                    <th>{{ _t("FERME_WIKI_ACTION") }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key, wiki in wikis %}
+                    <tr>
+                        <td>
+                            {% if wiki['bf_dossier-wiki'] is defined and wiki['bf_dossier-wiki'] %}
+                                <input type="checkbox"
+                                       class="wiki-checkbox"
+                                       value="{{ wiki['bf_dossier-wiki'] }}"
+                                       data-title="{{ wiki.bf_titre }}">
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong class="wiki-title">
+                                <a href="{{ wiki.url }}">{{ wiki.bf_titre }}</a>
+                            </strong>
+                            {% if wiki.bf_description %}<div class="wiki-desc">{{ wiki.bf_description }}</div>{% endif %}
+                        </td>
+                        <td>{{ wiki.bf_referent }}</td>
+                        <td>
+                            <a href="mailto:{{ wiki.bf_mail }}">{{ wiki.bf_mail }}</a>
+                        </td>
+                        <td data-order="{{ wiki.last_modification_iso }}">
+                            <a class="modalbox" href="{{ wiki.dashboard_link }}">{{ wiki.last_modification }}</a>
+                        </td>
+                        <td>{{ wiki.admin|raw }}</td>
+                        <td>{{ wiki.version|raw }}</td>
+                        <td>
+                            <a class="btn btn-default btn-xs"
+                               data-toggle="tooltip"
+                               data-placement="bottom"
+                               title="{{ _t("BAZ_SEE_ENTRY") }}"
+                               href="{{ url({tag: wiki.id_fiche}) }}">
+                                <i class="fa fa-eye"></i>
+                            </a>
+                            <a class="btn btn-default btn-xs"
+                               data-toggle="tooltip"
+                               data-placement="bottom"
+                               title="{{ _t("BAZ_MODIFIER") }}"
+                               href="{{ url({tag: wiki.id_fiche, handler: 'edit'}) }}">
+                                <i class="fa fa-pencil-alt"></i>
+                            </a>
+                            <a class="btn btn-default btn-xs"
+                               data-toggle="tooltip"
+                               data-placement="bottom"
+                               title="{{ _t("FERME_BACKUP") }}"
+                               href="">
+                                <i class="fas fa-file-archive"></i>
+                            </a>
+                            <a href="{{ url({tag: wiki.id_fiche, handler: 'deletepage'}) }}"
+                               class="btn btn-danger btn-xs"
+                               data-toggle="tooltip"
+                               data-placement="bottom"
+                               title="{{ _t("BAZ_SUPPRIMER") }}"
+                               onclick="javascript:return confirm('{{ _t("BAZ_CONFIRMATION_SUPPRESSION") }} ?');"
+                               data-toggle="tooltip"
+                               data-placement="bottom">
+                                <i class="fa fa-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- /.table-responsive -->
+    <div class="clearfix" style="margin-top:10px;">
+        <div class="checkbox" style="display:inline-block; margin-right:10px;">
+            <label>
+                <input type="checkbox" id="select-all-wikis">
+                <span>{{ _t("FERME_SELECT_ALL") }}</span>
+            </label>
+        </div>
+        <button id="btn-upgrade-selected"
+                type="button"
+                class="btn btn-warning"
+                disabled>
+            <i class="fas fa-sync-alt"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}
+            <span id="upgrade-selected-count" class="badge" style="display:none;"></span>
+        </button>
+    </div>
+    <div id="upgrade-wikis-config"
+         style="display:none"
+         data-upgrade-url="{{ url({"handler": "upgradeselectedwiki"}) }}"
+         data-pending="{{ _t("FERME_UPGRADE_PENDING") }}"
+         data-in-progress="{{ _t("FERME_UPGRADING_STATUS") }}"
+         data-success="{{ _t("FERME_UPGRADE_SUCCESS") }}"
+         data-error="{{ _t("FERME_UPGRADE_ERROR") }}"></div>
+    {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
+    <div class="modal fade"
+         id="upgrade-selected-modal"
+         tabindex="-1"
+         role="dialog"
+         aria-labelledby="upgrade-selected-modal-label"
+         data-backdrop="static"
+         data-keyboard="false">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="upgrade-selected-modal-label">
+                        <i class="fas fa-sync-alt"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}
+                    </h4>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}</p>
+                    <div id="upgrade-wikis-list"
+                         class="list-group"
+                         style="max-height:400px;
+                                overflow-y:auto"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            id="btn-close-upgrade-modal"
+                            class="btn btn-default"
+                            data-dismiss="modal"
+                            disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% else %}
-<div class="alert alert-info">{{ _t('FERME_NO_WIKIS') }}.</div>
+    <div class="alert alert-info">{{ _t("FERME_NO_WIKIS") }}.</div>
 {% endif %}
-<a class="btn btn-primary" role="button" href="{{ url({handler: 'searchwiki'}) }}"><i class="fas fa-search-plus"></i> {{ _t('FERME_SEARCH_FOR_WIKIS') }}</a>
+<a class="btn btn-primary"
+   role="button"
+   href="{{ url({"handler": "searchwiki"}) }}"><i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}</a>

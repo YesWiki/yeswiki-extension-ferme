@@ -1,5 +1,6 @@
 <?php
 
+use Tamtamchik\SimpleFlash\Flash;
 use YesWiki\Core\Service\DbService;
 use YesWiki\Core\YesWikiAction;
 use YesWiki\Ferme\Service\FarmService;
@@ -44,8 +45,8 @@ class GenerateModelAction extends YesWikiAction
                         $dataConfig[$modelName] = 1;
                     }
                     list($outputTmp, $yeswikiFarmModels) = $this->saveConfig(['config' => $dataConfig]);
-                    flash($outputTmp);
-                    $this->wiki->Redirect($this->wiki->Href('', '', ['delete_model' => $this->arguments['delete_model']], false));
+                    Flash::info(strip_tags($outputTmp));
+                    $this->wiki->Redirect($this->wiki->Href('', $this->wiki->GetPageTag()));
                 }
                 $output .= $this->deleteModel($this->arguments['delete_model']);
             }
@@ -53,6 +54,9 @@ class GenerateModelAction extends YesWikiAction
             if (isset($this->arguments['POST']['save_config'])) {
                 list($outputTmp, $yeswikiFarmModels) = $this->saveConfig($this->arguments['POST']);
                 $output .= $outputTmp;
+                if (!empty($this->arguments['POST']['model_labels']) && is_array($this->arguments['POST']['model_labels'])) {
+                    $this->saveModelLabels($this->arguments['POST']['model_labels']);
+                }
             }
 
             // get all custom models
@@ -146,40 +150,24 @@ class GenerateModelAction extends YesWikiAction
         $forms = json_decode(html_entity_decode($data['wiki-import-forms']), 1);
         if (is_array($forms) && !empty($forms)) {
             $sql .= '# Bazar forms' . "\n";
-            $formDefault = [
-                'bn_id_nature' => '',
-                'bn_label_nature' => '',
-                'bn_description' => '',
-                'bn_condition' => '',
-                'bn_sem_context' => '',
-                'bn_sem_type' => '',
-                'bn_sem_use_template' => '1',
-                'bn_template' => '',
-                'bn_ce_i18n' => 'fr-FR',
-                'bn_only_one_entry' => 'bn_only_one_entry',
-                'bn_only_one_entry_message' => '',
-            ];
+            $tabforms = [];
+            // Derive column list from the bn_* keys of the first form (api/forms response)
+            $firstForm = reset($forms);
+            $validColumns = array_values(array_filter(array_keys($firstForm), function ($key) {
+                return strpos($key, 'bn_') === 0;
+            }));
             foreach ($forms as $form) {
-                $tabforms[] = '(' .
-                    implode(
-                        ', ',
-                        array_map(
-                            function ($key) use ($formDefault, $form) {
-                                return empty($form[$key])
-                                    ? "'{$formDefault[$key]}'"
-                                    : "'{$this->dbService->escape($form[$key])}'";
-                            },
-                            array_keys($formDefault)
-                        )
-                    ) .
-                    ')';
+                $values = array_map(function ($col) use ($form) {
+                    $value = $form[$col] ?? '';
+                    return "'" . $this->dbService->escape((string) $value) . "'";
+                }, $validColumns);
+                $tabforms[] = '(' . implode(', ', $values) . ')';
             }
             $sql .= 'INSERT INTO `{{prefix}}nature` ('
-                . implode(', ', array_map(function ($key) {
-                    return "`$key`";
-                }, array_keys($formDefault)))
-                . ')'
-                . " VALUES\n" . implode(',' . "\n", $tabforms) . ";\n";
+                . implode(', ', array_map(function ($col) {
+                    return "`$col`";
+                }, $validColumns))
+                . ")\nVALUES\n" . implode(',' . "\n", $tabforms) . ";\n";
             $sql .= '# end Bazar forms' . "\n\n";
         }
 
@@ -367,6 +355,22 @@ class GenerateModelAction extends YesWikiAction
      *
      * @return array [string $output,array $yeswikiFarmModels]
      */
+    private function saveModelLabels(array $labels): void
+    {
+        foreach ($labels as $model => $label) {
+            $label = trim(strip_tags($label));
+            if (empty($label)) {
+                continue;
+            }
+            $infoFile = 'custom/wiki-models/' . $model . '/infos.json';
+            if (is_file($infoFile)) {
+                $infos = json_decode(file_get_contents($infoFile), true) ?? [];
+                $infos['label'] = $label;
+                file_put_contents($infoFile, json_encode($infos, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            }
+        }
+    }
+
     private function saveConfig(array $data): array
     {
         $output = '';

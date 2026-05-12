@@ -448,7 +448,7 @@ class FarmService
                     'favorite_squelette' => $this->wiki->config['yeswiki-farm-fav-squelette'],
                     'favorite_preset' => $this->wiki->config['yeswiki-farm-fav-preset'],
                     'favorite_background_image' => $this->wiki->config['yeswiki-farm-bg-img'],
-                    'source_url' => $this->wiki->href('', $entry['id_fiche']),
+                    'source_url' => $this->wiki->href('', $entry['id_fiche'] ?? genere_nom_wiki($entry['bf_titre'])),
                     'db_charset' => 'utf8mb4',
                 ];
                 if (
