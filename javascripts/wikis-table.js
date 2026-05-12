@@ -3,6 +3,22 @@ $(document).ready(function () {
   var upgradeUrl = $config.data('upgrade-url');
   var i18n = $config.data();
 
+  // Initialise DataTables with pagination (100 rows per page).
+  // We use prevent-auto-init on the table so the global YesWiki init is skipped.
+  var dtOptions = typeof DATATABLE_OPTIONS !== 'undefined'
+    ? $.extend({}, DATATABLE_OPTIONS, { paging: true, pageLength: 100 })
+    : { paging: true, pageLength: 100 };
+  var wikisTable = $('#wikis-table').DataTable(dtOptions);
+
+  function updateSelectAllState() {
+    // Count across ALL rows (all pages) — hidden rows are still in the DOM.
+    var total = $('#wikis-table .wiki-checkbox').length;
+    var checked = $('#wikis-table .wiki-checkbox:checked').length;
+    $('#select-all-wikis')
+      .prop('indeterminate', checked > 0 && checked < total)
+      .prop('checked', total > 0 && checked === total);
+  }
+
   function updateUpgradeBtn() {
     var count = $('#wikis-table .wiki-checkbox:checked').length;
     var $btn = $('#btn-upgrade-selected');
@@ -15,18 +31,20 @@ $(document).ready(function () {
     }
   }
 
+  // Re-sync select-all indicator when the page changes.
+  wikisTable.on('draw', function () {
+    updateSelectAllState();
+  });
+
   $('#select-all-wikis').on('change', function () {
+    // Select/deselect ALL rows across all pages.
     $('#wikis-table .wiki-checkbox').prop('checked', $(this).is(':checked'));
     updateUpgradeBtn();
   });
 
   // Individual checkboxes — delegated on document for DataTables re-render safety
   $(document).on('change', '#wikis-table .wiki-checkbox', function () {
-    var total = $('#wikis-table .wiki-checkbox').length;
-    var checked = $('#wikis-table .wiki-checkbox:checked').length;
-    $('#select-all-wikis')
-      .prop('indeterminate', checked > 0 && checked < total)
-      .prop('checked', total > 0 && checked === total);
+    updateSelectAllState();
     updateUpgradeBtn();
   });
 
