@@ -1,26 +1,137 @@
-$(document).ready(function () {
+$(document).ready(function() {
+  //dirty hack for full width for wiki table
+  $('.page > .row-fluid.row').addClass('full-width')
+
+  var $table = $('#wikis-table');
   var $config = $('#upgrade-wikis-config');
+  var apiUrl = $table.data('api-url');
   var upgradeUrl = $config.data('upgrade-url');
   var i18n = $config.data();
+  var tableI18n = {
+    see: $table.data('i18n-see'),
+    edit: $table.data('i18n-edit'),
+    backup: $table.data('i18n-backup'),
+    del: $table.data('i18n-delete'),
+    confirmDelete: $table.data('i18n-confirm-delete')
+  };
 
-  // Initialise DataTables with pagination (100 rows per page).
-  // We use prevent-auto-init on the table so the global YesWiki init is skipped.
-  var dtOptions = typeof DATATABLE_OPTIONS !== 'undefined'
-    ? $.extend({}, DATATABLE_OPTIONS, { paging: true, pageLength: 100 })
-    : { paging: true, pageLength: 100 };
-  var wikisTable = $('#wikis-table').DataTable(dtOptions);
+  // Track selected wikis across pages: { folder: title }
+  var selectedWikis = {};
+
+  function esc(str) {
+    return $('<span>').text(str || '').html();
+  }
+
+  // Column definitions — server-side handles sorting; columns 0,4,5,6 are not sortable.
+  // For columns with data:null, DataTables passes null as the first arg; use the third arg (row).
+  var columns = [
+    {
+      data: null,
+      defaultContent: '',
+      orderable: false,
+      render: function(data, type, row) {
+        if (!row.folder) { return ''; }
+        return '<div class="checkbox"><label>'
+          + '<input type="checkbox" class="wiki-checkbox"'
+          + ' value="' + esc(row.folder) + '"'
+          + ' data-title="' + esc(row.title) + '">'
+          + '<span></span></label></div>';
+      }
+    },
+    {
+      data: null,
+      defaultContent: '',
+      orderable: true,
+      render: function(data, type, row) {
+        var html = '<strong class="wiki-title"><a href="' + esc(row.url) + '">' + esc(row.title) + '</a></strong>';
+        if (row.description) {
+          html += '<div class="wiki-desc">' + esc(row.description) + '</div>';
+        }
+        if (row.error) {
+          html += row.error; // already safe HTML from server
+        }
+        return html;
+      }
+    },
+    {
+      data: null,
+      defaultContent: '',
+      orderable: true,
+      render: function(data, type, row) {
+        var html = esc(row.referent);
+        if (row.mail) {
+          html += '<br><a href="mailto:' + esc(row.mail) + '">' + esc(row.mail) + '</a>';
+        }
+        return html;
+      }
+    },
+    {
+      data: null,
+      defaultContent: '',
+      orderable: true,
+      render: function(data, type, row) {
+        if (!row.dashboard_link) { return esc(row.last_modification); }
+        return '<a class="modalbox" href="' + esc(row.dashboard_link) + '">' + esc(row.last_modification) + '</a>';
+      }
+    },
+    { data: 'admin',   orderable: false, render: function(data) { return data || ''; } },
+    { data: 'version', orderable: false, render: function(data) { return data || ''; } },
+    {
+      data: null,
+      defaultContent: '',
+      orderable: false,
+      render: function(data, type, row) {
+        return '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
+          + ' title="' + esc(tableI18n.see) + '" href="' + esc(row.view_url) + '">'
+          + '<i class="fa fa-eye"></i></a> '
+          + '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
+          + ' title="' + esc(tableI18n.edit) + '" href="' + esc(row.edit_url) + '">'
+          + '<i class="fa fa-pencil-alt"></i></a> '
+          + '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
+          + ' title="' + esc(tableI18n.backup) + '" href="">'
+          + '<i class="fas fa-file-archive"></i></a> '
+          + '<a class="btn btn-danger btn-xs" data-toggle="tooltip" data-placement="bottom"'
+          + ' title="' + esc(tableI18n.del) + '" href="' + esc(row.delete_url) + '"'
+          + ' onclick="return confirm(\'' + esc(tableI18n.confirmDelete) + ' ?\');">'
+          + '<i class="fa fa-trash"></i></a>';
+      }
+    }
+  ];
+
+  var dtBase = typeof DATATABLE_OPTIONS !== 'undefined' ? DATATABLE_OPTIONS : {};
+  var wikisTable = $table.DataTable($.extend({}, dtBase, {
+    serverSide: true,
+    processing: true,
+    paging: true,
+    pageLength: 100,
+    ajax: {
+      url: apiUrl,
+      type: 'POST'
+    },
+    columns: columns,
+    dom: (dtBase.dom ? dtBase.dom : "<'row'<'col-sm-6'l><'col-sm-6'f>><'row'<'col-sm-12'tr>><'row'<'col-sm-6'i><'col-sm-6'<'pull-right'B>>>")
+      + "<'row'<'col-sm-12'p>>"
+  }));
+
+  // After each draw, restore checkbox state for visible rows and sync select-all
+  wikisTable.on('draw', function() {
+    $table.find('.wiki-checkbox').each(function() {
+      $(this).prop('checked', !!(selectedWikis[$(this).val()]));
+    });
+    updateSelectAllState();
+  });
 
   function updateSelectAllState() {
-    // Count across ALL rows (all pages) — hidden rows are still in the DOM.
-    var total = $('#wikis-table .wiki-checkbox').length;
-    var checked = $('#wikis-table .wiki-checkbox:checked').length;
+    var $boxes = $table.find('.wiki-checkbox');
+    var total = $boxes.length;
+    var checked = $boxes.filter(':checked').length;
     $('#select-all-wikis')
       .prop('indeterminate', checked > 0 && checked < total)
       .prop('checked', total > 0 && checked === total);
   }
 
   function updateUpgradeBtn() {
-    var count = $('#wikis-table .wiki-checkbox:checked').length;
+    var count = Object.keys(selectedWikis).length;
     var $btn = $('#btn-upgrade-selected');
     var $badge = $('#upgrade-selected-count');
     $btn.prop('disabled', count === 0);
@@ -31,39 +142,50 @@ $(document).ready(function () {
     }
   }
 
-  // Re-sync select-all indicator when the page changes.
-  wikisTable.on('draw', function () {
-    updateSelectAllState();
-  });
-
-  $('#select-all-wikis').on('change', function () {
-    // Select/deselect ALL rows across all pages.
-    $('#wikis-table .wiki-checkbox').prop('checked', $(this).is(':checked'));
+  // Select/deselect all wikis on the current page
+  $('#select-all-wikis').on('change', function() {
+    var checked = $(this).is(':checked');
+    $table.find('.wiki-checkbox').each(function() {
+      $(this).prop('checked', checked);
+      var folder = $(this).val();
+      var title = $(this).data('title');
+      if (checked) {
+        selectedWikis[folder] = title;
+      } else {
+        delete selectedWikis[folder];
+      }
+    });
     updateUpgradeBtn();
   });
 
-  // Individual checkboxes — delegated on document for DataTables re-render safety
-  $(document).on('change', '#wikis-table .wiki-checkbox', function () {
+  // Individual checkboxes — delegated for DataTables re-render safety
+  $(document).on('change', '#wikis-table .wiki-checkbox', function() {
+    var folder = $(this).val();
+    var title = $(this).data('title');
+    if ($(this).is(':checked')) {
+      selectedWikis[folder] = title;
+    } else {
+      delete selectedWikis[folder];
+    }
     updateSelectAllState();
     updateUpgradeBtn();
   });
 
-  // Open modal programmatically — Bootstrap 3 ignores data-toggle on disabled buttons
-  $('#btn-upgrade-selected').on('click', function () {
+  // Open modal — Bootstrap 3 ignores data-toggle on disabled buttons
+  $('#btn-upgrade-selected').on('click', function() {
     if (!$(this).prop('disabled')) {
       $('#upgrade-selected-modal').modal('show');
     }
   });
 
-  // Populate list and start upgrades immediately once the modal is visible
-  $('#upgrade-selected-modal').on('shown.bs.modal', function () {
-    var wikis = [];
-    $('#wikis-table .wiki-checkbox:checked').each(function () {
-      wikis.push({ folder: $(this).val(), title: $(this).data('title') });
+  // Populate list and start upgrades once the modal is visible
+  $('#upgrade-selected-modal').on('shown.bs.modal', function() {
+    var wikis = Object.keys(selectedWikis).map(function(folder) {
+      return { folder: folder, title: selectedWikis[folder] };
     });
 
     var $list = $('#upgrade-wikis-list').empty();
-    wikis.forEach(function (wiki) {
+    wikis.forEach(function(wiki) {
       var $item = $('<div class="list-group-item">').attr('id', 'upgrade-item-' + wiki.folder);
       var $header = $('<div>').css('display', 'flex').css('align-items', 'center').css('gap', '8px');
       $header.append($('<i class="fas fa-clock upgrade-icon text-muted">'));
@@ -72,7 +194,7 @@ $(document).ready(function () {
       $item.append($header);
       $item.append(
         $('<div class="upgrade-output" style="display:none; margin-top:8px;">')
-          .append($('<pre style="max-height:200px; overflow-y:auto; margin:0;">')),
+          .append($('<pre style="max-height:200px; overflow-y:auto; margin:0;">'))
       );
       $list.append($item);
     });
@@ -97,7 +219,7 @@ $(document).ready(function () {
       method: 'POST',
       data: { wiki: wiki.folder },
       dataType: 'json',
-      success: function (response) {
+      success: function(response) {
         if (response.output) {
           $item.find('.upgrade-output pre').text(response.output);
           $item.find('.upgrade-output').show();
@@ -116,13 +238,13 @@ $(document).ready(function () {
           $('#btn-close-upgrade-modal').prop('disabled', false);
         }
       },
-      error: function (xhr, status, error) {
+      error: function(xhr, status, error) {
         $item.find('.upgrade-icon').attr('class', 'fas fa-times upgrade-icon text-danger');
         $item.find('.upgrade-badge').text(i18n.error).css('background-color', '#d9534f');
         $item.find('.upgrade-output pre').text('HTTP error: ' + error);
         $item.find('.upgrade-output').show();
         $('#btn-close-upgrade-modal').prop('disabled', false);
-      },
+      }
     });
   }
 });

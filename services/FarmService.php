@@ -735,77 +735,123 @@ class FarmService
 
     public function getWikiList()
     {
-        $entryManager = $this->wiki->services->get(EntryManager::class);
-        $bazarFarmId = $this->params->get('bazar_farm_id');
-        // check id if wakka.config.php contains a bad value (like string not corresponding to a form's id)
-        $bazarFarmId = (!empty($bazarFarmId) && (strval($bazarFarmId) == strval(intval($bazarFarmId)))) ? $bazarFarmId : '1100';
-        $fiches = $entryManager->search([
-            'formsIds' => [$bazarFarmId],
-        ]);
+        $fiches = $this->getAllWikiFiches();
         $GLOBALS['ordre'] = 'asc';
         $GLOBALS['champ'] = 'bf_titre';
         usort($fiches, 'champCompare');
 
         foreach ($fiches as $i => $fiche) {
-            $wakkaConfig = [];
-            if ($this->wiki->config['yeswiki-farm-root-folder'] == '.') {
-                $wikiConfigFile = realpath(getcwd() . '/' . $fiche['bf_dossier-wiki'] . '/wakka.config.php');
-            } else {
-                $wikiConfigFile = realpath(getcwd() . '/' . $this->wiki->config['yeswiki-farm-root-folder'] . '/' . $fiche['bf_dossier-wiki'] . '/wakka.config.php');
-            }
-            if (file_exists($wikiConfigFile)) {
-                include $wikiConfigFile;
-                if (!empty($wakkaConfig['table_prefix'])) {
-                    $fiche['url'] = $wakkaConfig['base_url'] . $wakkaConfig['root_page'];
-
-                    $fiche['version'] = empty($wakkaConfig['yeswiki_version']) ? (empty($wakkaConfig['yeswiki_release']) ? '' : 'Inconnue') : $wakkaConfig['yeswiki_version'];
-                    $fiche['version'] .= !empty($fiche['version']) ? '<br />' : '';
-
-                    $fiche['version'] .= (empty($wakkaConfig['yeswiki_release']) ? 'Inconnue' : $wakkaConfig['yeswiki_release']);
-                    if ($this->wiki->config['yeswiki_version'] !== $wakkaConfig['yeswiki_version']) {
-                        $fiche['version'] .= '<br /><i>version principale différente du wiki source</i>';
-                    } elseif (empty($wakkaConfig['yeswiki_release']) || ($wakkaConfig['yeswiki_release'] < $this->wiki->config['yeswiki_release'])) {
-                        $fiche['version'] .= '<br /><a class="btn btn-xs btn-danger" href="' . $this->wiki->href('', $this->wiki->GetPageTag(), 'maj=' . $fiche['bf_dossier-wiki']) . '">Mettre à jour vers ' . $this->wiki->config['yeswiki_version'] . '</a>';
-                    } else {
-                        $fiche['version'] .= '<br /><i>à jour avec le wiki source</i>';
-                    }
-
-                    // we use database name of local wiki
-                    $sql = 'USE ' . $wakkaConfig['mysql_database'] . ';';
-                    $this->wiki->query($sql);
-
-                    // test de la presence d'un admin pour la ferme
-                    if (!empty($this->wiki->config['yeswiki-farm-admin-name']) and !empty($this->wiki->config['yeswiki-farm-admin-pass'])) {
-                        $sql = 'SELECT name FROM ' . $wakkaConfig['table_prefix'] . 'users WHERE name="' . $this->wiki->config['yeswiki-farm-admin-name'] . '"';
-                        $userresults = $this->wiki->LoadAll($sql);
-                        if (count($userresults) > 0) {
-                            $text = ' présent <a class="btn btn-xs btn-danger" href="' . $this->wiki->href('', $this->wiki->GetPageTag(), 'nosuperadmin=' . $fiche['bf_dossier-wiki']) . '">supprimer le compte</a>';
-                        } else {
-                            $text = ' absent <a class="btn btn-xs btn-success" href="' . $this->wiki->href('', $this->wiki->GetPageTag(), 'superadmin=' . $fiche['bf_dossier-wiki']) . '">ajouter le compte</a>';
-                        }
-                        $fiche['admin'] = $this->wiki->config['yeswiki-farm-admin-name'] . $text;
-                    }
-
-                    // last modified time
-                    $sql = 'SELECT time FROM `' . $wakkaConfig['table_prefix'] . 'pages` WHERE latest="Y" ORDER BY time DESC LIMIT 1';
-                    $wikiresults = $this->wiki->LoadAll($sql);
-                    $fiche['last_modification_iso'] = $wikiresults[0]['time'];
-                    $date = new \DateTime($wikiresults[0]['time']);
-                    $fiche['last_modification'] = $date->format('d.m.Y H:i:s');
-                    $fiche['dashboard_link'] = $wakkaConfig['base_url'] . 'TableauDeBord';
-
-                    // we go back to main wiki database
-                    $sql = 'USE ' . $this->wiki->config['mysql_database'] . ';';
-                    $this->wiki->query($sql);
-                }
-                $fiches[$i] = $fiche;
-            } else {
-                $fiche['error'] = '<div class="alert alert-danger">' . _t('FERME_FILE') . $fiche['bf_dossier-wiki'] . '/wakka.config.php' . _t('FERME_NOT_FOUND') . '</div>';
-                $fiches[$i] = $fiche;
-            }
+            $fiches[$i] = $this->processWikiEntry($fiche);
         }
 
         return $fiches;
+    }
+
+    public function getWikiListPaginated(int $start, int $length, string $search, int $orderCol, string $orderDir): array
+    {
+        $fiches = $this->getAllWikiFiches();
+        $total  = count($fiches);
+
+        // Filter on basic bazar fields (no per-wiki DB queries needed)
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $fiches = array_values(array_filter($fiches, function ($f) use ($needle) {
+                return strpos(mb_strtolower($f['bf_titre'] ?? ''), $needle) !== false
+                    || strpos(mb_strtolower($f['bf_referent'] ?? ''), $needle) !== false
+                    || strpos(mb_strtolower($f['bf_mail'] ?? ''), $needle) !== false
+                    || strpos(mb_strtolower($f['bf_dossier-wiki'] ?? ''), $needle) !== false;
+            }));
+        }
+        $filtered = count($fiches);
+
+        // Sort on bazar fields only (sorting on computed wiki data would require loading all wikis)
+        // Column order: 0=checkbox, 1=name, 2=referent, 3=last_update, 4=admin, 5=version, 6=actions
+        $sortFields = [1 => 'bf_titre', 2 => 'bf_referent', 3 => 'date_maj_fiche'];
+        $sortField  = $sortFields[$orderCol] ?? 'bf_titre';
+        usort($fiches, function ($a, $b) use ($sortField, $orderDir) {
+            $cmp = strcasecmp($a[$sortField] ?? '', $b[$sortField] ?? '');
+            return $orderDir === 'desc' ? -$cmp : $cmp;
+        });
+
+        // Slice to requested page, then process only those wikis
+        $fiches = array_slice($fiches, $start, $length);
+        foreach ($fiches as $i => $fiche) {
+            $fiches[$i] = $this->processWikiEntry($fiche);
+        }
+
+        return ['total' => $total, 'filtered' => $filtered, 'fiches' => $fiches];
+    }
+
+    private function getAllWikiFiches(): array
+    {
+        $entryManager = $this->wiki->services->get(EntryManager::class);
+        $bazarFarmId  = $this->params->get('bazar_farm_id');
+        // check id if wakka.config.php contains a bad value (like string not corresponding to a form's id)
+        $bazarFarmId = (!empty($bazarFarmId) && (strval($bazarFarmId) == strval(intval($bazarFarmId)))) ? $bazarFarmId : '1100';
+        return $entryManager->search(['formsIds' => [$bazarFarmId]]);
+    }
+
+    private function processWikiEntry(array $fiche): array
+    {
+        if ($this->wiki->config['yeswiki-farm-root-folder'] == '.') {
+            $wikiConfigFile = realpath(getcwd() . '/' . $fiche['bf_dossier-wiki'] . '/wakka.config.php');
+        } else {
+            $wikiConfigFile = realpath(getcwd() . '/' . $this->wiki->config['yeswiki-farm-root-folder'] . '/' . $fiche['bf_dossier-wiki'] . '/wakka.config.php');
+        }
+
+        if (!file_exists($wikiConfigFile)) {
+            $fiche['error'] = '<div class="alert alert-danger">' . _t('FERME_FILE') . $fiche['bf_dossier-wiki'] . '/wakka.config.php' . _t('FERME_NOT_FOUND') . '</div>';
+            return $fiche;
+        }
+
+        $wakkaConfig = [];
+        include $wikiConfigFile;
+
+        if (empty($wakkaConfig['table_prefix'])) {
+            return $fiche;
+        }
+
+        $fiche['url']     = $wakkaConfig['base_url'] . $wakkaConfig['root_page'];
+        $fiche['version'] = empty($wakkaConfig['yeswiki_version'])
+            ? (empty($wakkaConfig['yeswiki_release']) ? '' : 'Inconnue')
+            : $wakkaConfig['yeswiki_version'];
+        $fiche['version'] .= !empty($fiche['version']) ? '<br />' : '';
+        $fiche['version'] .= empty($wakkaConfig['yeswiki_release']) ? 'Inconnue' : $wakkaConfig['yeswiki_release'];
+
+        if ($this->wiki->config['yeswiki_version'] !== $wakkaConfig['yeswiki_version']) {
+            $fiche['version'] .= '<br /><i>version principale différente du wiki source</i>';
+        } elseif (empty($wakkaConfig['yeswiki_release']) || ($wakkaConfig['yeswiki_release'] < $this->wiki->config['yeswiki_release'])) {
+            $fiche['version'] .= '<br /><a class="btn btn-xs btn-danger" href="' . $this->wiki->href('', $this->wiki->GetPageTag(), 'maj=' . $fiche['bf_dossier-wiki']) . '">Mettre à jour vers ' . $this->wiki->config['yeswiki_version'] . '</a>';
+        } else {
+            $fiche['version'] .= '<br /><i>à jour avec le wiki source</i>';
+        }
+
+        // switch to wiki's own database
+        $this->wiki->query('USE ' . $wakkaConfig['mysql_database'] . ';');
+
+        if (!empty($this->wiki->config['yeswiki-farm-admin-name']) and !empty($this->wiki->config['yeswiki-farm-admin-pass'])) {
+            $sql         = 'SELECT name FROM ' . $wakkaConfig['table_prefix'] . 'users WHERE name="' . $this->wiki->config['yeswiki-farm-admin-name'] . '"';
+            $userresults = $this->wiki->LoadAll($sql);
+            if (count($userresults) > 0) {
+                $text = ' présent <a class="btn btn-xs btn-danger" href="' . $this->wiki->href('', $this->wiki->GetPageTag(), 'nosuperadmin=' . $fiche['bf_dossier-wiki']) . '">supprimer le compte</a>';
+            } else {
+                $text = ' absent <a class="btn btn-xs btn-success" href="' . $this->wiki->href('', $this->wiki->GetPageTag(), 'superadmin=' . $fiche['bf_dossier-wiki']) . '">ajouter le compte</a>';
+            }
+            $fiche['admin'] = $this->wiki->config['yeswiki-farm-admin-name'] . $text;
+        }
+
+        $wikiresults                  = $this->wiki->LoadAll('SELECT time FROM `' . $wakkaConfig['table_prefix'] . 'pages` WHERE latest="Y" ORDER BY time DESC LIMIT 1');
+        $fiche['last_modification_iso'] = $wikiresults[0]['time'] ?? '';
+        if (!empty($fiche['last_modification_iso'])) {
+            $date                      = new \DateTime($fiche['last_modification_iso']);
+            $fiche['last_modification'] = $date->format('d.m.Y H:i:s');
+        }
+        $fiche['dashboard_link'] = $wakkaConfig['base_url'] . 'TableauDeBord';
+
+        // switch back to main wiki database
+        $this->wiki->query('USE ' . $this->wiki->config['mysql_database'] . ';');
+
+        return $fiche;
     }
 
     /**

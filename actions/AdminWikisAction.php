@@ -21,12 +21,10 @@ class AdminWikisAction extends YesWikiAction
                 $farm->updateWiki($_GET['maj']);
             }
 
-            $wikis = $farm->getWikiList();
-
             return $this->render(
                 '@ferme/wikis-table.twig',
                 [
-                    'wikis' => $wikis,
+                    'api_url' => $this->wiki->href('', 'api/ferme/wikis'),
                 ]
             );
         } else { // User isn't admin
