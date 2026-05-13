@@ -24,8 +24,6 @@ $(document).ready(function() {
     return $('<span>').text(str || '').html();
   }
 
-  // Column definitions — server-side handles sorting; columns 0,4,5,6 are not sortable.
-  // For columns with data:null, DataTables passes null as the first arg; use the third arg (row).
   var columns = [
     {
       data: null,
@@ -186,14 +184,12 @@ $(document).ready(function() {
     updateDeleteBtn();
   });
 
-  // Open modal — Bootstrap 3 ignores data-toggle on disabled buttons
   $('#btn-upgrade-selected').on('click', function() {
     if (!$(this).prop('disabled')) {
       $('#upgrade-selected-modal').modal('show');
     }
   });
 
-  // Populate list and start upgrades once the modal is visible
   $('#upgrade-selected-modal').on('shown.bs.modal', function() {
     var wikis = Object.keys(selectedWikis).map(function(folder) {
       return { folder: folder, title: selectedWikis[folder].title };
@@ -216,8 +212,6 @@ $(document).ready(function() {
 
     upgradeSequential(wikis, 0);
   });
-
-  // ── Delete selected ──────────────────────────────────────────────────────
 
   $('#btn-delete-selected').on('click', function() {
     if ($(this).prop('disabled')) { return; }
@@ -308,8 +302,6 @@ $(document).ready(function() {
       }
     });
   }
-
-  // ── Upgrade sequential ────────────────────────────────────────────────────
 
   function upgradeSequential(wikis, index) {
     if (index >= wikis.length) {
