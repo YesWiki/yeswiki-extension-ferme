@@ -7,6 +7,7 @@ $(document).ready(function() {
   var apiUrl = $table.data('api-url');
   var upgradeUrl = $config.data('upgrade-url');
   var deleteUrl = $config.data('delete-url');
+  var searchUrl = $config.data('search-url');
   var csrfToken = $config.data('csrf-token');
   var i18n = $config.data();
   var tableI18n = {
@@ -17,7 +18,6 @@ $(document).ready(function() {
     confirmDelete: $table.data('i18n-confirm-delete')
   };
 
-  // Track selected wikis across pages: { folder: title }
   var selectedWikis = {};
 
   function esc(str) {
@@ -109,6 +109,16 @@ $(document).ready(function() {
     dom: (dtBase.dom ? dtBase.dom : "<'row'<'col-sm-6'l><'col-sm-6'f>><'row'<'col-sm-12'tr>><'row'<'col-sm-6'i><'col-sm-6'<'pull-right'B>>>")
       + "<'row'<'col-sm-12'p>>"
   }));
+
+  // Keep the processing overlay centred over the table (not the whole viewport)
+  wikisTable.on('processing.dt', function(e, settings, processing) {
+    if (!processing) { return; }
+    var $container = $table.closest('.table-responsive');
+    var offset = $container.offset();
+    var top = offset.top - $(window).scrollTop() + $container.outerHeight() / 2;
+    var left = offset.left - $(window).scrollLeft() + $container.outerWidth() / 2;
+    $('#wikis-table_processing').css({ top: top, left: left });
+  });
 
   // After each draw, restore checkbox state for visible rows and sync select-all
   wikisTable.on('draw', function() {
@@ -302,6 +312,95 @@ $(document).ready(function() {
       }
     });
   }
+
+  $('#btn-search-wikis').on('click', function() {
+    $('#search-loading-stage').show();
+    $('#search-results-stage').hide();
+    $('#btn-close-search-modal').prop('disabled', true);
+    $('#search-wikis-modal').modal('show');
+  });
+
+  $('#search-wikis-modal').on('shown.bs.modal', function() {
+    $.ajax({
+      url: searchUrl,
+      method: 'POST',
+      dataType: 'json',
+      success: function(response) {
+        var $list = $('#search-wikis-list').empty();
+        var $summary = $('#search-summary');
+        $summary
+          .removeClass('alert-danger alert-success alert-info')
+          .addClass(response.imported.length > 0 ? 'alert-success' : 'alert-info')
+          .text(
+            response.wikisOnServer + ' wiki(s) sur le serveur, ' +
+            response.wikisInBazar + ' dans la ferme, ' +
+            response.imported.length + ' importé(s).'
+          );
+
+        response.results.forEach(function(wiki) {
+          var $item = $('<div class="list-group-item">');
+          var $row = $('<div>').css({ display: 'flex', 'align-items': 'center', gap: '6px', 'flex-wrap': 'wrap' });
+
+          var $name = $('<strong class="flex-grow-1">');
+          if (wiki.url) {
+            $name.append($('<a>').attr({ href: wiki.url, target: '_blank' }).text(wiki.folder));
+          } else {
+            $name.text(wiki.folder);
+          }
+          $row.append($name);
+
+          if (wiki.existsInBazar) {
+            $row.append($('<span class="badge">').text(i18n.searchAlreadyInBazar).css('background-color', '#5bc0de'));
+          } else {
+            $row.append($('<span class="badge">').text(i18n.searchImportedStatus).css('background-color', '#5cb85c'));
+          }
+
+          if (wiki.sqlOk) {
+            $row.append($('<span class="badge">').text(i18n.searchSqlOk).css('background-color', '#5cb85c'));
+            if (!wiki.tablesOk) {
+              $row.append(
+                $('<span class="badge">').css('background-color', '#f0ad4e')
+                  .text(i18n.searchTablesMissing + ': ' + wiki.missingTables.join(', '))
+              );
+            }
+          } else {
+            var $sqlBadge = $('<span class="badge">').text(i18n.searchSqlError).css('background-color', '#d9534f');
+            if (wiki.sqlError) { $sqlBadge.attr('title', wiki.sqlError); }
+            $row.append($sqlBadge);
+          }
+
+          $row.append(
+            $('<span class="badge">').css('background-color', wiki.httpOk ? '#5cb85c' : '#d9534f')
+              .text(wiki.httpOk ? i18n.searchHttpOk : i18n.searchHttpError)
+          );
+
+          $item.append($row);
+          $list.append($item);
+        });
+
+        $('#search-loading-stage').hide();
+        $('#search-results-stage').show();
+        $('#btn-close-search-modal').prop('disabled', false);
+
+        if (response.imported.length > 0) {
+          wikisTable.ajax.reload(null, false);
+        }
+      },
+      error: function(xhr, status, error) {
+        $('#search-loading-stage').html(
+          '<div class="alert alert-danger">' + esc(i18n.searchNetworkError) + ': ' + esc(error) + '</div>'
+        );
+        $('#btn-close-search-modal').prop('disabled', false);
+      }
+    });
+  });
+
+  $('#search-wikis-modal').on('hidden.bs.modal', function() {
+    $('#search-loading-stage').show();
+    $('#search-results-stage').hide();
+    $('#search-wikis-list').empty();
+    $('#btn-close-search-modal').prop('disabled', true);
+  });
 
   function upgradeSequential(wikis, index) {
     if (index >= wikis.length) {

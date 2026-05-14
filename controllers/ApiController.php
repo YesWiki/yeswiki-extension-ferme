@@ -118,6 +118,20 @@ class ApiController extends YesWikiController
     }
 
     /**
+     * Search the server for wikis not yet in the farm bazar, and import them.
+     *
+     * @Route("/api/ferme/wikis/search", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function searchWikis(Request $request)
+    {
+        $adminMail = $this->wiki->GetUser()['email'] ?? '';
+        $checkHttp = filter_var($request->request->get('check_http', true), FILTER_VALIDATE_BOOLEAN);
+        $result    = $this->getService(FarmService::class)->searchWikisOnServer($adminMail, $checkHttp);
+
+        return new ApiResponse($result);
+    }
+
+    /**
      * Delete a single wiki (folder + DB tables + bazar entry).
      *
      * @Route("/api/ferme/wikis/delete", methods={"POST"}, options={"acl":{"@admins"}})
@@ -146,15 +160,19 @@ class ApiController extends YesWikiController
      */
     public function getDocumentation(): string
     {
-        $base        = $this->wiki->href('', 'api/ferme/wikis');
-        $upgradeUrl  = $this->wiki->href('', 'api/ferme/wikis/upgrade');
-        $deleteUrl   = $this->wiki->href('', 'api/ferme/wikis/delete');
+        $base       = $this->wiki->href('', 'api/ferme/wikis');
+        $searchUrl  = $this->wiki->href('', 'api/ferme/wikis/search');
+        $upgradeUrl = $this->wiki->href('', 'api/ferme/wikis/upgrade');
+        $deleteUrl  = $this->wiki->href('', 'api/ferme/wikis/delete');
 
         return '<h2>Extension Ferme</h2>'
             . '<p><code>POST ' . $base . '</code> '
             . 'DataTables server-side data for the wikis admin table (admins only).<br>'
             . 'Params: <code>draw</code>, <code>start</code>, <code>length</code>, '
             . '<code>search[value]</code>, <code>order[0][column]</code>, <code>order[0][dir]</code></p>'
+            . '<p><code>POST ' . $searchUrl . '</code> '
+            . 'Scan the server for wikis not yet in the farm bazar and import them (admins only).<br>'
+            . 'Returns: <code>wikisInBazar</code>, <code>wikisOnServer</code>, <code>results[]</code>, <code>imported[]</code></p>'
             . '<p><code>POST ' . $upgradeUrl . '</code> '
             . 'Upgrade a single wiki via <code>yeswicli upgrade</code> (admins only).<br>'
             . 'Params: <code>wiki</code> (folder name)</p>'
@@ -178,12 +196,61 @@ class ApiController extends YesWikiController
             'last_modification'     => $fiche['last_modification'] ?? '',
             'last_modification_iso' => $fiche['last_modification_iso'] ?? '',
             'dashboard_link'        => $fiche['dashboard_link'] ?? '',
-            'admin'                 => $fiche['admin'] ?? '',
-            'version'               => $fiche['version'] ?? '',
+            'admin'                 => $this->formatAdmin($fiche['admin'] ?? null),
+            'version'               => $this->formatVersion($fiche['version'] ?? []),
             'view_url'              => $this->wiki->href('', $idFiche),
             'edit_url'              => $this->wiki->href('edit', $idFiche),
             'delete_url'            => $this->wiki->href('deletepage', $idFiche),
-            'error'                 => $fiche['error'] ?? null,
+            'error'                 => isset($fiche['error'])
+                ? '<div class="alert alert-danger">' . htmlspecialchars($fiche['error']) . '</div>'
+                : null,
         ];
+    }
+
+    private function formatVersion(array $version): string
+    {
+        if (empty($version)) {
+            return '';
+        }
+
+        $wikiVersion = $version['version'] ?? '';
+        $wikiRelease = $version['release'] ?? '';
+
+        $text = ($wikiVersion ?: '')
+            . (!empty($wikiVersion) ? '<br />' : '')
+            . ($wikiRelease ?: 'Inconnue');
+
+        switch ($version['status'] ?? '') {
+            case 'different':
+                $text .= '<br /><i>' . _t('FERME_VERSION_DIFFERENT') . '</i>';
+                break;
+            case 'outdated':
+                $text .= '<br /><a class="btn btn-xs btn-danger" href="' . htmlspecialchars($version['update_url'] ?? '') . '">'
+                    . _t('FERME_UPDATE_TO') . ' ' . htmlspecialchars($version['source_version'] ?? '') . '</a>';
+                break;
+            case 'up-to-date':
+                $text .= '<br /><i>' . _t('FERME_VERSION_UP_TO_DATE') . '</i>';
+                break;
+        }
+
+        return $text;
+    }
+
+    private function formatAdmin(?array $admin): string
+    {
+        if (empty($admin)) {
+            return '';
+        }
+
+        $name = htmlspecialchars($admin['name']);
+        if ($admin['present']) {
+            return $name . ' ' . _t('FERME_ADMIN_PRESENT')
+                . ' <a class="btn btn-xs btn-danger" href="' . htmlspecialchars($admin['remove_url']) . '">'
+                . _t('FERME_ADMIN_REMOVE_ACCOUNT') . '</a>';
+        }
+
+        return $name . ' ' . _t('FERME_ADMIN_ABSENT')
+            . ' <a class="btn btn-xs btn-success" href="' . htmlspecialchars($admin['add_url']) . '">'
+            . _t('FERME_ADMIN_ADD_ACCOUNT') . '</a>';
     }
 }

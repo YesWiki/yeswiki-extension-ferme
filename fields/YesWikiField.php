@@ -53,7 +53,12 @@ class YesWikiField extends BazarField
         if (empty($entry[$this->propertyName . '_exists']) && empty($entry[$this->propertyName . '-previous']) && $this->canEdit($entry)) {
             if (!empty($value) && preg_match('/^[0-9a-zA-Z-_]*$/', $value)) {
                 $farm = $this->getService(FarmService::class);
-                $farm->createWikiFromEntry($entry, $this->propertyName);
+                $farm->createWikiFromEntry(
+                    $entry,
+                    $this->propertyName,
+                    $_POST['yeswiki-farm-theme'] ?? '0',
+                    $_POST['yeswiki-farm-model'] ?? 'default-content'
+                );
             } else {
                 // If no new value was set, keep the old encoded one
                 $value = $entry[$this->propertyName . '-previous'] ?? null;

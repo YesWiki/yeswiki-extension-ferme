@@ -2,6 +2,14 @@
 {{ include_javascript("tools/templates/libs/vendor/datatables/jquery.dataTables.min.js") }}
 {{ include_css("tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.css") }}
 <h2>{{ _t("FERME_ALL_WIKIS_ADMIN") }}</h2>
+<style>
+#wikis-table_processing {
+    position: fixed;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    z-index: 1000;
+}
+</style>
 <div class="table-responsive">
     <table id="wikis-table"
            class="no-dblclick datatable table table-condensed table-striped prevent-auto-init"
@@ -22,7 +30,8 @@
                 <th data-orderable="false" data-sortable="false">{{ _t("FERME_WIKI_ACTION") }}</th>
             </tr>
         </thead>
-        <tbody></tbody>
+        <tbody>
+        </tbody>
     </table>
 </div>
 <!-- /.table-responsive -->
@@ -52,7 +61,8 @@
      style="display:none"
      data-upgrade-url="{{ upgrade_api_url }}"
      data-delete-url="{{ delete_api_url }}"
-     data-csrf-token="{{ csrfToken({id: "main", refresh: false}) }}"
+     data-search-url="{{ search_api_url }}"
+     data-csrf-token="{{ csrfToken({"id": "main", "refresh": false}) }}"
      data-pending="{{ _t("FERME_UPGRADE_PENDING") }}"
      data-in-progress="{{ _t("FERME_UPGRADING_STATUS") }}"
      data-success="{{ _t("FERME_UPGRADE_SUCCESS") }}"
@@ -63,9 +73,17 @@
      data-delete-success="{{ _t("FERME_DELETE_SUCCESS") }}"
      data-delete-error="{{ _t("FERME_DELETE_ERROR") }}"
      data-cancel="{{ _t("FERME_CANCEL") }}"
-     data-close="{{ _t("FERME_UPGRADE_CLOSE") }}"></div>
+     data-close="{{ _t("FERME_UPGRADE_CLOSE") }}"
+     data-search-scanning="{{ _t("FERME_SEARCH_SCANNING") }}"
+     data-search-already-in-bazar="{{ _t("FERME_SEARCH_ALREADY_IN_BAZAR") }}"
+     data-search-imported-status="{{ _t("FERME_SEARCH_IMPORTED_STATUS") }}"
+     data-search-sql-ok="{{ _t("FERME_SEARCH_SQL_OK") }}"
+     data-search-sql-error="{{ _t("FERME_SEARCH_SQL_ERROR") }}"
+     data-search-http-ok="{{ _t("FERME_SEARCH_HTTP_OK") }}"
+     data-search-http-error="{{ _t("FERME_SEARCH_HTTP_ERROR") }}"
+     data-search-tables-missing="{{ _t("FERME_SEARCH_TABLES_MISSING") }}"
+     data-search-network-error="{{ _t("FERME_SEARCH_NETWORK_ERROR") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
-
 {# Upgrade modal #}
 <div class="modal fade"
      id="upgrade-selected-modal"
@@ -85,7 +103,8 @@
                 <p class="text-muted">{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}</p>
                 <div id="upgrade-wikis-list"
                      class="list-group"
-                     style="max-height:400px; overflow-y:auto"></div>
+                     style="max-height:400px;
+                            overflow-y:auto"></div>
             </div>
             <div class="modal-footer">
                 <button type="button"
@@ -97,7 +116,6 @@
         </div>
     </div>
 </div>
-
 {# Delete modal #}
 <div class="modal fade"
      id="delete-selected-modal"
@@ -116,20 +134,22 @@
             <div class="modal-body">
                 <div id="delete-confirm-stage">
                     <div class="alert alert-danger">{{ _t("FERME_DELETE_SELECTED_WARNING") }}</div>
-                    <div id="delete-wikis-preview" class="list-group" style="max-height:300px; overflow-y:auto"></div>
+                    <div id="delete-wikis-preview"
+                         class="list-group"
+                         style="max-height:300px;
+                                overflow-y:auto"></div>
                 </div>
                 <div id="delete-progress-stage" style="display:none">
-                    <div id="delete-wikis-list" class="list-group" style="max-height:400px; overflow-y:auto"></div>
+                    <div id="delete-wikis-list"
+                         class="list-group"
+                         style="max-height:400px;
+                                overflow-y:auto"></div>
                 </div>
             </div>
             <div class="modal-footer">
                 <div id="delete-footer-confirm">
-                    <button type="button"
-                            class="btn btn-default"
-                            data-dismiss="modal">{{ _t("FERME_CANCEL") }}</button>
-                    <button type="button"
-                            id="btn-start-delete"
-                            class="btn btn-danger">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">{{ _t("FERME_CANCEL") }}</button>
+                    <button type="button" id="btn-start-delete" class="btn btn-danger">
                         <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_CONFIRM_BTN") }}
                     </button>
                 </div>
@@ -144,7 +164,47 @@
         </div>
     </div>
 </div>
-
-<a class="btn btn-primary"
-   role="button"
-   href="{{ url({"handler": "searchwiki"}) }}"><i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}</a>
+<hr />
+<button id="btn-search-wikis" type="button" class="btn btn-primary">
+    <i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}
+</button>
+{# Search modal #}
+<div class="modal fade"
+     id="search-wikis-modal"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="search-wikis-modal-label"
+     data-backdrop="static"
+     data-keyboard="false">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="search-wikis-modal-label">
+                    <i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}
+                </h4>
+            </div>
+            <div class="modal-body">
+                <div id="search-loading-stage"
+                     class="text-center text-muted"
+                     style="padding:20px 0">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p style="margin-top:10px">{{ _t("FERME_SEARCH_SCANNING") }}</p>
+                </div>
+                <div id="search-results-stage" style="display:none">
+                    <div id="search-summary" class="alert"></div>
+                    <div id="search-wikis-list"
+                         class="list-group"
+                         style="max-height:400px;
+                                overflow-y:auto"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button"
+                        id="btn-close-search-modal"
+                        class="btn btn-default"
+                        data-dismiss="modal"
+                        disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
+            </div>
+        </div>
+    </div>
+</div>

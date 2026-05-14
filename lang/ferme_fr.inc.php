@@ -74,6 +74,15 @@ $GLOBALS['translations'] = array_merge(
         'FERME_DELETE_SUCCESS' => 'Supprimé',
         'FERME_DELETE_ERROR' => 'Erreur',
         'FERME_CANCEL' => 'Annuler',
+        'FERME_SEARCH_SCANNING' => 'Analyse du serveur en cours, cela peut prendre quelques instants...',
+        'FERME_SEARCH_ALREADY_IN_BAZAR' => 'Déjà dans la ferme',
+        'FERME_SEARCH_IMPORTED_STATUS' => 'Importé',
+        'FERME_SEARCH_SQL_OK' => 'SQL OK',
+        'FERME_SEARCH_SQL_ERROR' => 'SQL KO',
+        'FERME_SEARCH_HTTP_OK' => 'Page OK',
+        'FERME_SEARCH_HTTP_ERROR' => 'Page KO',
+        'FERME_SEARCH_TABLES_MISSING' => 'Tables manquantes',
+        'FERME_SEARCH_NETWORK_ERROR' => 'Erreur lors de l\'analyse',
 
         // Action Builder
         'AB_FERME_GROUP_LABEL' => 'Ferme',
@@ -82,6 +91,15 @@ $GLOBALS['translations'] = array_merge(
         'AB_FERME_GENERATEMODEL_LABEL' => 'Générer des modèles de wikis',
         'AB_FERME_GENERATEMODEL_TEMPLATE_LABEL' => 'Template',
         'AB_FERME_GENERATEMODEL_TEMPLATE_HINT' => 'Vide = generate-model.twig',
+
+        // version / admin status labels
+        'FERME_VERSION_DIFFERENT' => 'version principale différente du wiki source',
+        'FERME_VERSION_UP_TO_DATE' => 'à jour avec le wiki source',
+        'FERME_UPDATE_TO' => 'Mettre à jour vers',
+        'FERME_ADMIN_PRESENT' => 'présent',
+        'FERME_ADMIN_ABSENT' => 'absent',
+        'FERME_ADMIN_ADD_ACCOUNT' => 'ajouter le compte',
+        'FERME_ADMIN_REMOVE_ACCOUNT' => 'supprimer le compte',
 
         // for edit config
         'EDIT_CONFIG_GROUP_FERME' => 'Ferme',

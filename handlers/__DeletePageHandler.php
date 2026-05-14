@@ -27,7 +27,7 @@ class __DeletePageHandler extends YesWikiHandler
                     $farm = $this->wiki->services->get(FarmService::class);
                     $farm->deleteWikiFromEntry($tag);
                 }
-            } catch (Throwable $th) {
+            } catch (\Throwable $th) {
                 exit('No CSRF token'); // do nothing
             }
         }

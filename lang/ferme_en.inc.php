@@ -56,6 +56,26 @@ $GLOBALS['translations'] = array_merge(
         'FERME_UPGRADE_SUCCESS' => 'Success',
         'FERME_UPGRADE_ERROR' => 'Error',
 
+        'FERME_CANCEL' => 'Cancel',
+        'FERME_SEARCH_SCANNING' => 'Scanning server, this may take a moment...',
+        'FERME_SEARCH_ALREADY_IN_BAZAR' => 'Already in farm',
+        'FERME_SEARCH_IMPORTED_STATUS' => 'Imported',
+        'FERME_SEARCH_SQL_OK' => 'SQL OK',
+        'FERME_SEARCH_SQL_ERROR' => 'SQL error',
+        'FERME_SEARCH_HTTP_OK' => 'Page OK',
+        'FERME_SEARCH_HTTP_ERROR' => 'Page KO',
+        'FERME_SEARCH_TABLES_MISSING' => 'Missing tables',
+        'FERME_SEARCH_NETWORK_ERROR' => 'Error during scan',
+
+        // version / admin status labels
+        'FERME_VERSION_DIFFERENT' => 'main version differs from source wiki',
+        'FERME_VERSION_UP_TO_DATE' => 'up to date with source wiki',
+        'FERME_UPDATE_TO' => 'Update to',
+        'FERME_ADMIN_PRESENT' => 'present',
+        'FERME_ADMIN_ABSENT' => 'absent',
+        'FERME_ADMIN_ADD_ACCOUNT' => 'add account',
+        'FERME_ADMIN_REMOVE_ACCOUNT' => 'remove account',
+
         // for edit config
         'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',
         'EDIT_CONFIG_GROUP_FERME' => 'Farm',
