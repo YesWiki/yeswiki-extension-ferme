@@ -31,15 +31,15 @@ class ApiController extends YesWikiController
      */
     public function getWikisTable(Request $request)
     {
-        $draw     = intval($request->request->get('draw', 1));
-        $start    = max(0, intval($request->request->get('start', 0)));
-        $length   = min(500, max(1, intval($request->request->get('length', 100))));
-        $search   = trim($request->request->all('search')['value'] ?? '');
-        $order    = $request->request->all('order');
+        $draw = intval($request->request->get('draw', 1));
+        $start = max(0, intval($request->request->get('start', 0)));
+        $length = min(500, max(1, intval($request->request->get('length', 100))));
+        $search = trim($request->request->all('search')['value'] ?? '');
+        $order = $request->request->all('order');
         $orderCol = intval($order[0]['column'] ?? 1);
         $orderDir = (($order[0]['dir'] ?? 'asc') === 'desc') ? 'desc' : 'asc';
 
-        $farm   = $this->getService(FarmService::class);
+        $farm = $this->getService(FarmService::class);
         $result = $farm->getWikiListPaginated($start, $length, $search, $orderCol, $orderDir);
 
         $rows = [];
@@ -48,10 +48,10 @@ class ApiController extends YesWikiController
         }
 
         return new ApiResponse([
-            'draw'            => $draw,
-            'recordsTotal'    => $result['total'],
+            'draw' => $draw,
+            'recordsTotal' => $result['total'],
             'recordsFiltered' => $result['filtered'],
-            'data'            => $rows,
+            'data' => $rows,
         ]);
     }
 
@@ -62,7 +62,7 @@ class ApiController extends YesWikiController
      */
     public function upgradeWiki(Request $request)
     {
-        $wikiFolder = trim($request->request->get('wiki', ''));
+        $wikiFolder = trim($request->query->get('wiki', ''));
 
         if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
@@ -103,7 +103,7 @@ class ApiController extends YesWikiController
 
         $currentDir = getcwd();
         chdir($wikiPath);
-        $output     = [];
+        $output = [];
         $returnCode = 0;
         exec('./yeswicli upgrade 2>&1', $output, $returnCode);
         chdir($currentDir);
@@ -126,7 +126,7 @@ class ApiController extends YesWikiController
     {
         $adminMail = $this->wiki->GetUser()['email'] ?? '';
         $checkHttp = filter_var($request->request->get('check_http', true), FILTER_VALIDATE_BOOLEAN);
-        $result    = $this->getService(FarmService::class)->searchWikisOnServer($adminMail, $checkHttp);
+        $result = $this->getService(FarmService::class)->searchWikisOnServer($adminMail, $checkHttp);
 
         return new ApiResponse($result);
     }
@@ -138,7 +138,7 @@ class ApiController extends YesWikiController
      */
     public function deleteWiki(Request $request)
     {
-        $idFiche   = trim($request->request->get('id_fiche', ''));
+        $idFiche = trim($request->request->get('id_fiche', ''));
         $csrfToken = trim($request->request->get('csrf-token', ''));
 
         if (empty($idFiche)) {
@@ -154,16 +154,56 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * Display Ferme API documentation.
+     * Add the farm super-admin account to a single wiki.
      *
-     * @return string
+     * @Route("/api/ferme/wikis/admin-add", methods={"GET"}, options={"acl":{"@admins"}})
+     */
+    public function addFarmAdmin(Request $request)
+    {
+        $wikiFolder = trim($request->query->get('wiki', ''));
+
+        if (empty($wikiFolder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Missing wiki folder'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $result = $this->getService(FarmService::class)->addFarmAdmin($wikiFolder);
+
+        if (!empty($result['errors'])) {
+            return new ApiResponse(['success' => false, 'error' => implode(' ', $result['errors'])], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new ApiResponse(['success' => true]);
+    }
+
+    /**
+     * Remove the farm super-admin account from a single wiki.
+     *
+     * @Route("/api/ferme/wikis/admin-remove", methods={"GET"}, options={"acl":{"@admins"}})
+     */
+    public function removeFarmAdmin(Request $request)
+    {
+        $wikiFolder = trim($request->query->get('wiki', ''));
+
+        if (empty($wikiFolder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Missing wiki folder'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->getService(FarmService::class)->removeFarmAdmin($wikiFolder);
+
+        return new ApiResponse(['success' => true]);
+    }
+
+    /**
+     * Display Ferme API documentation.
      */
     public function getDocumentation(): string
     {
-        $base       = $this->wiki->href('', 'api/ferme/wikis');
-        $searchUrl  = $this->wiki->href('', 'api/ferme/wikis/search');
+        $base = $this->wiki->href('', 'api/ferme/wikis');
+        $searchUrl = $this->wiki->href('', 'api/ferme/wikis/search');
         $upgradeUrl = $this->wiki->href('', 'api/ferme/wikis/upgrade');
-        $deleteUrl  = $this->wiki->href('', 'api/ferme/wikis/delete');
+        $deleteUrl = $this->wiki->href('', 'api/ferme/wikis/delete');
+        $adminAddUrl = $this->wiki->href('', 'api/ferme/wikis/admin-add');
+        $adminRemUrl = $this->wiki->href('', 'api/ferme/wikis/admin-remove');
 
         return '<h2>Extension Ferme</h2>'
             . '<p><code>POST ' . $base . '</code> '
@@ -178,7 +218,13 @@ class ApiController extends YesWikiController
             . 'Params: <code>wiki</code> (folder name)</p>'
             . '<p><code>POST ' . $deleteUrl . '</code> '
             . 'Delete a wiki — removes folder, DB tables and bazar entry (admins only).<br>'
-            . 'Params: <code>id_fiche</code> (page tag), <code>csrf-token</code></p>';
+            . 'Params: <code>id_fiche</code> (page tag), <code>csrf-token</code></p>'
+            . '<p><code>GET ' . $adminAddUrl . '</code> '
+            . 'Add the farm super-admin account to a wiki (admins only).<br>'
+            . 'Params: <code>wiki</code> (folder name)</p>'
+            . '<p><code>GET ' . $adminRemUrl . '</code> '
+            . 'Remove the farm super-admin account from a wiki (admins only).<br>'
+            . 'Params: <code>wiki</code> (folder name)</p>';
     }
 
     private function formatRow(array $fiche): array
@@ -186,22 +232,22 @@ class ApiController extends YesWikiController
         $idFiche = $fiche['id_fiche'] ?? '';
 
         return [
-            'id_fiche'              => $idFiche,
-            'folder'                => $fiche['bf_dossier-wiki'] ?? '',
-            'title'                 => $fiche['bf_titre'] ?? '',
-            'description'           => $fiche['bf_description'] ?? '',
-            'url'                   => $fiche['url'] ?? '',
-            'referent'              => $fiche['bf_referent'] ?? '',
-            'mail'                  => $fiche['bf_mail'] ?? '',
-            'last_modification'     => $fiche['last_modification'] ?? '',
+            'id_fiche' => $idFiche,
+            'folder' => $fiche['bf_dossier-wiki'] ?? '',
+            'title' => $fiche['bf_titre'] ?? '',
+            'description' => $fiche['bf_description'] ?? '',
+            'url' => $fiche['url'] ?? '',
+            'referent' => $fiche['bf_referent'] ?? '',
+            'mail' => $fiche['bf_mail'] ?? '',
+            'last_modification' => $fiche['last_modification'] ?? '',
             'last_modification_iso' => $fiche['last_modification_iso'] ?? '',
-            'dashboard_link'        => $fiche['dashboard_link'] ?? '',
-            'admin'                 => $this->formatAdmin($fiche['admin'] ?? null),
-            'version'               => $this->formatVersion($fiche['version'] ?? []),
-            'view_url'              => $this->wiki->href('', $idFiche),
-            'edit_url'              => $this->wiki->href('edit', $idFiche),
-            'delete_url'            => $this->wiki->href('deletepage', $idFiche),
-            'error'                 => isset($fiche['error'])
+            'dashboard_link' => $fiche['dashboard_link'] ?? '',
+            'admin' => $this->formatAdmin($fiche['admin'] ?? null),
+            'version' => $this->formatVersion($fiche['version'] ?? []),
+            'view_url' => $this->wiki->href('', $idFiche),
+            'edit_url' => $this->wiki->href('edit', $idFiche),
+            'delete_url' => $this->wiki->href('deletepage', $idFiche),
+            'error' => isset($fiche['error'])
                 ? '<div class="alert alert-danger">' . htmlspecialchars($fiche['error']) . '</div>'
                 : null,
         ];
@@ -243,14 +289,18 @@ class ApiController extends YesWikiController
         }
 
         $name = htmlspecialchars($admin['name']);
+        $folder = htmlspecialchars($admin['folder'] ?? '');
+
         if ($admin['present']) {
             return $name . ' ' . _t('FERME_ADMIN_PRESENT')
-                . ' <a class="btn btn-xs btn-danger" href="' . htmlspecialchars($admin['remove_url']) . '">'
-                . _t('FERME_ADMIN_REMOVE_ACCOUNT') . '</a>';
+                . ' <button class="btn btn-xs btn-danger admin-action-btn"'
+                . ' data-admin-action="remove" data-admin-wiki="' . $folder . '">'
+                . _t('FERME_ADMIN_REMOVE_ACCOUNT') . '</button>';
         }
 
         return $name . ' ' . _t('FERME_ADMIN_ABSENT')
-            . ' <a class="btn btn-xs btn-success" href="' . htmlspecialchars($admin['add_url']) . '">'
-            . _t('FERME_ADMIN_ADD_ACCOUNT') . '</a>';
+            . ' <button class="btn btn-xs btn-success admin-action-btn"'
+            . ' data-admin-action="add" data-admin-wiki="' . $folder . '">'
+            . _t('FERME_ADMIN_ADD_ACCOUNT') . '</button>';
     }
 }

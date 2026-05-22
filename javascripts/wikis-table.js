@@ -8,6 +8,8 @@ $(document).ready(function() {
   var upgradeUrl = $config.data('upgrade-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
+  var adminAddUrl = $config.data('admin-add-url');
+  var adminRemoveUrl = $config.data('admin-remove-url');
   var csrfToken = $config.data('csrf-token');
   var i18n = $config.data();
   var tableI18n = {
@@ -89,8 +91,8 @@ $(document).ready(function() {
           + ' title="' + esc(tableI18n.edit) + '" href="' + esc(row.edit_url) + '">'
           + '<i class="fa fa-pencil-alt"></i></a> '
           + '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
-          + ' title="' + esc(tableI18n.backup) + '" href="">'
-          + '<i class="fas fa-file-archive"></i></a> ';
+          + ' title="' + esc(tableI18n.backup) + '" href="">';
+        //+ '<i class="fas fa-file-archive"></i></a> ';
       }
     }
   ];
@@ -312,6 +314,34 @@ $(document).ready(function() {
       }
     });
   }
+
+  // Admin add/remove — delegated for DataTables re-render safety
+  $(document).on('click', '#wikis-table .admin-action-btn', function() {
+    var $btn = $(this);
+    var action = $btn.data('admin-action');
+    var wiki = $btn.data('admin-wiki');
+    var url = action === 'remove' ? adminRemoveUrl : adminAddUrl;
+
+    if (!url) {
+      console.warn('[ferme] admin action URL not configured (data-admin-' + action + '-url missing)');
+      return;
+    }
+
+    $btn.prop('disabled', true).prepend('<i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i>');
+
+    $.ajax({
+      url: url,
+      method: 'GET',
+      data: { wiki: wiki },
+      dataType: 'json',
+      success: function() {
+        wikisTable.ajax.reload(null, false);
+      },
+      error: function() {
+        $btn.prop('disabled', false).find('.fa-spinner').remove();
+      }
+    });
+  });
 
   $('#btn-search-wikis').on('click', function() {
     $('#search-loading-stage').show();

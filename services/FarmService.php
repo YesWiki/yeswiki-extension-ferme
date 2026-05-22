@@ -368,7 +368,7 @@ class FarmService
             'prefix' => $prefix,
             'siteTitle' => $config['wakka_name'],
             'WikiName' => $entry[$fieldName . '_wikiname'],
-            'password' => $entry[$fieldName . '_password'],
+            'hashedpassword' => md5($entry[$fieldName . '_password']),
             'email' => $entry[$fieldName . '_email'],
             'rootPage' => $config['root_page'],
         ];
@@ -1020,8 +1020,7 @@ class FarmService
             $fiche['admin'] = [
                 'name' => $adminName,
                 'present' => false,
-                'add_url' => $this->wiki->href('', $this->wiki->GetPageTag(), 'superadmin=' . $fiche['bf_dossier-wiki']),
-                'remove_url' => $this->wiki->href('', $this->wiki->GetPageTag(), 'nosuperadmin=' . $fiche['bf_dossier-wiki']),
+                'folder' => $fiche['bf_dossier-wiki'],
             ];
         }
 
