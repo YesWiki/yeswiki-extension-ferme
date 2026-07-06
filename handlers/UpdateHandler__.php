@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Handler called after the 'update' handler. to install the farm database template and create default pages
  * needed ones.
@@ -193,7 +194,8 @@ class UpdateHandler__ extends YesWikiHandler
     {
         $pageManager = $this->getService(PageManager::class);
         // if the page doesn't exist, error
-        $pageRapideHaut = $pageManager->getOne('PageRapideHaut');
+        $pageName = 'PageRapideHaut';
+        $pageRapideHaut = $pageManager->getOne($pageName);
         if (empty($pageRapideHaut)) {
             $output .= "! The <em>$pageName</em> page does not exist.<br />";
         } else {
