@@ -86,7 +86,15 @@ class FermeInitialDatabaseAndPageSetup extends YesWikiMigration
         // remove bf_dossier fields
         if (method_exists(EntryManager::class, 'removeAttributes')) {
             $output .= "Removing bf_dossier fields from bazar entries in {$this->dbService->prefixTable('pages')} table. ";
-            if ($entryManager->removeAttributes([], ['bf_dossier-wiki_wikiname', 'bf_dossier-wiki_email', 'bf_dossier-wiki_password'], true)) {
+            try {
+                $removed = $entryManager->removeAttributes([], ['bf_dossier-wiki_wikiname', 'bf_dossier-wiki_email', 'bf_dossier-wiki_password'], true);
+            } catch (\Throwable $th) {
+                // no form currently defines these fields (fresh install) : core's search builder
+                // can end up calling mysqli_query() with an empty query, which throws a \ValueError
+                // that is not caught by DbService::query(). There is nothing to remove in this case.
+                $removed = false;
+            }
+            if ($removed) {
                 $output .= '✅ Done!' . "\n";
             } else {
                 $output .= "✅ Already free of bf_dossier fields in all entries!\n";
