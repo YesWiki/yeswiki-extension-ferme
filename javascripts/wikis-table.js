@@ -139,28 +139,24 @@ $(document).ready(function() {
       .prop('checked', total > 0 && checked === total);
   }
 
-  function updateUpgradeBtn() {
-    var count = Object.keys(selectedWikis).length;
-    var $btn = $('#btn-upgrade-selected');
-    var $badge = $('#upgrade-selected-count');
-    $btn.prop('disabled', count === 0);
-    if (count > 0) {
-      $badge.text(count).show();
-    } else {
-      $badge.hide();
-    }
-  }
+  // Every bulk button is driven by the same selection, so they all update together
+  var bulkButtons = [
+    { btn: '#btn-upgrade-selected', badge: '#upgrade-selected-count' },
+    { btn: '#btn-delete-selected', badge: '#delete-selected-count' },
+    { btn: '#btn-admin-add-selected', badge: '#admin-add-selected-count' },
+    { btn: '#btn-admin-remove-selected', badge: '#admin-remove-selected-count' }
+  ];
 
-  function updateDeleteBtn() {
+  function updateBulkBtns() {
     var count = Object.keys(selectedWikis).length;
-    var $btn = $('#btn-delete-selected');
-    var $badge = $('#delete-selected-count');
-    $btn.prop('disabled', count === 0);
-    if (count > 0) {
-      $badge.text(count).show();
-    } else {
-      $badge.hide();
-    }
+    bulkButtons.forEach(function(b) {
+      $(b.btn).prop('disabled', count === 0);
+      if (count > 0) {
+        $(b.badge).text(count).show();
+      } else {
+        $(b.badge).hide();
+      }
+    });
   }
 
   // Select/deselect all wikis on the current page
@@ -177,8 +173,7 @@ $(document).ready(function() {
         delete selectedWikis[folder];
       }
     });
-    updateUpgradeBtn();
-    updateDeleteBtn();
+    updateBulkBtns();
   });
 
   // Individual checkboxes — delegated for DataTables re-render safety
@@ -192,8 +187,7 @@ $(document).ready(function() {
       delete selectedWikis[folder];
     }
     updateSelectAllState();
-    updateUpgradeBtn();
-    updateDeleteBtn();
+    updateBulkBtns();
   });
 
   $('#btn-upgrade-selected').on('click', function() {
@@ -292,8 +286,7 @@ $(document).ready(function() {
           $item.find('.delete-icon').attr('class', 'fas fa-check delete-icon text-success');
           $item.find('.delete-badge').text(i18n.deleteSuccess).css('background-color', '#5cb85c');
           delete selectedWikis[wiki.folder];
-          updateUpgradeBtn();
-          updateDeleteBtn();
+          updateBulkBtns();
           deleteSequential(wikis, index + 1);
         } else {
           $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
@@ -315,33 +308,123 @@ $(document).ready(function() {
     });
   }
 
+  // A `wiki` parameter would be swallowed by the YesWiki router, so the folder goes in the body
+  function adminAjax(folder, action) {
+    return $.ajax({
+      url: action === 'remove' ? adminRemoveUrl : adminAddUrl,
+      method: 'POST',
+      data: { folder: folder, 'csrf-token': csrfToken },
+      dataType: 'json'
+    });
+  }
+
   // Admin add/remove — delegated for DataTables re-render safety
   $(document).on('click', '#wikis-table .admin-action-btn', function() {
     var $btn = $(this);
     var action = $btn.data('admin-action');
     var wiki = $btn.data('admin-wiki');
-    var url = action === 'remove' ? adminRemoveUrl : adminAddUrl;
 
-    if (!url) {
+    if (!(action === 'remove' ? adminRemoveUrl : adminAddUrl)) {
       console.warn('[ferme] admin action URL not configured (data-admin-' + action + '-url missing)');
       return;
     }
 
     $btn.prop('disabled', true).prepend('<i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i>');
 
-    $.ajax({
-      url: url,
-      method: 'GET',
-      data: { wiki: wiki },
-      dataType: 'json',
-      success: function() {
-        wikisTable.ajax.reload(null, false);
-      },
-      error: function() {
+    adminAjax(wiki, action)
+      .done(function(response) {
+        if (response && response.success) {
+          wikisTable.ajax.reload(null, false);
+        } else {
+          $btn.prop('disabled', false).find('.fa-spinner').remove();
+          $btn.attr('title', (response && response.error) || i18n.adminError);
+        }
+      })
+      .fail(function(xhr) {
         $btn.prop('disabled', false).find('.fa-spinner').remove();
-      }
-    });
+        $btn.attr('title', (xhr.responseJSON && xhr.responseJSON.error) || i18n.adminError);
+      });
   });
+
+  // Bulk admin add/remove over the current selection
+  $('#btn-admin-add-selected').on('click', function() { openAdminModal('add'); });
+  $('#btn-admin-remove-selected').on('click', function() { openAdminModal('remove'); });
+
+  function openAdminModal(action) {
+    if ($(action === 'add' ? '#btn-admin-add-selected' : '#btn-admin-remove-selected').prop('disabled')) {
+      return;
+    }
+
+    var wikis = Object.keys(selectedWikis).map(function(folder) {
+      return { folder: folder, title: selectedWikis[folder].title };
+    });
+
+    $('#admin-selected-modal-label-text').text(action === 'add' ? i18n.adminAddSelected : i18n.adminRemoveSelected);
+    $('#admin-selected-modal-icon').attr('class', action === 'add' ? 'fas fa-user-plus' : 'fas fa-user-minus');
+    $('#admin-selected-intro').text(action === 'add' ? i18n.adminAddIntro : i18n.adminRemoveIntro);
+    $('#btn-close-admin-modal').prop('disabled', true);
+
+    var $list = $('#admin-wikis-list').empty();
+    wikis.forEach(function(wiki) {
+      var $item = $('<div class="list-group-item">').attr('id', 'admin-item-' + wiki.folder);
+      var $header = $('<div>').css('display', 'flex').css('align-items', 'center').css('gap', '8px');
+      $header.append($('<i class="fas fa-clock admin-icon text-muted">'));
+      $header.append($('<strong class="flex-grow-1">').text(wiki.title || wiki.folder));
+      $header.append($('<span class="badge admin-badge">').text(i18n.pending).css('margin-left', 'auto'));
+      $item.append($header);
+      $item.append(
+        $('<div class="admin-output" style="display:none; margin-top:8px;">')
+          .append($('<pre style="max-height:100px; overflow-y:auto; margin:0;">'))
+      );
+      $list.append($item);
+    });
+
+    $('#admin-selected-modal').modal('show');
+    adminSequential(wikis, 0, action);
+  }
+
+  // One wiki at a time: each call talks to another database, and a failure on one
+  // wiki must not hide the outcome of the others.
+  function adminSequential(wikis, index, action) {
+    if (index >= wikis.length) {
+      $('#btn-close-admin-modal').prop('disabled', false);
+      wikisTable.ajax.reload(null, false);
+      return;
+    }
+
+    var wiki = wikis[index];
+    var $item = $('#admin-item-' + wiki.folder);
+    $item.find('.admin-icon').attr('class', 'fas fa-spinner fa-spin admin-icon text-info');
+    $item.find('.admin-badge').text(i18n.inProgress).css('background-color', '#5bc0de');
+
+    function failed(message) {
+      $item.find('.admin-icon').attr('class', 'fas fa-times admin-icon text-danger');
+      $item.find('.admin-badge').text(i18n.adminError).css('background-color', '#d9534f');
+      if (message) {
+        $item.find('.admin-output pre').text(message);
+        $item.find('.admin-output').show();
+      }
+    }
+
+    adminAjax(wiki.folder, action)
+      .done(function(response) {
+        if (response && response.success) {
+          $item.find('.admin-icon').attr('class', 'fas fa-check admin-icon text-success');
+          $item.find('.admin-badge')
+            .text(action === 'add' ? i18n.adminAdded : i18n.adminRemoved)
+            .css('background-color', '#5cb85c');
+        } else {
+          failed(response && response.error);
+        }
+      })
+      .fail(function(xhr, status, error) {
+        failed((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
+      })
+      .always(function() {
+        // keep going: the remaining wikis are independent of the one that just failed
+        adminSequential(wikis, index + 1, action);
+      });
+  }
 
   $('#btn-search-wikis').on('click', function() {
     $('#search-loading-stage').show();
@@ -447,7 +530,7 @@ $(document).ready(function() {
     $.ajax({
       url: upgradeUrl,
       method: 'POST',
-      data: { wiki: wiki.folder },
+      data: { folder: wiki.folder },
       dataType: 'json',
       success: function(response) {
         if (response.output) {

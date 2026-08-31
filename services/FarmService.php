@@ -205,80 +205,131 @@ class FarmService
         return $wakkaConfig;
     }
 
+    /**
+     * Create (or refresh) the farm super-admin account on a wiki and put it in its @admins group.
+     * Called again on a wiki that already has the account, it resets the password — the farm
+     * config may have changed since the account was created.
+     */
     public function addFarmAdmin($wiki)
     {
-        $wikiConf = $this->getWikiConfig($wiki);
-        if (!empty($this->wiki->config['yeswiki-farm-admin-name']) && !empty($this->wiki->config['yeswiki-farm-admin-pass'])) {
-            if (!empty($wikiConf['table_prefix'])) {
-                // change database
-                $sql = 'USE ' . $wikiConf['mysql_database'] . ';';
-                $this->wiki->query($sql);
-
-                $sql = 'SELECT value FROM `' . $wikiConf['table_prefix'] . 'triples` WHERE resource = "ThisWikiGroup:admins";';
-                $list = $this->wiki->LoadSingle($sql);
-                $list = explode("\n", $list['value']);
-                if (!in_array($this->wiki->config['yeswiki-farm-admin-name'], $list)) {
-                    $list[] = $this->wiki->config['yeswiki-farm-admin-name'];
-                }
-                $list = array_map('trim', $list);
-                $list = implode("\n", $list);
-                $sql = 'UPDATE `' . $wikiConf['table_prefix'] . 'triples` SET value="' . addslashes($list) . '" WHERE resource = "ThisWikiGroup:admins";';
-                $this->wiki->Query($sql);
-
-                // Only insert if user doesn't already exist in target wiki
-                $existing = $this->wiki->LoadSingle(
-                    'SELECT name FROM `' . $wikiConf['table_prefix'] . 'users` WHERE name="' . addslashes($this->wiki->config['yeswiki-farm-admin-name']) . '"'
-                );
-                if (empty($existing)) {
-                    $sql = 'INSERT INTO `' . $wikiConf['table_prefix'] . 'users` (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) VALUES (\'' . $this->wiki->config['yeswiki-farm-admin-name'] . '\', MD5(\'' . $this->wiki->config['yeswiki-farm-admin-pass'] . '\'), \'\', \'\', \'20\', \'50\', \'Y\', NOW(), \'N\')';
-                    $this->wiki->Query($sql);
-                }
-
-                // back to main database
-                $sql = 'USE ' . $this->wiki->config['mysql_database'] . ';';
-                $this->wiki->query($sql);
-
-                return [
-                    'success' => [_t('Super user added for the wiki') . ' :' . $wiki . '.'],
-                ];
-            } else {
-                return [
-                    'errors' => [_t('No table prefix found for the wiki') . ' :' . $wiki . '.'],
-                ];
-            }
-        } else {
-            return [
-                'errors' => [_t('No yeswiki-farm-admin-name or yeswiki-farm-admin-pass in config.')],
-            ];
+        if (!$this->wiki->UserIsAdmin()) {
+            return ['errors' => ['Unauthorized']];
         }
+
+        $adminName = $this->wiki->config['yeswiki-farm-admin-name'] ?? '';
+        $adminPass = $this->wiki->config['yeswiki-farm-admin-pass'] ?? '';
+        if (empty($adminName) || empty($adminPass)) {
+            return ['errors' => [_t('No yeswiki-farm-admin-name or yeswiki-farm-admin-pass in config.')]];
+        }
+
+        $wikiConf = $this->getWikiConfig($wiki);
+        if (empty($wikiConf['table_prefix'])) {
+            return ['errors' => [_t('No table prefix found for the wiki') . ' :' . $wiki . '.']];
+        }
+
+        $prefix = $wikiConf['table_prefix'];
+        $this->wiki->query('USE ' . $wikiConf['mysql_database'] . ';');
+        try {
+            $this->setAdminsGroupMembership($prefix, $adminName, true);
+
+            $existing = $this->wiki->LoadSingle(
+                'SELECT name FROM `' . $prefix . 'users` WHERE name="' . addslashes($adminName) . '";'
+            );
+            if (empty($existing)) {
+                $this->wiki->Query(
+                    'INSERT INTO `' . $prefix . 'users`'
+                    . ' (`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`)'
+                    . ' VALUES ("' . addslashes($adminName) . '", MD5("' . addslashes($adminPass) . '"), "", "", "20", "50", "Y", NOW(), "N");'
+                );
+            } else {
+                // the account is already there, but the farm password may have changed since
+                $this->wiki->Query(
+                    'UPDATE `' . $prefix . 'users` SET password=MD5("' . addslashes($adminPass) . '")'
+                    . ' WHERE name="' . addslashes($adminName) . '";'
+                );
+            }
+        } finally {
+            $this->wiki->query('USE ' . $this->wiki->config['mysql_database'] . ';');
+        }
+
+        return [
+            'success' => [_t('Super user added for the wiki') . ' :' . $wiki . '.'],
+        ];
     }
 
+    /**
+     * Delete the farm super-admin account from a wiki and drop it from its @admins group.
+     */
     public function removeFarmAdmin($wiki)
     {
-        $wikiConf = $this->getWikiConfig($wiki);
-        if (!empty($wikiConf['table_prefix'])) {
-            // change database
-            $sql = 'USE ' . $wikiConf['mysql_database'] . ';';
-            $this->wiki->query($sql);
-
-            $sql = 'SELECT value FROM `' . $wikiConf['table_prefix'] . 'triples` WHERE resource = "ThisWikiGroup:admins";';
-            $list = $this->wiki->LoadSingle($sql);
-            $list = explode("\n", $list['value']);
-            if (in_array($this->wiki->config['yeswiki-farm-admin-name'], $list)) {
-                $list = array_diff($list, [$this->wiki->config['yeswiki-farm-admin-name']]);
-            }
-            $list = array_map('trim', $list);
-            $list = implode("\n", $list);
-            $sql = 'UPDATE `' . $wikiConf['table_prefix'] . 'triples` SET value="' . addslashes($list) . '" WHERE resource = "ThisWikiGroup:admins";';
-            $this->wiki->Query($sql);
-
-            $sql = 'DELETE FROM ' . $wikiConf['table_prefix'] . 'users WHERE name="' . addslashes($this->wiki->config['yeswiki-farm-admin-name']) . '";';
-            $this->wiki->Query($sql);
-
-            // back to main database
-            $sql = 'USE ' . $this->wiki->config['mysql_database'] . ';';
-            $this->wiki->query($sql);
+        if (!$this->wiki->UserIsAdmin()) {
+            return ['errors' => ['Unauthorized']];
         }
+
+        $adminName = $this->wiki->config['yeswiki-farm-admin-name'] ?? '';
+        if (empty($adminName)) {
+            return ['errors' => [_t('No yeswiki-farm-admin-name or yeswiki-farm-admin-pass in config.')]];
+        }
+
+        $wikiConf = $this->getWikiConfig($wiki);
+        if (empty($wikiConf['table_prefix'])) {
+            return ['errors' => [_t('No table prefix found for the wiki') . ' :' . $wiki . '.']];
+        }
+
+        $prefix = $wikiConf['table_prefix'];
+        $this->wiki->query('USE ' . $wikiConf['mysql_database'] . ';');
+        try {
+            $this->setAdminsGroupMembership($prefix, $adminName, false);
+            $this->wiki->Query('DELETE FROM `' . $prefix . 'users` WHERE name="' . addslashes($adminName) . '";');
+        } finally {
+            $this->wiki->query('USE ' . $this->wiki->config['mysql_database'] . ';');
+        }
+
+        return [
+            'success' => [_t('Super user removed for the wiki') . ' :' . $wiki . '.'],
+        ];
+    }
+
+    /**
+     * Add or remove a user from a wiki's @admins group, stored as a single newline
+     * separated triple. Creates the triple when the target wiki has none yet.
+     * The caller must have switched to the target wiki's database.
+     */
+    private function setAdminsGroupMembership(string $prefix, string $userName, bool $isMember): void
+    {
+        $resource = GROUP_PREFIX . ADMIN_GROUP;
+        $where = ' WHERE resource="' . $resource . '" AND property="' . WIKINI_VOC_ACLS_URI . '";';
+
+        $triple = $this->wiki->LoadSingle('SELECT value FROM `' . $prefix . 'triples`' . $where);
+        $members = array_values(array_filter(array_map(
+            'trim',
+            explode("\n", $triple['value'] ?? '')
+        ), 'strlen'));
+
+        if ($isMember) {
+            if (in_array($userName, $members, true)) {
+                return;
+            }
+            $members[] = $userName;
+        } else {
+            if (!in_array($userName, $members, true)) {
+                return;
+            }
+            $members = array_values(array_diff($members, [$userName]));
+        }
+
+        $value = addslashes(implode("\n", $members));
+
+        if ($triple === null) {
+            $this->wiki->Query(
+                'INSERT INTO `' . $prefix . 'triples` (`resource`, `property`, `value`)'
+                . ' VALUES ("' . $resource . '", "' . WIKINI_VOC_ACLS_URI . '", "' . $value . '");'
+            );
+
+            return;
+        }
+
+        $this->wiki->Query('UPDATE `' . $prefix . 'triples` SET value="' . $value . '"' . $where);
     }
 
     /**

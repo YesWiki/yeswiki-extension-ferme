@@ -49,6 +49,20 @@
         <i class="fas fa-sync-alt"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}
         <span id="upgrade-selected-count" class="badge" style="display:none;"></span>
     </button>
+    <button id="btn-admin-add-selected"
+            type="button"
+            class="btn btn-success"
+            disabled>
+        <i class="fas fa-user-plus"></i> {{ _t("FERME_ADMIN_ADD_SELECTED") }}
+        <span id="admin-add-selected-count" class="badge" style="display:none;"></span>
+    </button>
+    <button id="btn-admin-remove-selected"
+            type="button"
+            class="btn btn-default"
+            disabled>
+        <i class="fas fa-user-minus"></i> {{ _t("FERME_ADMIN_REMOVE_SELECTED") }}
+        <span id="admin-remove-selected-count" class="badge" style="display:none;"></span>
+    </button>
     <button id="btn-delete-selected"
             type="button"
             class="btn btn-danger"
@@ -84,7 +98,14 @@
      data-search-http-ok="{{ _t("FERME_SEARCH_HTTP_OK") }}"
      data-search-http-error="{{ _t("FERME_SEARCH_HTTP_ERROR") }}"
      data-search-tables-missing="{{ _t("FERME_SEARCH_TABLES_MISSING") }}"
-     data-search-network-error="{{ _t("FERME_SEARCH_NETWORK_ERROR") }}"></div>
+     data-search-network-error="{{ _t("FERME_SEARCH_NETWORK_ERROR") }}"
+     data-admin-add-selected="{{ _t("FERME_ADMIN_ADD_SELECTED") }}"
+     data-admin-remove-selected="{{ _t("FERME_ADMIN_REMOVE_SELECTED") }}"
+     data-admin-add-intro="{{ _t("FERME_ADMIN_ADD_SELECTED_INTRO") }}"
+     data-admin-remove-intro="{{ _t("FERME_ADMIN_REMOVE_SELECTED_INTRO") }}"
+     data-admin-added="{{ _t("FERME_ADMIN_ADDED_STATUS") }}"
+     data-admin-removed="{{ _t("FERME_ADMIN_REMOVED_STATUS") }}"
+     data-admin-error="{{ _t("FERME_ADMIN_ERROR_STATUS") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
 {# Upgrade modal #}
 <div class="modal fade"
@@ -162,6 +183,39 @@
                             data-dismiss="modal"
                             disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+{# Admin account modal #}
+<div class="modal fade"
+     id="admin-selected-modal"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="admin-selected-modal-label"
+     data-backdrop="static"
+     data-keyboard="false">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="admin-selected-modal-label">
+                    <i id="admin-selected-modal-icon" class="fas fa-user-plus"></i>
+                    <span id="admin-selected-modal-label-text"></span>
+                </h4>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" id="admin-selected-intro"></p>
+                <div id="admin-wikis-list"
+                     class="list-group"
+                     style="max-height:400px;
+                            overflow-y:auto"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button"
+                        id="btn-close-admin-modal"
+                        class="btn btn-default"
+                        data-dismiss="modal"
+                        disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
             </div>
         </div>
     </div>

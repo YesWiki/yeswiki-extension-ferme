@@ -55,6 +55,12 @@ $GLOBALS['translations'] = array_merge(
         'FERME_UPGRADING_STATUS' => 'In progress...',
         'FERME_UPGRADE_SUCCESS' => 'Success',
         'FERME_UPGRADE_ERROR' => 'Error',
+        'FERME_DELETE_SELECTED_WIKIS' => 'Delete selected wikis',
+        'FERME_DELETE_SELECTED_WARNING' => 'This cannot be undone. The following wikis and all their data will be permanently deleted.',
+        'FERME_DELETE_CONFIRM_BTN' => 'Confirm deletion',
+        'FERME_DELETING_STATUS' => 'Deleting...',
+        'FERME_DELETE_SUCCESS' => 'Deleted',
+        'FERME_DELETE_ERROR' => 'Error',
 
         'FERME_CANCEL' => 'Cancel',
         'FERME_SEARCH_SCANNING' => 'Scanning server, this may take a moment...',
@@ -75,6 +81,13 @@ $GLOBALS['translations'] = array_merge(
         'FERME_ADMIN_ABSENT' => 'absent',
         'FERME_ADMIN_ADD_ACCOUNT' => 'add account',
         'FERME_ADMIN_REMOVE_ACCOUNT' => 'remove account',
+        'FERME_ADMIN_ADD_SELECTED' => 'Add admin account',
+        'FERME_ADMIN_REMOVE_SELECTED' => 'Remove admin account',
+        'FERME_ADMIN_ADD_SELECTED_INTRO' => 'The farm super admin account will be created on the following wikis, one by one. On those that already have it, the password is reset to the one in the farm config.',
+        'FERME_ADMIN_REMOVE_SELECTED_INTRO' => 'The farm super admin account will be deleted from the following wikis, one by one.',
+        'FERME_ADMIN_ADDED_STATUS' => 'Added',
+        'FERME_ADMIN_REMOVED_STATUS' => 'Removed',
+        'FERME_ADMIN_ERROR_STATUS' => 'Error',
 
         // for edit config
         'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',

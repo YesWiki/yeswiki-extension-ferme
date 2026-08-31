@@ -6,6 +6,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use YesWiki\Core\ApiResponse;
+use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiController;
 use YesWiki\Ferme\Service\FarmService;
 
@@ -62,7 +63,8 @@ class ApiController extends YesWikiController
      */
     public function upgradeWiki(Request $request)
     {
-        $wikiFolder = trim($request->query->get('wiki', ''));
+        // Never read this from the query string: YesWiki's router consumes $_GET['wiki'] itself.
+        $wikiFolder = trim($request->request->get('folder', ''));
 
         if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
@@ -156,39 +158,49 @@ class ApiController extends YesWikiController
     /**
      * Add the farm super-admin account to a single wiki.
      *
-     * @Route("/api/ferme/wikis/admin-add", methods={"GET"}, options={"acl":{"@admins"}})
+     * @Route("/api/ferme/wikis/admin-add", methods={"POST"}, options={"acl":{"@admins"}})
      */
     public function addFarmAdmin(Request $request)
     {
-        $wikiFolder = trim($request->query->get('wiki', ''));
-
-        if (empty($wikiFolder)) {
-            return new ApiResponse(['success' => false, 'error' => 'Missing wiki folder'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $result = $this->getService(FarmService::class)->addFarmAdmin($wikiFolder);
-
-        if (!empty($result['errors'])) {
-            return new ApiResponse(['success' => false, 'error' => implode(' ', $result['errors'])], Response::HTTP_BAD_REQUEST);
-        }
-
-        return new ApiResponse(['success' => true]);
+        return $this->runFarmAdminAction($request, true);
     }
 
     /**
      * Remove the farm super-admin account from a single wiki.
      *
-     * @Route("/api/ferme/wikis/admin-remove", methods={"GET"}, options={"acl":{"@admins"}})
+     * @Route("/api/ferme/wikis/admin-remove", methods={"POST"}, options={"acl":{"@admins"}})
      */
     public function removeFarmAdmin(Request $request)
     {
-        $wikiFolder = trim($request->query->get('wiki', ''));
+        return $this->runFarmAdminAction($request, false);
+    }
 
-        if (empty($wikiFolder)) {
-            return new ApiResponse(['success' => false, 'error' => 'Missing wiki folder'], Response::HTTP_BAD_REQUEST);
+    /**
+     * Shared entry point for the two admin account routes: validates the folder and the
+     * CSRF token, then delegates to the farm service.
+     */
+    private function runFarmAdminAction(Request $request, bool $add): ApiResponse
+    {
+        $folder = trim($request->request->get('folder', ''));
+
+        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
-        $this->getService(FarmService::class)->removeFarmAdmin($wikiFolder);
+        // checkToken reads the raw POST body through filter_input(), so the token has to be
+        // sent as a real form field — assigning to $_POST here would not reach it.
+        try {
+            $this->wiki->services->get(CsrfTokenController::class)->checkToken('main', 'POST', 'csrf-token', false);
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $farm = $this->getService(FarmService::class);
+        $result = $add ? $farm->addFarmAdmin($folder) : $farm->removeFarmAdmin($folder);
+
+        if (!empty($result['errors'])) {
+            return new ApiResponse(['success' => false, 'error' => implode(' ', $result['errors'])], Response::HTTP_BAD_REQUEST);
+        }
 
         return new ApiResponse(['success' => true]);
     }
@@ -215,16 +227,19 @@ class ApiController extends YesWikiController
             . 'Returns: <code>wikisInBazar</code>, <code>wikisOnServer</code>, <code>results[]</code>, <code>imported[]</code></p>'
             . '<p><code>POST ' . $upgradeUrl . '</code> '
             . 'Upgrade a single wiki via <code>yeswicli upgrade</code> (admins only).<br>'
-            . 'Params: <code>wiki</code> (folder name)</p>'
+            . 'Params: <code>folder</code> (folder name)</p>'
             . '<p><code>POST ' . $deleteUrl . '</code> '
             . 'Delete a wiki — removes folder, DB tables and bazar entry (admins only).<br>'
             . 'Params: <code>id_fiche</code> (page tag), <code>csrf-token</code></p>'
-            . '<p><code>GET ' . $adminAddUrl . '</code> '
-            . 'Add the farm super-admin account to a wiki (admins only).<br>'
-            . 'Params: <code>wiki</code> (folder name)</p>'
-            . '<p><code>GET ' . $adminRemUrl . '</code> '
-            . 'Remove the farm super-admin account from a wiki (admins only).<br>'
-            . 'Params: <code>wiki</code> (folder name)</p>';
+            . '<p><code>POST ' . $adminAddUrl . '</code> '
+            . 'Create or refresh the farm super-admin account on a wiki, and add it to its '
+            . '<code>@admins</code> group. Run on a wiki that already has the account, it resets '
+            . 'the password from the farm config (admins only).<br>'
+            . 'Params: <code>folder</code> (folder name), <code>csrf-token</code></p>'
+            . '<p><code>POST ' . $adminRemUrl . '</code> '
+            . 'Delete the farm super-admin account from a wiki and drop it from its '
+            . '<code>@admins</code> group (admins only).<br>'
+            . 'Params: <code>folder</code> (folder name), <code>csrf-token</code></p>';
     }
 
     private function formatRow(array $fiche): array

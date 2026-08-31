@@ -100,6 +100,13 @@ $GLOBALS['translations'] = array_merge(
         'FERME_ADMIN_ABSENT' => 'absent',
         'FERME_ADMIN_ADD_ACCOUNT' => 'ajouter le compte',
         'FERME_ADMIN_REMOVE_ACCOUNT' => 'supprimer le compte',
+        'FERME_ADMIN_ADD_SELECTED' => 'Ajouter le compte admin',
+        'FERME_ADMIN_REMOVE_SELECTED' => 'Retirer le compte admin',
+        'FERME_ADMIN_ADD_SELECTED_INTRO' => 'Le compte super admin de la ferme va être créé sur les wikis suivants, un par un. Sur ceux qui l\'ont déjà, le mot de passe est remis à celui de la configuration de la ferme.',
+        'FERME_ADMIN_REMOVE_SELECTED_INTRO' => 'Le compte super admin de la ferme va être supprimé des wikis suivants, un par un.',
+        'FERME_ADMIN_ADDED_STATUS' => 'Ajouté',
+        'FERME_ADMIN_REMOVED_STATUS' => 'Retiré',
+        'FERME_ADMIN_ERROR_STATUS' => 'Erreur',
 
         // for edit config
         'EDIT_CONFIG_GROUP_FERME' => 'Ferme',
