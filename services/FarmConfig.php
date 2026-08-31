@@ -4,17 +4,11 @@ namespace YesWiki\Ferme\Service;
 
 use YesWiki\Wiki;
 
-/**
- * Farm settings. Fills in a default for every yeswiki-farm-* key the extension reads,
- * rejects the ones that point at files which are not on disk, and answers the question
- * every other service asks first: where does this wiki live?
- */
 class FarmConfig
 {
     protected $wiki;
     protected $files;
 
-    /** @var array<string,array> wakka.config.php contents, keyed by wiki folder */
     protected $wikiConfigCache = [];
 
     public function __construct(Wiki $wiki, FileSystem $files)
@@ -24,11 +18,6 @@ class FarmConfig
         $this->init();
     }
 
-    /**
-     * Tests the configuration file and adds default values if needed.
-     *
-     * @throws \RuntimeException if required configuration is missing or invalid
-     */
     public function init(): void
     {
         $this->applyRootDefaults();
@@ -38,10 +27,6 @@ class FarmConfig
         $this->applyModelDefaults();
         $this->applyWikiAdminDefaults();
     }
-
-    /*
-     * ------------------------------------------------------------------ paths
-     */
 
     public function rootFolder(): string
     {
@@ -55,9 +40,6 @@ class FarmConfig
         return $this->wiki->config['yeswiki-farm-root-url'] ?? '';
     }
 
-    /**
-     * The folder holding every wiki of the farm, absolute, without a trailing separator.
-     */
     public function basePath(): string
     {
         return $this->rootFolder() === '.'
@@ -65,10 +47,6 @@ class FarmConfig
             : getcwd() . DIRECTORY_SEPARATOR . $this->rootFolder();
     }
 
-    /**
-     * Absolute path of one wiki, with a trailing separator. Normalised rather than
-     * resolved, so it also answers for a wiki that does not exist yet.
-     */
     public function wikiDir(string $folder): string
     {
         return $this->files->getAbsolutePath($this->basePath() . DIRECTORY_SEPARATOR . $folder);
@@ -79,13 +57,6 @@ class FarmConfig
         return $this->wikiDir($folder) . 'wakka.config.php';
     }
 
-    /**
-     * Read a wiki's own wakka.config.php. Returns an empty array when the wiki has none.
-     *
-     * Cached per folder, and read with a plain include rather than include_once: another
-     * part of the request may already have pulled the same file in, and include_once
-     * would then hand back nothing.
-     */
     public function readWikiConfig(string $folder): array
     {
         if (array_key_exists($folder, $this->wikiConfigCache)) {
@@ -100,10 +71,6 @@ class FarmConfig
 
         return $this->wikiConfigCache[$folder] = $wakkaConfig;
     }
-
-    /*
-     * ----------------------------------------------------------------- lookups
-     */
 
     public function theme($index): array
     {
@@ -131,10 +98,6 @@ class FarmConfig
         return $models;
     }
 
-    /*
-     * ---------------------------------------------------------------- defaults
-     */
-
     private function applyRootDefaults(): void
     {
         if (!isset($this->wiki->config['yeswiki-farm-root-url'])) {
@@ -151,7 +114,6 @@ class FarmConfig
 
     private function applyExtraDefaults(): void
     {
-        // themes supplémentaires
         if (
             !isset($this->wiki->config['yeswiki-farm-extra-themes'])
             || !is_array($this->wiki->config['yeswiki-farm-extra-themes'])
@@ -159,7 +121,6 @@ class FarmConfig
             $this->wiki->config['yeswiki-farm-extra-themes'] = [];
         }
 
-        // extensions supplémentaires
         if (
             !isset($this->wiki->config['yeswiki-farm-extra-tools'])
             || !is_array($this->wiki->config['yeswiki-farm-extra-tools'])
@@ -196,19 +157,16 @@ class FarmConfig
         }
     }
 
-    /**
-     * A theme entry names four files. Every one of them has to be there, except the
-     * screenshot, which is only blanked out so the form does not link a missing image.
-     */
     private function validateTheme($key, array $theme): void
     {
         if (!isset($theme['label']) or empty($theme['label'])) {
             throw new \RuntimeException('Au moins un label pour les themes de la ferme n\'a pas été bien renseigné.');
         }
 
-        if (!isset($theme['screenshot']) or empty($theme['screenshot'])) {
+        if (!isset($theme['screenshot']) || $theme['screenshot'] === '') {
             throw new \RuntimeException('Au moins un screenshot pour les themes de la ferme n\'a pas été bien renseigné.');
-        } elseif (!is_file('tools/ferme/screenshots/' . $theme['screenshot'])) {
+        }
+        if ($theme['screenshot'] !== false && !is_file('tools/ferme/screenshots/' . $theme['screenshot'])) {
             $this->wiki->config['yeswiki-farm-themes'][$key]['screenshot'] = false;
         }
 
@@ -231,15 +189,6 @@ class FarmConfig
         }
     }
 
-    /**
-     * A theme lives in themes/, except the bundled "yeswiki" one which also ships inside
-     * tools/templates/themes/.
-     *
-     * Only that bundled theme is ever reported missing. A custom theme that is not on
-     * disk passes validation, which is how this check has always behaved.
-     *
-     * @param string $relative path inside the theme folder, '' for the folder itself
-     */
     private function themeFileMissing(string $theme, string $relative): bool
     {
         $path = 'themes/' . $theme . ($relative === '' ? '' : '/' . $relative);
@@ -285,10 +234,6 @@ class FarmConfig
         }
     }
 
-    /**
-     * A model that no longer has its folder or its sql file is dropped from the list
-     * rather than fatal, so one broken model does not take the whole farm down.
-     */
     private function applyModelDefaults(): void
     {
         if (
@@ -317,17 +262,17 @@ class FarmConfig
     private function applyWikiAdminDefaults(): void
     {
         $defaults = [
-            // création d'un utilisateur dans le wiki initial (sert pour des cas spécifiques avec une bd centralisée)
+
             'yeswiki-farm-create-user' => false,
-            // Utilisateur WikiAdmin par défaut (laisser vide pour demander à la création du wiki)
+
             'yeswiki-farm-default-WikiAdmin' => 'WikiAdmin',
-            // Mot de passe WikiAdmin par défaut (laisser vide pour demander à la création du wiki)
+
             'yeswiki-farm-password-WikiAdmin' => '',
-            // Email par défaut (laisser vide pour demander à la création du wiki)
+
             'yeswiki-farm-email-WikiAdmin' => 'bf_mail',
-            // prefixe par default
+
             'yeswiki-farm-prefix' => 'yeswiki_',
-            // admin de la ferme
+
             'yeswiki-farm-admin-name' => '',
             'yeswiki-farm-admin-pass' => '',
         ];
@@ -338,7 +283,6 @@ class FarmConfig
             }
         }
 
-        // page d'accueil des wikis de la ferme
         if (!isset($this->wiki->config['yeswiki-farm-homepage'])) {
             $this->wiki->config['yeswiki-farm-homepage'] = $this->wiki->config['root_page'];
         }

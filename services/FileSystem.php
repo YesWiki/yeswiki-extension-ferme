@@ -2,19 +2,8 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * Recursive file operations and path normalisation, shared by every service that
- * moves a wiki folder around.
- */
 class FileSystem
 {
-    /**
-     * recursive remove file or folder.
-     *
-     * @param string $src path
-     *
-     * @return void
-     */
     public function rrmdir($src)
     {
         $dir = opendir($src);
@@ -34,14 +23,6 @@ class FileSystem
         }
     }
 
-    /**
-     * recursive copy file or folder.
-     *
-     * @param string $path : source path
-     * @param string $dest : destination path
-     *
-     * @return void
-     */
     public function copyRecursive($path, $dest)
     {
         if (is_dir($path)) {
@@ -52,7 +33,7 @@ class FileSystem
                     if ($file == '.' || $file == '..' || $file == '.git' || $file == 'bower_components') {
                         continue;
                     }
-                    // go on
+
                     if (is_dir($path . DIRECTORY_SEPARATOR . $file)) {
                         $this->copyRecursive($path . DIRECTORY_SEPARATOR . $file, $dest . DIRECTORY_SEPARATOR . $file);
                     } else {
@@ -69,13 +50,6 @@ class FileSystem
         }
     }
 
-    /**
-     * Returns the real path of given path even for non existent path, with trailing /.
-     *
-     * @param string $path
-     *
-     * @return string
-     */
     public function getAbsolutePath($path)
     {
         $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);

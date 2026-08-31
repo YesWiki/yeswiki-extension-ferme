@@ -4,10 +4,6 @@ namespace YesWiki\Ferme\Service;
 
 use YesWiki\Wiki;
 
-/**
- * The farm's super-admin account, as it exists inside each hosted wiki: a row in that
- * wiki's users table plus a line in its @admins group.
- */
 class FarmAdminAccount
 {
     protected $wiki;
@@ -19,11 +15,6 @@ class FarmAdminAccount
         $this->config = $config;
     }
 
-    /**
-     * Create the account on a wiki and put it in the @admins group. Run again on a wiki
-     * that already has the account, it resets the password: the farm config may have
-     * changed since the account was created.
-     */
     public function add(string $folder): array
     {
         $adminName = $this->wiki->config['yeswiki-farm-admin-name'] ?? '';
@@ -58,9 +49,6 @@ class FarmAdminAccount
         return ['success' => [_t('Super user added for the wiki') . ' :' . $folder . '.']];
     }
 
-    /**
-     * Delete the account from a wiki and drop it from the @admins group.
-     */
     public function remove(string $folder): array
     {
         $adminName = $this->wiki->config['yeswiki-farm-admin-name'] ?? '';
@@ -79,9 +67,6 @@ class FarmAdminAccount
         return ['success' => [_t('Super user removed for the wiki') . ' :' . $folder . '.']];
     }
 
-    /**
-     * @return array|null the error payload to return, or null when the call may proceed
-     */
     private function guard(string $folder, bool $accountIsConfigured): ?array
     {
         if (!$this->wiki->UserIsAdmin()) {
@@ -99,10 +84,6 @@ class FarmAdminAccount
         return null;
     }
 
-    /**
-     * Run a callback against the target wiki's database, then switch back. The farm and
-     * its wikis may share one MySQL server, so this is a USE, not a second connection.
-     */
     private function inWikiDatabase(string $folder, callable $callback): void
     {
         $wikiConf = $this->config->readWikiConfig($folder);
@@ -114,11 +95,6 @@ class FarmAdminAccount
         }
     }
 
-    /**
-     * Add or remove a user from a wiki's @admins group, stored as a single newline
-     * separated triple. Creates the triple when the target wiki has none yet.
-     * The caller must have switched to the target wiki's database.
-     */
     private function setAdminsGroupMembership(string $prefix, string $userName, bool $isMember): void
     {
         $resource = GROUP_PREFIX . ADMIN_GROUP;

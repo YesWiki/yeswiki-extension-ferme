@@ -63,7 +63,6 @@ class ApiController extends YesWikiController
      */
     public function upgradeWiki(Request $request)
     {
-        // Never read this from the query string: YesWiki's router consumes $_GET['wiki'] itself.
         $wikiFolder = trim($request->request->get('folder', ''));
 
         if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
@@ -74,8 +73,6 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
-        // The folder name has just been checked against a pattern with no dot and no
-        // separator in it, so the resolved path cannot climb out of the farm root.
         $wikiPath = $this->getService(FarmService::class)->getWikiPath($wikiFolder);
 
         if (!is_dir($wikiPath)) {
@@ -172,10 +169,6 @@ class ApiController extends YesWikiController
         return $this->runFarmAdminAction($request, false);
     }
 
-    /**
-     * Shared entry point for the two admin account routes: validates the folder and the
-     * CSRF token, then delegates to the farm service.
-     */
     private function runFarmAdminAction(Request $request, bool $add): ApiResponse
     {
         $folder = trim($request->request->get('folder', ''));
@@ -198,13 +191,6 @@ class ApiController extends YesWikiController
         return new ApiResponse(['success' => true]);
     }
 
-    /**
-     * Every write route on this controller changes something on disk or in a database,
-     * so each one checks the token before touching the farm services.
-     *
-     * checkToken reads the raw POST body through filter_input(), so the token has to be
-     * sent as a real form field. Assigning to $_POST would not reach it.
-     */
     private function tokenIsValid(): bool
     {
         try {
@@ -214,9 +200,6 @@ class ApiController extends YesWikiController
         }
     }
 
-    /**
-     * Display Ferme API documentation.
-     */
     public function getDocumentation(): string
     {
         $base = $this->wiki->href('', 'api/ferme/wikis');

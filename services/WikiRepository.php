@@ -8,13 +8,8 @@ use YesWiki\Core\Service\PageManager;
 use YesWiki\Core\Service\TripleStore;
 use YesWiki\Wiki;
 
-/**
- * Reads the farm. The bazar entries are the list of wikis; each wiki's own database and
- * config file supply the live details the entry does not hold.
- */
 class WikiRepository
 {
-    /** the tables a working YesWiki always has */
     public const WIKI_TABLES = ['acls', 'links', 'nature', 'pages', 'referrers', 'triples', 'users'];
 
     protected $wiki;
@@ -40,9 +35,6 @@ class WikiRepository
         $this->tripleStore = $tripleStore;
     }
 
-    /**
-     * Every wiki, sorted by title, each one enriched with its live data.
-     */
     public function getAll(): array
     {
         $fiches = $this->getAllWikiFiches();
@@ -57,10 +49,6 @@ class WikiRepository
         return $fiches;
     }
 
-    /**
-     * One page of wikis for the admin table. Filtering and sorting stay on the bazar
-     * fields so only the wikis actually shown get their database opened.
-     */
     public function getPaginated(int $start, int $length, string $search, int $orderCol, string $orderDir): array
     {
         $fiches = $this->getAllWikiFiches();
@@ -77,7 +65,6 @@ class WikiRepository
         }
         $filtered = count($fiches);
 
-        // Column order: 0=checkbox, 1=name, 2=referent, 3=last_update, 4=admin, 5=version, 6=actions
         $sortFields = [1 => 'bf_titre', 2 => 'bf_referent', 3 => 'date_maj_fiche'];
         $sortField = $sortFields[$orderCol] ?? 'bf_titre';
         usort($fiches, function ($a, $b) use ($sortField, $orderDir) {
@@ -94,12 +81,6 @@ class WikiRepository
         return ['total' => $total, 'filtered' => $filtered, 'fiches' => $fiches];
     }
 
-    /**
-     * Scan the server for wiki folders and import the ones missing from bazar.
-     *
-     * @param string $adminMail email to set on auto-imported entries
-     * @param bool   $checkHttp whether to fetch each wiki's home page, slow on a large farm
-     */
     public function searchOnServer(string $adminMail, bool $checkHttp = true): array
     {
         $wikis = $this->entryManager->search(['formsIds' => [$this->params->get('bazar_farm_id')]]);
@@ -133,10 +114,6 @@ class WikiRepository
         ];
     }
 
-    /**
-     * Check one wiki found on disk: can we reach its database, are its tables there,
-     * does its home page answer.
-     */
     private function inspectWiki(string $folder, array $wakkaConfig, bool $existsInBazar, bool $checkHttp): array
     {
         $url = ($wakkaConfig['base_url'] ?? '') . ($wakkaConfig['root_page'] ?? '');
@@ -195,9 +172,6 @@ class WikiRepository
         ];
     }
 
-    /**
-     * @return array folders of the wikis that were actually imported
-     */
     private function importEntries(array $wikisToImport): array
     {
         if (empty($wikisToImport)) {
@@ -223,16 +197,12 @@ class WikiRepository
     private function getAllWikiFiches(): array
     {
         $bazarFarmId = $this->params->get('bazar_farm_id');
-        // check id if wakka.config.php contains a bad value (like string not corresponding to a form's id)
+
         $bazarFarmId = (!empty($bazarFarmId) && (strval($bazarFarmId) == strval(intval($bazarFarmId)))) ? $bazarFarmId : '1100';
 
         return $this->entryManager->search(['formsIds' => [$bazarFarmId]]);
     }
 
-    /**
-     * Enrich a bazar entry with live wiki data (version, last modification, admin presence).
-     * Returns structured data for version and admin, callers are responsible for rendering.
-     */
     private function processWikiEntry(array $fiche): array
     {
         $folder = $fiche['bf_dossier-wiki'];
@@ -275,9 +245,6 @@ class WikiRepository
         return $fiche;
     }
 
-    /**
-     * How a hosted wiki's version compares with the farm's own.
-     */
     private function describeVersion(array $wakkaConfig, string $folder): array
     {
         $wikiVersion = $wakkaConfig['yeswiki_version'] ?? '';
@@ -303,9 +270,6 @@ class WikiRepository
         ];
     }
 
-    /**
-     * Presence is filled in later, once we are connected to the wiki's own database.
-     */
     private function describeAdmin(string $folder): ?array
     {
         $adminName = $this->wiki->config['yeswiki-farm-admin-name'];

@@ -93,11 +93,11 @@
         </div>
         <div class="col-md-6">
             {% for key, theme in farmThemes %}
-            <img 
-                class="theme-screenshot img-responsive{% if not loop.first %} hide {% endif %}"
-                src="{{ theme.screenshot }}"
-                alt="screenshot for theme {{ theme.label }}"
-            />
+                {% if theme.screenshot %}
+                    <img class="theme-screenshot img-responsive{% if not loop.first %} hide {% endif %}"
+                         src="{{ theme.screenshot }}"
+                         alt="screenshot for theme {{ theme.label }}" />
+                {% endif %}
             {% endfor %}
         </div>
       </div>

@@ -4,10 +4,6 @@ namespace YesWiki\Ferme\Service;
 
 use YesWiki\Wiki;
 
-/**
- * Creates a wiki from a bazar entry: copies the source tree, writes the wiki's config,
- * builds its tables from a model, then applies the entry's own options.
- */
 class WikiCreator
 {
     protected $wiki;
@@ -23,14 +19,6 @@ class WikiCreator
         $this->yeswicli = $yeswicli;
     }
 
-    /**
-     * @param array  $entry     the bazar entry data
-     * @param string $fieldName the field name holding the wiki folder
-     * @param string $theme     index into the yeswiki-farm-themes config array
-     * @param string $model     model name ('default-content' or a custom model folder)
-     *
-     * @throws \Exception on validation or I/O failure
-     */
     public function createFromEntry(array $entry, string $fieldName, string $theme = '0', string $model = 'default-content'): void
     {
         $entry = $this->resolveWikiName($entry, $fieldName);
@@ -85,13 +73,6 @@ class WikiCreator
         $this->createGroup($prefix, $entry);
     }
 
-    /*
-     * -------------------------------------------------------------- the entry
-     */
-
-    /**
-     * '{{folder}}' means "name the admin account after the wiki folder".
-     */
     private function resolveWikiName(array $entry, string $fieldName): array
     {
         if ($entry[$fieldName . '_wikiname'] !== '{{folder}}') {
@@ -106,9 +87,6 @@ class WikiCreator
         return $entry;
     }
 
-    /**
-     * The email field may hold the name of another field to read the address from.
-     */
     private function resolveEmail(array $entry, string $fieldName): array
     {
         $key = $fieldName . '_email';
@@ -119,9 +97,6 @@ class WikiCreator
         return $entry;
     }
 
-    /**
-     * '{{user}}' in an acl means the wiki's own admin account.
-     */
     private function resolveRights(array $entry, string $fieldName): array
     {
         $rights = $this->config->acl($entry['yeswiki-farm-acls']);
@@ -136,9 +111,6 @@ class WikiCreator
         return $rights;
     }
 
-    /**
-     * Table prefix for the new wiki, already carrying its trailing '__'.
-     */
     private function tablePrefix(array $entry, string $fieldName): string
     {
         return empty($entry['bf_prefixe'])
@@ -146,13 +118,6 @@ class WikiCreator
             : $entry['bf_prefixe'];
     }
 
-    /*
-     * --------------------------------------------------------------- the files
-     */
-
-    /**
-     * Copy all YesWiki source files and symlinks into the new wiki destination folder.
-     */
     private function copyWikiFiles(string $srcfolder, string $destfolder): void
     {
         $symlinked = $this->wiki->config['yeswiki_symlinked_files'];
@@ -194,9 +159,6 @@ class WikiCreator
         }
     }
 
-    /**
-     * Build the wakka.config.php array for a new wiki.
-     */
     private function buildWikiConfig(array $entry, string $fieldName, string $prefix, array $rights, array $theme): array
     {
         $config = [
@@ -258,11 +220,6 @@ class WikiCreator
         return $config;
     }
 
-    /**
-     * Write the wakka.config.php file for a new wiki.
-     *
-     * @throws \Exception if the file cannot be written
-     */
     private function writeWikiConfig(string $destfolder, array $config): void
     {
         $configCode = "<?php\n// wakka.config.php " . _t('CREATED') . ' ' . date('Y-m-d H:i:s') . "\n// " .
@@ -277,13 +234,6 @@ class WikiCreator
         }
     }
 
-    /*
-     * ------------------------------------------------------------ the database
-     */
-
-    /**
-     * Open a MySQLi connection to the farm's database, ensuring utf8mb4 charset.
-     */
     private function createDbConnection(): \mysqli
     {
         $link = mysqli_connect(
@@ -294,7 +244,7 @@ class WikiCreator
             isset($this->wiki->config['mysql_port']) ? $this->wiki->config['mysql_port'] : ini_get('mysqli.default_port')
         );
         mysqli_set_charset($link, 'utf8mb4');
-        // dans certains cas (ovh), set_charset ne passe pas, il faut faire une requete sql
+
         if (mysqli_character_set_name($link) != 'utf8mb4') {
             mysqli_query($link, 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
         }
@@ -302,12 +252,6 @@ class WikiCreator
         return $link;
     }
 
-    /**
-     * Create the database tables for a new wiki and populate them from the chosen model.
-     * Wraps everything in a transaction and rolls back on error.
-     *
-     * @throws \Throwable on SQL error
-     */
     private function createWikiDatabase(\mysqli $link, string $prefix, array $replacements, string $model): string
     {
         $notExistingTables = array_filter(
@@ -336,10 +280,6 @@ class WikiCreator
         return $sqlReport;
     }
 
-    /**
-     * Roll back, then drop any table this run created and left empty, so a failed
-     * creation does not leave half a wiki behind.
-     */
     private function resetSQLTransactionWhenError($link, $notExistingTables, $prefix): void
     {
         mysqli_rollback($link);
@@ -357,16 +297,6 @@ class WikiCreator
         }
     }
 
-    /**
-     * replace tokens in sql file and query sql
-     * inspired from /setup/install.helpers.php ->querySqlFile().
-     *
-     * @param object $dblink       mysqli link resource
-     * @param string $sqlFile      path to sql file
-     * @param array  $replacements token to replace in sql file
-     *
-     * @return string the report of the queries
-     */
     public function runSqlFile($dblink, $sqlFile, $replacements = [])
     {
         $sqlReport = '<h4>' . _t('FERME_REPORT') . ' ' . $sqlFile . '</h4>';
@@ -413,13 +343,6 @@ class WikiCreator
         }
     }
 
-    /*
-     * ------------------------------------------------------- users and options
-     */
-
-    /**
-     * Some farms keep one central database and want the account in the farm wiki too.
-     */
     private function createFarmUser(array $entry, string $fieldName): void
     {
         if ($this->wiki->LoadUser($entry[$fieldName . '_wikiname'])) {
@@ -435,9 +358,6 @@ class WikiCreator
         );
     }
 
-    /**
-     * A second account inside the new wiki, when the entry asked for one.
-     */
     private function createWikiUser(\mysqli $link, string $prefix, array $entry, string $fieldName): void
     {
         $this->wiki->Query("INSERT INTO `{$prefix}users` " .
@@ -447,9 +367,6 @@ class WikiCreator
             "'" . $entry[$fieldName . '_email'] . "', '', '20', '50', 1, now(), 2);");
     }
 
-    /**
-     * Append each chosen option's content to the page it belongs to.
-     */
     private function applyOptions(string $prefix, string $options): void
     {
         foreach (explode(',', $options) as $option) {
@@ -459,9 +376,6 @@ class WikiCreator
         }
     }
 
-    /**
-     * Create the configured group in the new wiki and fill it from one of the entry's fields.
-     */
     private function createGroup(string $prefix, array $entry): void
     {
         if (

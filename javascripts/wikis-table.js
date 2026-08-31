@@ -139,7 +139,6 @@ $(document).ready(function() {
       .prop('checked', total > 0 && checked === total);
   }
 
-  // Every bulk button is driven by the same selection, so they all update together
   var bulkButtons = [
     { btn: '#btn-upgrade-selected', badge: '#upgrade-selected-count' },
     { btn: '#btn-delete-selected', badge: '#delete-selected-count' },
@@ -301,7 +300,6 @@ $(document).ready(function() {
       error: function(xhr, status, error) {
         $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
         $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
-        // a rejected token comes back as 403 with the reason in the body
         $item.find('.delete-output pre').text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
         $item.find('.delete-output').show();
         $('#btn-close-delete-modal').prop('disabled', false);
@@ -309,7 +307,6 @@ $(document).ready(function() {
     });
   }
 
-  // A `wiki` parameter would be swallowed by the YesWiki router, so the folder goes in the body
   function adminAjax(folder, action) {
     return $.ajax({
       url: action === 'remove' ? adminRemoveUrl : adminAddUrl,
@@ -347,7 +344,6 @@ $(document).ready(function() {
       });
   });
 
-  // Bulk admin add/remove over the current selection
   $('#btn-admin-add-selected').on('click', function() { openAdminModal('add'); });
   $('#btn-admin-remove-selected').on('click', function() { openAdminModal('remove'); });
 
@@ -384,8 +380,6 @@ $(document).ready(function() {
     adminSequential(wikis, 0, action);
   }
 
-  // One wiki at a time: each call talks to another database, and a failure on one
-  // wiki must not hide the outcome of the others.
   function adminSequential(wikis, index, action) {
     if (index >= wikis.length) {
       $('#btn-close-admin-modal').prop('disabled', false);
@@ -422,7 +416,6 @@ $(document).ready(function() {
         failed((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
       })
       .always(function() {
-        // keep going: the remaining wikis are independent of the one that just failed
         adminSequential(wikis, index + 1, action);
       });
   }

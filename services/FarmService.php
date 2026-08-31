@@ -2,13 +2,6 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * Entry point for everything the farm does.
- *
- * The work lives in the services below, one per job. This class keeps the method names
- * the rest of the extension has always called, so actions, fields, handlers and the API
- * controller do not need to know how the work is split up.
- */
 class FarmService
 {
     protected $config;
@@ -37,10 +30,6 @@ class FarmService
         $this->repository = $repository;
     }
 
-    /*
-     * ----------------------------------------------------------------- config
-     */
-
     public function initFarmConfig()
     {
         $this->config->init();
@@ -56,18 +45,10 @@ class FarmService
         return $this->config->getModelLabels();
     }
 
-    /**
-     * Absolute path of one wiki, with a trailing separator. Normalised, so it also
-     * answers for a wiki that is not on disk: check is_dir() on the result.
-     */
     public function getWikiPath(string $folder): string
     {
         return $this->config->wikiDir($folder);
     }
-
-    /*
-     * ---------------------------------------------------------- admin account
-     */
 
     public function addFarmAdmin($wiki)
     {
@@ -79,10 +60,6 @@ class FarmService
         return $this->adminAccount->remove($wiki);
     }
 
-    /*
-     * ------------------------------------------------------- create and update
-     */
-
     public function createWikiFromEntry($entry, $fieldName, string $theme = '0', string $model = 'default-content')
     {
         $this->creator->createFromEntry($entry, $fieldName, $theme, $model);
@@ -93,10 +70,6 @@ class FarmService
         return $this->updater->update($wiki);
     }
 
-    /*
-     * ----------------------------------------------------------------- delete
-     */
-
     public function deleteWikiForApi(string $idFiche): array
     {
         return $this->remover->deleteForApi($idFiche);
@@ -106,10 +79,6 @@ class FarmService
     {
         $this->remover->deleteFromEntry($id);
     }
-
-    /*
-     * ------------------------------------------------------------------- read
-     */
 
     public function getWikiList()
     {
@@ -125,10 +94,6 @@ class FarmService
     {
         return $this->repository->searchOnServer($adminMail, $checkHttp);
     }
-
-    /*
-     * ------------------------------------------------------------------ tools
-     */
 
     public function rrmdir($src)
     {

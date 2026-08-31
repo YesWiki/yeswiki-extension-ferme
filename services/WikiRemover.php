@@ -5,10 +5,6 @@ namespace YesWiki\Ferme\Service;
 use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Wiki;
 
-/**
- * Deletes a wiki: its folder on disk, its tables in the database, and optionally the
- * bazar entry that described it.
- */
 class WikiRemover
 {
     protected $wiki;
@@ -28,12 +24,6 @@ class WikiRemover
         $this->entryManager = $entryManager;
     }
 
-    /**
-     * Delete a wiki and the entry that described it.
-     * CSRF must be verified by the caller before invoking this method.
-     *
-     * @return array {success: bool, error?: string}
-     */
     public function deleteForApi(string $idFiche): array
     {
         $folder = $this->resolveFolder($idFiche);
@@ -52,10 +42,6 @@ class WikiRemover
         return ['success' => true];
     }
 
-    /**
-     * Delete a wiki's files and DB tables from an entry page tag, leaving the entry alone.
-     * CSRF must be verified by the caller before invoking this method.
-     */
     public function deleteFromEntry(string $idFiche): void
     {
         $folder = $this->resolveFolder($idFiche);
@@ -64,9 +50,6 @@ class WikiRemover
         }
     }
 
-    /**
-     * @return string|array the wiki folder, or the error payload explaining why not
-     */
     private function resolveFolder(string $idFiche)
     {
         if (!$this->wiki->UserIsAdmin() && !$this->wiki->UserIsOwner()) {
@@ -85,10 +68,6 @@ class WikiRemover
         return $entry['bf_dossier-wiki'];
     }
 
-    /**
-     * Delete the wiki folder from disk and drop its database tables. The tables only go
-     * once the folder is confirmed gone, so a bad folder name cannot drop a live wiki.
-     */
     private function deleteWikiData(string $folder): void
     {
         $dir = $this->config->wikiDir($folder);
@@ -96,7 +75,6 @@ class WikiRemover
             return;
         }
 
-        // read the config before the folder holding it goes away
         $prefix = $this->config->readWikiConfig($folder)['table_prefix'] ?? '';
 
         $this->files->rrmdir($dir);
