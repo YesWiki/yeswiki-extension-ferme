@@ -70,26 +70,19 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
-        $farmRootFolder = $this->wiki->config['yeswiki-farm-root-folder'] ?? '.';
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
 
-        $wikiPath = $farmRootFolder === '.'
-            ? realpath(getcwd() . DIRECTORY_SEPARATOR . $wikiFolder)
-            : realpath(getcwd() . DIRECTORY_SEPARATOR . $farmRootFolder . DIRECTORY_SEPARATOR . $wikiFolder);
+        // The folder name has just been checked against a pattern with no dot and no
+        // separator in it, so the resolved path cannot climb out of the farm root.
+        $wikiPath = $this->getService(FarmService::class)->getWikiPath($wikiFolder);
 
-        if (!$wikiPath || !is_dir($wikiPath)) {
+        if (!is_dir($wikiPath)) {
             return new ApiResponse(['success' => false, 'error' => 'Wiki folder not found: ' . $wikiFolder], Response::HTTP_NOT_FOUND);
         }
 
-        // Prevent path traversal
-        $expectedRoot = $farmRootFolder === '.'
-            ? realpath(getcwd())
-            : realpath(getcwd() . DIRECTORY_SEPARATOR . $farmRootFolder);
-
-        if (!$expectedRoot || strpos($wikiPath, $expectedRoot) !== 0) {
-            return new ApiResponse(['success' => false, 'error' => 'Path traversal detected'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $yeswicliPath = $wikiPath . DIRECTORY_SEPARATOR . 'yeswicli';
+        $yeswicliPath = $wikiPath . 'yeswicli';
         if (!file_exists($yeswicliPath)) {
             $sourceYeswicli = getcwd() . DIRECTORY_SEPARATOR . 'yeswicli';
             if (!file_exists($sourceYeswicli)) {
@@ -126,6 +119,10 @@ class ApiController extends YesWikiController
      */
     public function searchWikis(Request $request)
     {
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
         $adminMail = $this->wiki->GetUser()['email'] ?? '';
         $checkHttp = filter_var($request->request->get('check_http', true), FILTER_VALIDATE_BOOLEAN);
         $result = $this->getService(FarmService::class)->searchWikisOnServer($adminMail, $checkHttp);
@@ -141,14 +138,14 @@ class ApiController extends YesWikiController
     public function deleteWiki(Request $request)
     {
         $idFiche = trim($request->request->get('id_fiche', ''));
-        $csrfToken = trim($request->request->get('csrf-token', ''));
 
         if (empty($idFiche)) {
             return new ApiResponse(['success' => false, 'error' => 'Missing id_fiche'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Expose the token in $_POST so CsrfTokenController::checkToken() can find it
-        $_POST['csrf-token'] = $csrfToken;
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
 
         $result = $this->getService(FarmService::class)->deleteWikiForApi($idFiche);
 
@@ -187,11 +184,7 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
-        // checkToken reads the raw POST body through filter_input(), so the token has to be
-        // sent as a real form field — assigning to $_POST here would not reach it.
-        try {
-            $this->wiki->services->get(CsrfTokenController::class)->checkToken('main', 'POST', 'csrf-token', false);
-        } catch (\Throwable $th) {
+        if (!$this->tokenIsValid()) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
@@ -203,6 +196,22 @@ class ApiController extends YesWikiController
         }
 
         return new ApiResponse(['success' => true]);
+    }
+
+    /**
+     * Every write route on this controller changes something on disk or in a database,
+     * so each one checks the token before touching the farm services.
+     *
+     * checkToken reads the raw POST body through filter_input(), so the token has to be
+     * sent as a real form field. Assigning to $_POST would not reach it.
+     */
+    private function tokenIsValid(): bool
+    {
+        try {
+            return $this->getService(CsrfTokenController::class)->checkToken('main', 'POST', 'csrf-token', false);
+        } catch (\Throwable $th) {
+            return false;
+        }
     }
 
     /**
@@ -224,10 +233,11 @@ class ApiController extends YesWikiController
             . '<code>search[value]</code>, <code>order[0][column]</code>, <code>order[0][dir]</code></p>'
             . '<p><code>POST ' . $searchUrl . '</code> '
             . 'Scan the server for wikis not yet in the farm bazar and import them (admins only).<br>'
+            . 'Params: <code>csrf-token</code><br>'
             . 'Returns: <code>wikisInBazar</code>, <code>wikisOnServer</code>, <code>results[]</code>, <code>imported[]</code></p>'
             . '<p><code>POST ' . $upgradeUrl . '</code> '
             . 'Upgrade a single wiki via <code>yeswicli upgrade</code> (admins only).<br>'
-            . 'Params: <code>folder</code> (folder name)</p>'
+            . 'Params: <code>folder</code> (folder name), <code>csrf-token</code></p>'
             . '<p><code>POST ' . $deleteUrl . '</code> '
             . 'Delete a wiki — removes folder, DB tables and bazar entry (admins only).<br>'
             . 'Params: <code>id_fiche</code> (page tag), <code>csrf-token</code></p>'

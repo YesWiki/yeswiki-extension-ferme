@@ -301,7 +301,8 @@ $(document).ready(function() {
       error: function(xhr, status, error) {
         $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
         $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
-        $item.find('.delete-output pre').text('HTTP error: ' + error);
+        // a rejected token comes back as 403 with the reason in the body
+        $item.find('.delete-output pre').text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
         $item.find('.delete-output').show();
         $('#btn-close-delete-modal').prop('disabled', false);
       }
@@ -437,6 +438,7 @@ $(document).ready(function() {
     $.ajax({
       url: searchUrl,
       method: 'POST',
+      data: { 'csrf-token': csrfToken },
       dataType: 'json',
       success: function(response) {
         var $list = $('#search-wikis-list').empty();
@@ -500,8 +502,9 @@ $(document).ready(function() {
         }
       },
       error: function(xhr, status, error) {
+        var message = (xhr.responseJSON && xhr.responseJSON.error) || error;
         $('#search-loading-stage').html(
-          '<div class="alert alert-danger">' + esc(i18n.searchNetworkError) + ': ' + esc(error) + '</div>'
+          '<div class="alert alert-danger">' + esc(i18n.searchNetworkError) + ': ' + esc(message) + '</div>'
         );
         $('#btn-close-search-modal').prop('disabled', false);
       }
@@ -530,7 +533,7 @@ $(document).ready(function() {
     $.ajax({
       url: upgradeUrl,
       method: 'POST',
-      data: { folder: wiki.folder },
+      data: { folder: wiki.folder, 'csrf-token': csrfToken },
       dataType: 'json',
       success: function(response) {
         if (response.output) {
@@ -554,7 +557,7 @@ $(document).ready(function() {
       error: function(xhr, status, error) {
         $item.find('.upgrade-icon').attr('class', 'fas fa-times upgrade-icon text-danger');
         $item.find('.upgrade-badge').text(i18n.error).css('background-color', '#d9534f');
-        $item.find('.upgrade-output pre').text('HTTP error: ' + error);
+        $item.find('.upgrade-output pre').text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
         $item.find('.upgrade-output').show();
         $('#btn-close-upgrade-modal').prop('disabled', false);
       }
