@@ -23,6 +23,7 @@ use YesWiki\Core\Service\DbService;
 use YesWiki\Core\Service\PageManager;
 use YesWiki\Core\Service\TripleStore;
 use YesWiki\Core\YesWikiHandler;
+use YesWiki\Ferme\Service\FarmConfig;
 
 class UpdateHandler__ extends YesWikiHandler
 {
@@ -55,13 +56,12 @@ class UpdateHandler__ extends YesWikiHandler
             $output .= '<strong>Extension Ferme</strong><br/>';
 
             // Structure de répertoire désirée
-            $customWikiModelDir = 'custom/wiki-models/';
+            $customWikiModelDir = FarmConfig::MODELS_DIR . '/';
             if (!is_dir($customWikiModelDir)) {
                 if (!mkdir($customWikiModelDir, 0777, true)) {
                     throw new \Exception('Folder creation failed...');
-                } else {
-                    $output .= "ℹ️ Creating the folder <em>$customWikiModelDir</em> for the wiki models<br/>✅Done !<br />";
                 }
+                $output .= "ℹ️ Creating the folder <em>$customWikiModelDir</em> for the wiki models<br/>✅Done !<br />";
             } else {
                 $output .= "✅ The folder <em>$customWikiModelDir</em> for the wiki models exists.<br />";
             }

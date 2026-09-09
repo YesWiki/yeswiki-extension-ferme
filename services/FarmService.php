@@ -43,9 +43,24 @@ class FarmService
         return $this->config->readWikiConfig($wiki);
     }
 
-    public function collectModelAssets(string $model, string $baseUrl, array $credentials = []): array
+    public function startModelAssets(string $model, string $baseUrl, array $credentials = []): array
     {
-        return $this->modelAssets->collect($model, $baseUrl, $credentials);
+        return $this->modelAssets->start($model, $baseUrl, $credentials);
+    }
+
+    public function advanceModelAssets(): array
+    {
+        return $this->modelAssets->advance();
+    }
+
+    public function cancelModelAssets(): array
+    {
+        return $this->modelAssets->cancel();
+    }
+
+    public function runningModelAssets(): ?string
+    {
+        return $this->modelAssets->runningModel();
     }
 
     public function getModelLabels()

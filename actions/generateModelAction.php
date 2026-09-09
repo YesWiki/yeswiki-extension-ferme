@@ -3,11 +3,13 @@
 use Tamtamchik\SimpleFlash\Flash;
 use YesWiki\Core\Service\DbService;
 use YesWiki\Core\YesWikiAction;
+use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FarmService;
 
 class GenerateModelAction extends YesWikiAction
 {
     protected $dbService;
+    private $assetsProgressShown = false;
 
     public function formatArguments($args)
     {
@@ -15,7 +17,13 @@ class GenerateModelAction extends YesWikiAction
             'template' => !empty($args['template']) ? $args['template'] : 'generate-model.twig',
             'wiki-import-forms' => $_POST['wiki-import-forms'] ?? null,
             'model_label' => !empty($_POST['model_label']) ? $_POST['model_label'] : null,
-            'POST' => $_POST,
+            // the administrator account of a source wiki hosted elsewhere, kept out of
+            // the POST copy below so that it travels no further than the fetch needs
+            'source_admin' => [
+                'username' => $_POST['source_admin_user'] ?? '',
+                'password' => $_POST['source_admin_password'] ?? '',
+            ],
+            'POST' => array_diff_key($_POST, array_flip(['source_admin_user', 'source_admin_password'])),
             'delete_model' => $_GET['delete_model'] ?? null,
         ];
     }
@@ -60,13 +68,13 @@ class GenerateModelAction extends YesWikiAction
             }
 
             // get all custom models
-            $modelsFolder = glob('custom/wiki-models/*', GLOB_ONLYDIR);
+            $modelsFolder = glob(FarmConfig::MODELS_DIR . '/*', GLOB_ONLYDIR);
             $defaultModelIsAvailable = (isset($yeswikiFarmModels) && in_array('default-content', $yeswikiFarmModels))
                 || (!isset($yeswikiFarmModels) && in_array('default-content', $this->wiki->config['yeswiki-farm-models']));
             $models = [];
             foreach ($modelsFolder as $modelFolder) {
                 if (is_file($modelFolder . '/default-content.sql') && is_file($modelFolder . '/infos.json')) {
-                    $model = str_replace('custom/wiki-models/', '', $modelFolder);
+                    $model = str_replace(FarmConfig::MODELS_DIR . '/', '', $modelFolder);
                     $json = json_decode(file_get_contents($modelFolder . '/infos.json', true), true);
                     $models[$model]['label'] = $json['label'];
                     $models[$model]['model'] = $model;
@@ -77,12 +85,18 @@ class GenerateModelAction extends YesWikiAction
                 }
             }
 
+            $runningModel = $farm->runningModelAssets();
+            if (!is_null($runningModel) && !$this->assetsProgressShown) {
+                $output .= $this->renderAssetsProgress($runningModel);
+            }
+
             $output .= $this->render(
                 '@ferme/' . $this->arguments['template'],
                 [
                     'formurl' => $this->wiki->href('', $this->wiki->GetPageTag()),
                     'models' => $models,
                     'defaultModelIsAvailable' => $defaultModelIsAvailable,
+                    'farmRootUrl' => rtrim((string)($this->wiki->config['yeswiki-farm-root-url'] ?? ''), '/'),
                 ]
             );
             $this->wiki->AddJavascriptFile('tools/ferme/javascripts/ferme-import.js');
@@ -114,7 +128,7 @@ class GenerateModelAction extends YesWikiAction
             ['', '', '--'],
             $baseUrl
         );
-        $foldername = 'custom/wiki-models/' . $model;
+        $foldername = FarmConfig::MODELS_DIR . '/' . $model;
         if (!is_dir($foldername)) {
             @mkdir($foldername, 0777, true);
         }
@@ -160,7 +174,8 @@ class GenerateModelAction extends YesWikiAction
             foreach ($forms as $form) {
                 $values = array_map(function ($col) use ($form) {
                     $value = $form[$col] ?? '';
-                    return "'" . $this->dbService->escape((string) $value) . "'";
+
+                    return "'" . $this->dbService->escape((string)$value) . "'";
                 }, $validColumns);
                 $tabforms[] = '(' . implode(', ', $values) . ')';
             }
@@ -226,7 +241,7 @@ class GenerateModelAction extends YesWikiAction
             $output .= '<div class="alert alert-success">'
                    . _t('Le fichier <a href="' . $filename . '">' . $filename . '</a> vient d\'être enregistré avec succès.')
                    . '</div>' . "\n";
-            $output .= $this->collectAssets($model, $baseUrl, $data);
+            $output .= $this->startAssets($model, $baseUrl);
         }
 
         return $output;
@@ -234,39 +249,61 @@ class GenerateModelAction extends YesWikiAction
 
     /**
      * The sql dump only names the images, the attachments and the styles the model
-     * needs. Fetching a backup of them from another server takes minutes, so this
-     * gets a time limit of its own.
+     * needs. A source on this server is copied here and now; one on another server is
+     * a job the page then walks forward, because it takes longer than a request lives.
      */
-    private function collectAssets(string $model, string $baseUrl, array $data): string
+    private function startAssets(string $model, string $baseUrl): string
     {
-        set_time_limit(1800);
+        // logging in to the source, or copying the files of a big wiki off the disk
+        set_time_limit(300);
 
         $farm = $this->getService(FarmService::class);
         try {
-            $messages = $farm->collectModelAssets($model, $baseUrl, [
-                'username' => $data['source_admin_user'] ?? '',
-                'password' => $data['source_admin_password'] ?? '',
-            ]);
-        } catch (\Throwable $th) {
-            return $this->render('@templates/alert-message.twig', [
+            $result = $farm->startModelAssets($model, $baseUrl, $this->arguments['source_admin']);
+        } catch (Throwable $th) {
+            $output = $this->render('@templates/alert-message.twig', [
                 'type' => 'warning',
                 'message' => _t('FERME_MODEL_ASSETS_FAILED') . ' ' . htmlspecialchars($th->getMessage()),
             ]);
+            // a fetch of our own left behind by a browser that went away is what blocks
+            // this one, so hand the admin the way to stop it
+            $running = $farm->runningModelAssets();
+
+            return is_null($running) ? $output : $output . $this->renderAssetsProgress($running, true);
+        }
+
+        if ($result['running']) {
+            return $this->renderAssetsProgress($model);
         }
 
         return $this->render('@templates/alert-message.twig', [
             'type' => 'info',
-            'message' => implode('<br />', $messages),
+            'message' => implode('<br />', $result['messages']),
+        ]);
+    }
+
+    /**
+     * The block the javascript polls, and the way out of a fetch a browser walked away from.
+     */
+    private function renderAssetsProgress(string $model, bool $cancelOnly = false): string
+    {
+        $this->assetsProgressShown = true;
+
+        return $this->render('@ferme/model-assets-progress.twig', [
+            'model' => $model,
+            'cancelOnly' => $cancelOnly,
+            'assetsUrl' => $this->wiki->href('', 'api/ferme/models/assets'),
         ]);
     }
 
     public function deleteModel($model)
     {
-        if (is_dir('custom/wiki-models/' . $model)) {
-            $this->rrmdir('custom/wiki-models/' . $model);
-            $output = '<div class="alert alert-success">Le modèle "custom/wiki-models/' . $model . '" vient d\'être supprimé.</div>';
+        $modelDir = FarmConfig::MODELS_DIR . '/' . $model;
+        if (is_dir($modelDir)) {
+            $this->rrmdir($modelDir);
+            $output = '<div class="alert alert-success">Le modèle "' . $modelDir . '" vient d\'être supprimé.</div>';
         } else {
-            $output = '<div class="alert alert-warning">Le modèle "custom/wiki-models/' . $model . '" n\'a pas été trouvé.</div>';
+            $output = '<div class="alert alert-warning">Le modèle "' . $modelDir . '" n\'a pas été trouvé.</div>';
         }
 
         return $output;
@@ -355,9 +392,9 @@ class GenerateModelAction extends YesWikiAction
         }
         if (empty($baseUrl) || is_null($rewriteModeEnabled) || empty($tag)) {
             return [];
-        } else {
-            return [$baseUrl, $rewriteModeEnabled, $tag];
         }
+
+        return [$baseUrl, $rewriteModeEnabled, $tag];
     }
 
     /**
@@ -392,7 +429,7 @@ class GenerateModelAction extends YesWikiAction
             if (empty($label)) {
                 continue;
             }
-            $infoFile = 'custom/wiki-models/' . $model . '/infos.json';
+            $infoFile = FarmConfig::MODELS_DIR . '/' . $model . '/infos.json';
             if (is_file($infoFile)) {
                 $infos = json_decode(file_get_contents($infoFile), true) ?? [];
                 $infos['label'] = $label;

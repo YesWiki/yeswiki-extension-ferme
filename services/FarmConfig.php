@@ -7,6 +7,7 @@ use YesWiki\Wiki;
 class FarmConfig
 {
     public const DEFAULT_BACKUP_DIR = 'private/backups/farm';
+    public const MODELS_DIR = 'custom/wiki-models';
 
     protected $wiki;
     protected $files;
@@ -93,6 +94,15 @@ class FarmConfig
         return $this->files->getAbsolutePath($this->basePath() . DIRECTORY_SEPARATOR . $folder);
     }
 
+    /**
+     * Where a wiki model keeps its sql dump, its infos.json and the files and custom
+     * folders it hands to every wiki built from it.
+     */
+    public function modelDir(string $model): string
+    {
+        return self::MODELS_DIR . '/' . $model;
+    }
+
     public function wikiConfigFile(string $folder): string
     {
         return $this->wikiDir($folder) . 'wakka.config.php';
@@ -128,7 +138,7 @@ class FarmConfig
         $models = [];
         foreach ($this->wiki->config['yeswiki-farm-models'] as $model) {
             if ($model != 'default-content') {
-                $json = \json_decode(\file_get_contents('custom/wiki-models/' . $model . '/infos.json'), true);
+                $json = \json_decode(\file_get_contents($this->modelDir($model) . '/infos.json'), true);
             } else {
                 $json = [];
                 $json['label'] = _t('FERME_BASIC_INSTALL');
@@ -290,12 +300,13 @@ class FarmConfig
             if ($folder == 'default-content') {
                 continue;
             }
-            if (!is_dir('custom/wiki-models/' . $folder)) {
+            $modelDir = $this->modelDir($folder);
+            if (!is_dir($modelDir)) {
                 unset($this->wiki->config['yeswiki-farm-models'][$key]);
-                trigger_error('le dossier "custom/wiki-models/' . $folder . '" ne semble pas exister.');
-            } elseif (!is_file('custom/wiki-models/' . $folder . '/default-content.sql')) {
+                trigger_error('le dossier "' . $modelDir . '" ne semble pas exister.');
+            } elseif (!is_file($modelDir . '/default-content.sql')) {
                 unset($this->wiki->config['yeswiki-farm-models'][$key]);
-                trigger_error('Le fichier sql "custom/wiki-models/' . $folder . '/default-content.sql" n\'a pas été trouvé.');
+                trigger_error('Le fichier sql "' . $modelDir . '/default-content.sql" n\'a pas été trouvé.');
             }
         }
     }

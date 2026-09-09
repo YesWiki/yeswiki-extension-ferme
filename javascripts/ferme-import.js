@@ -220,6 +220,83 @@ $(document).ready(function () {
     return false;
   });
 
+  // Hide the source administrator fields for a wiki of this farm: it gets copied
+  // straight off the disk, no account needed.
+  var $sourceAdmin = $('#source-admin-fields');
+  var farmRootUrl = ($sourceAdmin.data('farm-root-url') || '').replace(/\/+$/, '');
+
+  function toggleSourceAdmin() {
+    if (!$sourceAdmin.length || !farmRootUrl) return;
+    var typed = ($('#url-import').val() || '').trim().replace(/\/+$/, '');
+    var isLocal = typed !== '' && (typed === farmRootUrl || typed.indexOf(farmRootUrl + '/') === 0);
+    $sourceAdmin.toggle(!isLocal);
+  }
+
+  $('#url-import').on('input change', toggleSourceAdmin);
+  toggleSourceAdmin();
+
+  // Fetching the files and the custom folder of a wiki hosted elsewhere takes minutes,
+  // so the server walks the job one step per request and this asks for the next one.
+  var $assets = $('#model-assets-progress');
+
+  function assetsPost(action) {
+    return $.ajax({
+      method: 'POST',
+      url: $assets.data('url'),
+      data: { action: action, 'csrf-token': $assets.data('csrf-token') },
+    });
+  }
+
+  function assetsStop(message, level) {
+    $assets
+      .removeClass('alert-info')
+      .addClass('alert-' + level)
+      .html(message);
+  }
+
+  function assetsShow(data) {
+    var steps = $assets.data('steps') || {};
+    $assets.find('.model-assets-label').text(steps[data.step] || $assets.data('stalled'));
+    var $progress = $assets.find('.progress');
+    if (data.step === 'downloading' && data.total > 0) {
+      var percent = Math.min(100, Math.round((data.bytes / data.total) * 100));
+      $progress.show().find('.progress-bar').css('width', percent + '%').text(percent + '%');
+    } else {
+      $progress.hide();
+    }
+  }
+
+  function pollAssets() {
+    assetsPost('status').done(
+      function (data) {
+        if (data.error) {
+          return assetsStop(htmlEntities(data.error), 'danger');
+        }
+        if (!data.running) {
+          return assetsStop((data.messages || []).map(htmlEntities).join('<br>'), 'success');
+        }
+        assetsShow(data);
+        setTimeout(pollAssets, data.step === 'downloading' ? 1000 : 2000);
+      },
+      function (xhr) {
+        assetsStop(htmlEntities(xhr.statusText || 'error'), 'danger');
+      },
+    );
+  }
+
+  if ($assets.length) {
+    $assets.on('click', '.model-assets-cancel', function () {
+      var $button = $(this).prop('disabled', true);
+      assetsPost('cancel').always(function () {
+        assetsStop($assets.data('cancelled'), 'warning');
+        $button.prop('disabled', false);
+      });
+    });
+    if (String($assets.data('poll')) === '1') {
+      pollAssets();
+    }
+  }
+
   // Inline model label editing
   $(document).on('click', '.model-label-edit-btn', function () {
     var $container = $(this).closest('.model-label');

@@ -91,8 +91,8 @@ class YesWikiField extends BazarField
             return $this->render('@ferme/fields/yeswiki.twig', [
                 'url' => $url,
             ]);
-        } else {
-            return null;
         }
+
+        return null;
     }
 }

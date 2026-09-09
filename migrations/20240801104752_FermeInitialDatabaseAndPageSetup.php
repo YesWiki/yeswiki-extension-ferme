@@ -6,6 +6,7 @@ use YesWiki\Core\Service\AclService;
 use YesWiki\Core\Service\PageManager;
 use YesWiki\Core\Service\TripleStore;
 use YesWiki\Core\YesWikiMigration;
+use YesWiki\Ferme\Service\FarmConfig;
 
 class FermeInitialDatabaseAndPageSetup extends YesWikiMigration
 {
@@ -33,13 +34,12 @@ class FermeInitialDatabaseAndPageSetup extends YesWikiMigration
         $entryManager = $this->getService(EntryManager::class);
 
         // Structure de répertoire désirée
-        $customWikiModelDir = 'custom/wiki-models/';
+        $customWikiModelDir = FarmConfig::MODELS_DIR . '/';
         if (!is_dir($customWikiModelDir)) {
             if (!mkdir($customWikiModelDir, 0777, true)) {
                 throw new Exception('Folder creation failed...');
-            } else {
-                $output .= "Creating the folder $customWikiModelDir for the wiki models ✅ Done!\n";
             }
+            $output .= "Creating the folder $customWikiModelDir for the wiki models ✅ Done!\n";
         } else {
             $output .= "✅ The folder $customWikiModelDir for the wiki models exists.\n";
         }
@@ -88,7 +88,7 @@ class FermeInitialDatabaseAndPageSetup extends YesWikiMigration
             $output .= "Removing bf_dossier fields from bazar entries in {$this->dbService->prefixTable('pages')} table. ";
             try {
                 $removed = $entryManager->removeAttributes([], ['bf_dossier-wiki_wikiname', 'bf_dossier-wiki_email', 'bf_dossier-wiki_password'], true);
-            } catch (\Throwable $th) {
+            } catch (Throwable $th) {
                 // no form currently defines these fields (fresh install) : core's search builder
                 // can end up calling mysqli_query() with an empty query, which throws a \ValueError
                 // that is not caught by DbService::query(). There is nothing to remove in this case.

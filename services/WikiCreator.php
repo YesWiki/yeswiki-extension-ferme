@@ -152,7 +152,7 @@ class WikiCreator
     private function copyModelFiles(string $model, string $destfolder): void
     {
         foreach (['files', 'custom'] as $dir) {
-            $source = 'custom/wiki-models/' . $model . '/' . $dir;
+            $source = $this->config->modelDir($model) . '/' . $dir;
             if (is_dir($source)) {
                 $this->files->copyRecursive($source, $destfolder . $dir);
             }
@@ -263,7 +263,7 @@ class WikiCreator
 
         $modelFile = $model === 'default-content'
             ? 'setup/sql/default-content.sql'
-            : 'custom/wiki-models/' . $model . '/default-content.sql';
+            : $this->config->modelDir($model) . '/default-content.sql';
 
         mysqli_begin_transaction($link);
         mysqli_autocommit($link, false);
@@ -315,7 +315,7 @@ class WikiCreator
         $sqlReport .= $this->insertionReport($index, mysqli_affected_rows($dblink));
 
         while (mysqli_more_results($dblink)) {
-            ++$index;
+            $index++;
             if (!mysqli_next_result($dblink)) {
                 throw new \Exception(str_replace(['{num}', '{file}', '{errorMsg}'], [$index, $sqlFile, mysqli_error($dblink)], _t('FERME_INSERTION_ERROR')));
             }

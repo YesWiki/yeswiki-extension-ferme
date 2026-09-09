@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Fichier de traduction en francais de l'extension Ferme.
  *
@@ -66,6 +67,17 @@ $GLOBALS['translations'] = array_merge(
         'FERME_MODEL_CREDENTIALS_HINT' => 'Si le wiki source est hébergé ailleurs que sur cette ferme, il faut un compte administrateur de ce wiki pour en récupérer les dossiers files et custom. Un wiki de la ferme est copié directement, sans identifiants.',
         'FERME_MODEL_ADMIN_USER' => 'Administrateur du wiki source',
         'FERME_MODEL_ADMIN_PASSWORD' => 'Mot de passe',
+        'FERME_MODEL_FETCHING' => 'Récupération des fichiers du modèle',
+        'FERME_MODEL_STEP_CHECKING' => 'Vérification du wiki source',
+        'FERME_MODEL_STEP_STARTING' => 'Demande de la sauvegarde au wiki source',
+        'FERME_MODEL_STEP_ARCHIVING' => 'Le wiki source prépare sa sauvegarde',
+        'FERME_MODEL_STEP_IDENTIFYING' => 'Attente du fichier de sauvegarde',
+        'FERME_MODEL_STEP_DOWNLOADING' => 'Téléchargement',
+        'FERME_MODEL_STEP_CLEANING' => 'Nettoyage sur le wiki source',
+        'FERME_MODEL_STEP_DONE' => 'Terminé',
+        'FERME_MODEL_STEP_STALLED' => 'En cours',
+        'FERME_MODEL_FETCH_CANCELLED' => 'Récupération annulée. Le modèle garde les fichiers qu\'il avait.',
+        'FERME_MODEL_NO_ROOM' => 'Pas assez de place sur le disque pour extraire les fichiers du modèle. Nécessaire / disponible :',
         'FERME_MODEL_ASSETS_FAILED' => 'Les fichiers du modèle n\'ont pas pu être récupérés :',
         'FERME_SEARCH_FOR_WIKIS' => 'Rechercher d\'autres wikis sur ce serveur',
         'FERME_UPGRADE_ALL_WIKIS' => 'Mettre à jour tous les wikis',

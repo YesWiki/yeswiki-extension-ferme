@@ -1,0 +1,28 @@
+<div id="model-assets-progress"
+     class="alert alert-info"
+     data-url="{{ assetsUrl }}"
+     data-csrf-token="{{ csrfToken({"id": "main", "refresh": false}) }}"
+     data-model="{{ model }}"
+     data-poll="{{ cancelOnly ? '0' : '1' }}"
+     data-steps='{{ {
+        "checking": _t("FERME_MODEL_STEP_CHECKING"),
+        "starting": _t("FERME_MODEL_STEP_STARTING"),
+        "archiving": _t("FERME_MODEL_STEP_ARCHIVING"),
+        "identifying": _t("FERME_MODEL_STEP_IDENTIFYING"),
+        "downloading": _t("FERME_MODEL_STEP_DOWNLOADING"),
+        "cleaning": _t("FERME_MODEL_STEP_CLEANING"),
+        "done": _t("FERME_MODEL_STEP_DONE")
+     }|json_encode }}'
+     data-stalled="{{ _t('FERME_MODEL_STEP_STALLED') }}"
+     data-cancelled="{{ _t('FERME_MODEL_FETCH_CANCELLED') }}">
+  <strong>{{ _t('FERME_MODEL_FETCHING') }} {{ model }}</strong>
+  <div class="model-assets-step" style="margin-top:0.5rem;">
+    <span class="throbber"></span> <span class="model-assets-label">{{ _t('FERME_MODEL_STEP_CHECKING') }}</span>
+  </div>
+  <div class="progress" style="margin:0.5rem 0; display:none;">
+    <div class="progress-bar progress-bar-striped active" role="progressbar" style="width:0%"></div>
+  </div>
+  <button type="button" class="btn btn-xs btn-default model-assets-cancel">
+    <i class="fas fa-times"></i> {{ _t('FERME_CANCEL') }}
+  </button>
+</div>

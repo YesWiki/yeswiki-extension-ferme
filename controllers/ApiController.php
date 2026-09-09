@@ -170,6 +170,50 @@ class ApiController extends YesWikiController
         return new ApiResponse(['success' => true]);
     }
 
+    /**
+     * Walk the fetch of a model's files and custom folders one step further.
+     *
+     * The source wiki takes minutes to make its backup and this end takes minutes to
+     * download it, so the browser drives the job the way the core backup screen does,
+     * one short request at a time.
+     *
+     * @Route("/api/ferme/models/assets", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function modelAssets(Request $request)
+    {
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $action = trim($request->request->get('action', 'status'));
+        if (!in_array($action, ['status', 'cancel'], true)) {
+            return new ApiResponse(['success' => false, 'error' => 'Unsupported action: ' . $action], Response::HTTP_BAD_REQUEST);
+        }
+
+        // one download slice, or the unpacking of the whole backup, fits well inside this
+        set_time_limit(300);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            // the job takes its time; holding the session lock would freeze the whole browser
+            session_write_close();
+        }
+
+        $farm = $this->getService(FarmService::class);
+        try {
+            $result = $action === 'cancel' ? $farm->cancelModelAssets() : $farm->advanceModelAssets();
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'running' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse([
+            'success' => true,
+            'running' => $result['running'],
+            'step' => $result['state']['step'] ?? '',
+            'bytes' => $result['state']['bytes'] ?? 0,
+            'total' => $result['state']['total'] ?? 0,
+            'messages' => $result['messages'],
+        ]);
+    }
+
     private function tokenIsValid(): bool
     {
         try {
@@ -187,6 +231,7 @@ class ApiController extends YesWikiController
         $deleteUrl = $this->wiki->href('', 'api/ferme/wikis/delete');
         $adminAddUrl = $this->wiki->href('', 'api/ferme/wikis/admin-add');
         $adminRemUrl = $this->wiki->href('', 'api/ferme/wikis/admin-remove');
+        $modelAssetsUrl = $this->wiki->href('', 'api/ferme/models/assets');
 
         return '<h2>Extension Ferme</h2>'
             . '<p><code>POST ' . $base . '</code> '
@@ -211,7 +256,14 @@ class ApiController extends YesWikiController
             . '<p><code>POST ' . $adminRemUrl . '</code> '
             . 'Delete the farm super-admin account from a wiki and drop it from its '
             . '<code>@admins</code> group (admins only).<br>'
-            . 'Params: <code>folder</code> (folder name), <code>csrf-token</code></p>';
+            . 'Params: <code>folder</code> (folder name), <code>csrf-token</code></p>'
+            . '<p><code>POST ' . $modelAssetsUrl . '</code> '
+            . 'Walk the fetch of a wiki model\'s files and custom folders one step further. '
+            . 'The generate-model screen starts the fetch and its javascript polls this until '
+            . 'it stops running (admins only).<br>'
+            . 'Params: <code>action</code> (<code>status</code> or <code>cancel</code>), <code>csrf-token</code><br>'
+            . 'Returns: <code>running</code>, <code>step</code>, <code>bytes</code>, <code>total</code>, '
+            . '<code>messages[]</code>, <code>error</code></p>';
     }
 
     private function formatRow(array $fiche): array
