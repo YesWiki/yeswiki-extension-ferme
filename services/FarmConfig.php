@@ -6,6 +6,8 @@ use YesWiki\Wiki;
 
 class FarmConfig
 {
+    public const DEFAULT_BACKUP_DIR = 'private/backups/farm';
+
     protected $wiki;
     protected $files;
 
@@ -38,6 +40,45 @@ class FarmConfig
     public function rootUrl(): string
     {
         return $this->wiki->config['yeswiki-farm-root-url'] ?? '';
+    }
+
+    /**
+     * Where the updater and the config editor put their backups. A relative
+     * value is taken from the farm master, so the default lands in private/,
+     * which YesWiki and the generated nginx config both deny.
+     */
+    public function backupDir(): string
+    {
+        $dir = $this->wiki->config['yeswiki-farm-backup-dir'] ?? self::DEFAULT_BACKUP_DIR;
+        $dir = trim((string)$dir);
+        if ($dir === '') {
+            $dir = self::DEFAULT_BACKUP_DIR;
+        }
+        if (!str_starts_with($dir, DIRECTORY_SEPARATOR)) {
+            $dir = getcwd() . DIRECTORY_SEPARATOR . $dir;
+        }
+
+        return rtrim($dir, DIRECTORY_SEPARATOR);
+    }
+
+    public function ensureBackupDir(string $subFolder = ''): string
+    {
+        $dir = $this->backupDir() . ($subFolder === '' ? '' : DIRECTORY_SEPARATOR . $subFolder);
+        if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+            throw new \RuntimeException(_t('FERME_CLI_CANNOT_CREATE_DIR') . ' ' . $dir);
+        }
+
+        return $dir;
+    }
+
+    public function archiveUrl(): string
+    {
+        return trim((string)($this->wiki->config['yeswiki-farm-archive-url'] ?? ''));
+    }
+
+    public function adminEmail(): string
+    {
+        return trim((string)($this->wiki->config['yeswiki-farm-admin-email'] ?? ''));
     }
 
     public function basePath(): string
@@ -262,7 +303,6 @@ class FarmConfig
     private function applyWikiAdminDefaults(): void
     {
         $defaults = [
-
             'yeswiki-farm-create-user' => false,
 
             'yeswiki-farm-default-WikiAdmin' => 'WikiAdmin',
@@ -275,6 +315,11 @@ class FarmConfig
 
             'yeswiki-farm-admin-name' => '',
             'yeswiki-farm-admin-pass' => '',
+            'yeswiki-farm-admin-email' => '',
+
+            'yeswiki-farm-archive-url' => '',
+
+            'yeswiki-farm-backup-dir' => self::DEFAULT_BACKUP_DIR,
         ];
 
         foreach ($defaults as $key => $value) {

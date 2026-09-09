@@ -114,5 +114,27 @@ $GLOBALS['translations'] = array_merge(
         'EDIT_CONFIG_HINT_YESWIKI-FARM-ADMIN-NAME' => 'Login du super admin',
         'EDIT_CONFIG_HINT_YESWIKI-FARM-ADMIN-PASS' => 'Pass du super admin',
         'EDIT_CONFIG_HINT_YESWIKI-FARM-EXTRA-THEMES' => 'Thèmes supplémentaires (doivent être présents dans le dossier thèmes du wiki source)',
+
+        // command line
+        'FERME_CLI_NOT_A_DIRECTORY' => 'Ce n\'est pas un dossier :',
+        'FERME_CLI_MASTER_EXCLUDED' => 'Le wiki maître de la ferme ne peut pas être une cible.',
+        'FERME_CLI_NO_WIKI_IN' => 'Aucun wakka.config.php dans',
+        'FERME_CLI_NO_CONFIG_FILE' => 'Fichier de configuration introuvable :',
+        'FERME_CLI_EMPTY_CONFIG_FILE' => 'Configuration vide ou illisible :',
+        'FERME_CLI_CANNOT_WRITE' => 'Écriture impossible :',
+        'FERME_CLI_CANNOT_CREATE_DIR' => 'Création du dossier impossible :',
+        'FERME_CLI_NO_SMTP_IN_MASTER' => 'Aucun réglage contact_smtp_* dans la configuration de la ferme, rien à propager.',
+        'FERME_CLI_NO_WIKI_FOUND' => 'Aucun yeswiki trouvé sous',
+        'FERME_CLI_FAILED_WIKIS' => 'Wikis en échec :',
+        'FERME_CLI_DRY_RUN' => 'simulation',
+        'FERME_CLI_DRY_RUN_NOTHING_WRITTEN' => 'simulation, rien n\'a été écrit',
+        'FERME_CLI_OPT_PATH' => 'Dossier à scanner (par défaut : la racine de la ferme)',
+        'FERME_CLI_OPT_DEPTH' => 'Profondeur du scan',
+        'FERME_CLI_OPT_WIKI' => 'Agir sur ce seul dossier de wiki',
+        'FERME_CLI_OPT_DRY_RUN' => 'Montrer ce qui serait fait sans rien écrire',
+
+        'EDIT_CONFIG_HINT_YESWIKI-FARM-ADMIN-EMAIL' => 'Email utilisé pour les fiches importées quand le wiki n\'a pas d\'admin avec email',
+        'EDIT_CONFIG_HINT_YESWIKI-FARM-ARCHIVE-URL' => 'Url d\'une archive zip de YesWiki, sinon les fichiers du wiki maître sont utilisés',
+        'EDIT_CONFIG_HINT_YESWIKI-FARM-BACKUP-DIR' => 'Dossier des sauvegardes, relatif au wiki maître',
     ]
 );

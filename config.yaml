@@ -1,6 +1,12 @@
 parameters:
   bazar_farm_id: 1100
   yeswiki-farm-root-folder: '.'
+  # email put on the bazar entries the CLI imports, when the wiki's own admin has none
+  yeswiki-farm-admin-email: ''
+  # release zip used by 'yeswicli ferme:update --archive-url', empty means the master's own files
+  yeswiki-farm-archive-url: ''
+  # relative to the farm, so the default lands in the folder YesWiki and nginx deny
+  yeswiki-farm-backup-dir: 'private/backups/farm'
   contact_wikis:
     default_template: 'list-email.twig'
   yeswiki_symlinked_files:
@@ -77,7 +83,10 @@ parameters:
     - 'yeswiki-farm-root-url'
     - 'yeswiki-farm-admin-name'
     - 'yeswiki-farm-admin-pass'
+    - 'yeswiki-farm-admin-email'
     - 'yeswiki-farm-extra-themes'
+    - 'yeswiki-farm-archive-url'
+    - 'yeswiki-farm-backup-dir'
 services:
   _defaults:
     autowire: true

@@ -92,5 +92,27 @@ $GLOBALS['translations'] = array_merge(
         // for edit config
         'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',
         'EDIT_CONFIG_GROUP_FERME' => 'Farm',
+
+        // command line
+        'FERME_CLI_NOT_A_DIRECTORY' => 'Not a directory:',
+        'FERME_CLI_MASTER_EXCLUDED' => 'The farm master cannot be a target.',
+        'FERME_CLI_NO_WIKI_IN' => 'No wakka.config.php in',
+        'FERME_CLI_NO_CONFIG_FILE' => 'Configuration file not found:',
+        'FERME_CLI_EMPTY_CONFIG_FILE' => 'Empty or unreadable configuration:',
+        'FERME_CLI_CANNOT_WRITE' => 'Cannot write:',
+        'FERME_CLI_CANNOT_CREATE_DIR' => 'Cannot create directory:',
+        'FERME_CLI_NO_SMTP_IN_MASTER' => 'No contact_smtp_* setting in the farm configuration, nothing to push.',
+        'FERME_CLI_NO_WIKI_FOUND' => 'No yeswiki found under',
+        'FERME_CLI_FAILED_WIKIS' => 'Failed wikis:',
+        'FERME_CLI_DRY_RUN' => 'dry-run',
+        'FERME_CLI_DRY_RUN_NOTHING_WRITTEN' => 'dry-run, nothing written',
+        'FERME_CLI_OPT_PATH' => 'Path to scan (default: the farm root)',
+        'FERME_CLI_OPT_DEPTH' => 'Depth of the scan',
+        'FERME_CLI_OPT_WIKI' => 'Act on this wiki folder only',
+        'FERME_CLI_OPT_DRY_RUN' => 'Show what would be done without writing anything',
+
+        'EDIT_CONFIG_HINT_YESWIKI-FARM-ADMIN-EMAIL' => 'Email used on imported entries when the wiki has no admin with an email',
+        'EDIT_CONFIG_HINT_YESWIKI-FARM-ARCHIVE-URL' => 'Url of a YesWiki zip release, otherwise the master wiki files are used',
+        'EDIT_CONFIG_HINT_YESWIKI-FARM-BACKUP-DIR' => 'Backup folder, relative to the master wiki',
     ]
 );
