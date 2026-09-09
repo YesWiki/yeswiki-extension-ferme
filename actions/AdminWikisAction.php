@@ -12,22 +12,33 @@ class AdminWikisAction extends YesWikiAction
             $farm = $this->getService(FarmService::class);
 
             if (isset($_GET['maj']) and !empty($_GET['maj'])) {
-                $farm->updateWiki($_GET['maj']);
+                try {
+                    $farm->updateWiki($_GET['maj']);
+                    $output .= $this->render('@templates/alert-message.twig', [
+                        'type' => 'success',
+                        'message' => _t('FERME_WIKI') . $_GET['maj'] . _t('FERME_UPDATED'),
+                    ]);
+                } catch (Throwable $th) {
+                    $output .= $this->render('@templates/alert-message.twig', [
+                        'type' => 'danger',
+                        'message' => _t('FERME_WIKI') . $_GET['maj'] . ' : ' . $th->getMessage(),
+                    ]);
+                }
             }
 
-            return $this->render(
+            return $output . $this->render(
                 '@ferme/wikis-table.twig',
                 [
-                    'api_url'              => $this->wiki->href('', 'api/ferme/wikis'),
-                    'upgrade_api_url'      => $this->wiki->href('', 'api/ferme/wikis/upgrade'),
-                    'delete_api_url'       => $this->wiki->href('', 'api/ferme/wikis/delete'),
-                    'search_api_url'       => $this->wiki->href('', 'api/ferme/wikis/search'),
-                    'admin_add_api_url'    => $this->wiki->href('', 'api/ferme/wikis/admin-add'),
+                    'api_url' => $this->wiki->href('', 'api/ferme/wikis'),
+                    'upgrade_api_url' => $this->wiki->href('', 'api/ferme/wikis/upgrade'),
+                    'delete_api_url' => $this->wiki->href('', 'api/ferme/wikis/delete'),
+                    'search_api_url' => $this->wiki->href('', 'api/ferme/wikis/search'),
+                    'admin_add_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-add'),
                     'admin_remove_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-remove'),
                 ]
             );
-        } else { // User isn't admin
-            return '<div class="alert alert-danger">' . _t('FERME_ADMIN_REQUIRED') . '</div>';
-        }
+        }   // User isn't admin
+
+        return '<div class="alert alert-danger">' . _t('FERME_ADMIN_REQUIRED') . '</div>';
     }
 }

@@ -57,7 +57,7 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * Upgrade a single wiki using yeswicli.
+     * Upgrade a single wiki to the state of the farm master.
      *
      * @Route("/api/ferme/wikis/upgrade", methods={"POST"}, options={"acl":{"@admins"}})
      */
@@ -73,40 +73,20 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
-        $wikiPath = $this->getService(FarmService::class)->getWikiPath($wikiFolder);
-
-        if (!is_dir($wikiPath)) {
+        $farm = $this->getService(FarmService::class);
+        if (!is_dir($farm->getWikiPath($wikiFolder))) {
             return new ApiResponse(['success' => false, 'error' => 'Wiki folder not found: ' . $wikiFolder], Response::HTTP_NOT_FOUND);
         }
 
-        $yeswicliPath = $wikiPath . 'yeswicli';
-        if (!file_exists($yeswicliPath)) {
-            $sourceYeswicli = getcwd() . DIRECTORY_SEPARATOR . 'yeswicli';
-            if (!file_exists($sourceYeswicli)) {
-                return new ApiResponse(['success' => false, 'error' => 'yeswicli not found in source wiki'], Response::HTTP_INTERNAL_SERVER_ERROR);
-            }
-            if (!copy($sourceYeswicli, $yeswicliPath)) {
-                return new ApiResponse(['success' => false, 'error' => 'Could not copy yeswicli to wiki: ' . $wikiFolder], Response::HTTP_INTERNAL_SERVER_ERROR);
-            }
-        }
-
-        chmod($yeswicliPath, 0755);
         set_time_limit(300);
 
-        $currentDir = getcwd();
-        chdir($wikiPath);
-        $output = [];
-        $returnCode = 0;
-        exec('./yeswicli upgrade 2>&1', $output, $returnCode);
-        chdir($currentDir);
-
-        $outputStr = implode("\n", $output);
-
-        if ($returnCode !== 0) {
-            return new ApiResponse(['success' => false, 'output' => $outputStr, 'error' => 'Command exited with code: ' . $returnCode]);
+        try {
+            $result = $farm->updateWiki($wikiFolder);
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
         }
 
-        return new ApiResponse(['success' => true, 'output' => $outputStr]);
+        return new ApiResponse(['success' => true, 'output' => implode("\n", $result['messages'])]);
     }
 
     /**
@@ -218,7 +198,7 @@ class ApiController extends YesWikiController
             . 'Params: <code>csrf-token</code><br>'
             . 'Returns: <code>wikisInBazar</code>, <code>wikisOnServer</code>, <code>results[]</code>, <code>imported[]</code></p>'
             . '<p><code>POST ' . $upgradeUrl . '</code> '
-            . 'Upgrade a single wiki via <code>yeswicli upgrade</code> (admins only).<br>'
+            . 'Upgrade a single wiki to the state of the farm master (admins only).<br>'
             . 'Params: <code>folder</code> (folder name), <code>csrf-token</code></p>'
             . '<p><code>POST ' . $deleteUrl . '</code> '
             . 'Delete a wiki — removes folder, DB tables and bazar entry (admins only).<br>'

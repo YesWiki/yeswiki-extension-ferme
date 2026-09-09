@@ -11,7 +11,11 @@ class FileSystem
             while (false !== ($file = readdir($dir))) {
                 if (($file != '.') && ($file != '..')) {
                     $full = $src . '/' . $file;
-                    if (is_dir($full)) {
+                    // a symlink to a directory is a directory to is_dir(), and
+                    // recursing into one empties whatever it points at
+                    if (is_link($full)) {
+                        unlink($full);
+                    } elseif (is_dir($full)) {
                         $this->rrmdir($full);
                     } else {
                         unlink($full);
@@ -20,6 +24,26 @@ class FileSystem
             }
             closedir($dir);
             rmdir($src);
+        }
+    }
+
+    /**
+     * Delete a file, a folder or a symlink, without ever following the symlink.
+     */
+    public function remove($path)
+    {
+        if (is_link($path)) {
+            unlink($path);
+
+            return;
+        }
+        if (is_dir($path)) {
+            $this->rrmdir($path);
+
+            return;
+        }
+        if (file_exists($path)) {
+            unlink($path);
         }
     }
 
@@ -45,9 +69,9 @@ class FileSystem
             return true;
         } elseif (is_file($path) && file_exists($path)) {
             return copy($path, $dest);
-        } else {
-            return false;
         }
+
+        return false;
     }
 
     public function getAbsolutePath($path)

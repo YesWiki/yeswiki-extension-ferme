@@ -65,9 +65,9 @@ class FarmService
         $this->creator->createFromEntry($entry, $fieldName, $theme, $model);
     }
 
-    public function updateWiki($wiki)
+    public function updateWiki($wiki, array $options = [])
     {
-        return $this->updater->update($wiki);
+        return $this->updater->update($this->config->wikiDir($wiki), $options);
     }
 
     public function deleteWikiForApi(string $idFiche): array
