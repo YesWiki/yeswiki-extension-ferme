@@ -121,8 +121,7 @@ class ApiController extends YesWikiController
         }
 
         $adminMail = $this->wiki->GetUser()['email'] ?? '';
-        $checkHttp = filter_var($request->request->get('check_http', true), FILTER_VALIDATE_BOOLEAN);
-        $result = $this->getService(FarmService::class)->searchWikisOnServer($adminMail, $checkHttp);
+        $result = $this->getService(FarmService::class)->searchWikisOnServer($adminMail);
 
         return new ApiResponse($result);
     }

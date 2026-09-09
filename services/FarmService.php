@@ -90,9 +90,9 @@ class FarmService
         return $this->repository->getPaginated($start, $length, $search, $orderCol, $orderDir);
     }
 
-    public function searchWikisOnServer(string $adminMail, bool $checkHttp = true): array
+    public function searchWikisOnServer(string $fallbackEmail = ''): array
     {
-        return $this->repository->searchOnServer($adminMail, $checkHttp);
+        return $this->repository->searchOnServer($fallbackEmail);
     }
 
     public function rrmdir($src)

@@ -109,7 +109,8 @@ abstract class AbstractFarmCommand extends Command
         $output->writeln('');
         $output->writeln('<info>=== ' . $title . ($dryRun ? ' (' . _t('FERME_CLI_DRY_RUN_NOTHING_WRITTEN') . ')' : '') . ' ===</info>');
         foreach ($counters as $name => $value) {
-            $output->writeln('  ' . str_pad($name, $width + 2) . $value);
+            // str_pad counts bytes, and these labels are translated
+            $output->writeln('  ' . $name . str_repeat(' ', $width + 2 - mb_strlen($name)) . $value);
         }
 
         if (empty($failed)) {

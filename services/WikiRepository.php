@@ -10,7 +10,7 @@ use YesWiki\Wiki;
 
 class WikiRepository
 {
-    public const WIKI_TABLES = ['acls', 'links', 'nature', 'pages', 'referrers', 'triples', 'users'];
+    public const WIKI_TABLES = WikiDatabase::WIKI_TABLES;
 
     protected $wiki;
     protected $config;
@@ -18,6 +18,9 @@ class WikiRepository
     protected $entryManager;
     protected $pageManager;
     protected $tripleStore;
+    protected $finder;
+    protected $configEditor;
+    protected $database;
 
     public function __construct(
         Wiki $wiki,
@@ -25,7 +28,10 @@ class WikiRepository
         ParameterBagInterface $params,
         EntryManager $entryManager,
         PageManager $pageManager,
-        TripleStore $tripleStore
+        TripleStore $tripleStore,
+        WikiFinder $finder,
+        WikiConfigEditor $configEditor,
+        WikiDatabase $database
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -33,6 +39,9 @@ class WikiRepository
         $this->entryManager = $entryManager;
         $this->pageManager = $pageManager;
         $this->tripleStore = $tripleStore;
+        $this->finder = $finder;
+        $this->configEditor = $configEditor;
+        $this->database = $database;
     }
 
     public function getAll(): array
@@ -81,89 +90,123 @@ class WikiRepository
         return ['total' => $total, 'filtered' => $filtered, 'fiches' => $fiches];
     }
 
-    public function searchOnServer(string $adminMail, bool $checkHttp = true): array
+    /**
+     * Read-only look at the wikis on disk: is bazar aware of them, does their
+     * database answer, are all the tables there, who administers them.
+     *
+     * @param array<int,array> $wikis as WikiFinder describes them
+     */
+    public function inspect(array $wikis): array
     {
-        $wikis = $this->entryManager->search(['formsIds' => [$this->params->get('bazar_farm_id')]]);
-        $wikisFolder = array_column($wikis, 'bf_dossier-wiki');
-
-        $wikisOnServer = glob($this->config->basePath() . '/*/wakka.config.php') ?: [];
+        $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
 
         $results = [];
-        $wikisToImport = [];
-
-        foreach ($wikisOnServer as $path) {
-            $folder = basename(dirname($path));
-            $wikiExistsInBazar = in_array($folder, $wikisFolder);
-
-            $wakkaConfig = $this->config->readWikiConfig($folder);
-
-            $result = $this->inspectWiki($folder, $wakkaConfig, $wikiExistsInBazar, $checkHttp);
-
-            if (!$wikiExistsInBazar) {
-                $wikisToImport[] = $this->buildImportEntry($folder, $wakkaConfig, $adminMail);
-            }
-
-            $results[] = $result;
+        foreach ($wikis as $wiki) {
+            $results[] = $this->inspectWiki($wiki, in_array($wiki['FOLDER'], $known, true));
         }
 
+        return $results;
+    }
+
+    /**
+     * Create a farm entry for every inspected wiki bazar does not know yet.
+     *
+     * @return array<int,string> the folders that got one
+     */
+    public function import(array $inspected, string $fallbackEmail = ''): array
+    {
+        $toImport = [];
+        foreach ($inspected as $wiki) {
+            if ($wiki['existsInBazar']) {
+                continue;
+            }
+            $toImport[] = $this->buildImportEntry($wiki, $fallbackEmail);
+        }
+
+        return $this->importEntries($toImport);
+    }
+
+    /**
+     * What the AdminWikis search button calls: inspect the farm root, then import.
+     */
+    public function searchOnServer(string $fallbackEmail = ''): array
+    {
+        $wikis = $this->finder->find();
+        $inspected = $this->inspect($wikis);
+
         return [
-            'wikisInBazar' => count($wikis),
-            'wikisOnServer' => count($wikisOnServer),
-            'results' => $results,
-            'imported' => $this->importEntries($wikisToImport),
+            'wikisInBazar' => count($this->getAllWikiFiches()),
+            'wikisOnServer' => count($wikis),
+            'results' => $inspected,
+            'imported' => $this->import($inspected, $fallbackEmail),
         ];
     }
 
-    private function inspectWiki(string $folder, array $wakkaConfig, bool $existsInBazar, bool $checkHttp): array
+    private function inspectWiki(array $wiki, bool $existsInBazar): array
     {
-        $url = ($wakkaConfig['base_url'] ?? '') . ($wakkaConfig['root_page'] ?? '');
         $result = [
-            'folder' => $folder,
-            'url' => $url,
+            'folder' => $wiki['FOLDER'],
+            'path' => $wiki['PATH'],
+            'url' => $wiki['URL'] === 'KO' ? '' : $wiki['URL'],
+            'version' => $wiki['VERSION'],
+            'release' => $wiki['RELEASE'],
+            'name' => $wiki['FOLDER'],
+            'description' => '',
             'existsInBazar' => $existsInBazar,
             'sqlOk' => false,
             'tablesOk' => false,
-            'httpOk' => false,
             'missingTables' => [],
+            'sqlError' => null,
+            'adminEmail' => null,
         ];
 
-        $conn = @new \mysqli(
-            $wakkaConfig['mysql_host'] ?? '',
-            $wakkaConfig['mysql_user'] ?? '',
-            $wakkaConfig['mysql_password'] ?? '',
-            $wakkaConfig['mysql_database'] ?? ''
-        );
-        if (!$conn->connect_error) {
-            $result['sqlOk'] = true;
-            foreach (self::WIKI_TABLES as $table) {
-                $res = mysqli_query($conn, "SHOW TABLES LIKE \"{$wakkaConfig['table_prefix']}$table\"");
-                if (mysqli_num_rows($res) === 0) {
-                    $result['missingTables'][] = $table;
-                }
-            }
-            $result['tablesOk'] = empty($result['missingTables']);
-        } else {
-            $result['sqlError'] = $conn->connect_error;
+        try {
+            $wakkaConfig = $this->configEditor->load($wiki['PATH']);
+        } catch (\Throwable $th) {
+            $result['sqlError'] = $th->getMessage();
+
+            return $result;
         }
 
-        if ($checkHttp) {
-            $headers = @get_headers($url);
-            $result['httpOk'] = $headers && strpos($headers[0], '200') !== false;
+        $result['name'] = $wakkaConfig['wakka_name'] ?? $wiki['FOLDER'];
+        $result['description'] = $wakkaConfig['meta_description'] ?? '';
+        $result['url'] = ($wakkaConfig['base_url'] ?? '') . ($wakkaConfig['root_page'] ?? '');
+        $prefix = $wakkaConfig['table_prefix'] ?? '';
+
+        try {
+            $db = $this->database->connect($wakkaConfig);
+        } catch (\Throwable $th) {
+            $result['sqlError'] = $th->getMessage();
+
+            return $result;
+        }
+
+        try {
+            $result['sqlOk'] = true;
+            $result['missingTables'] = $this->database->missingTables($db, $prefix);
+            $result['tablesOk'] = empty($result['missingTables']);
+            if ($result['tablesOk']) {
+                $result['adminEmail'] = $this->database->firstAdminEmail($db, $prefix);
+            }
+        } catch (\Throwable $th) {
+            $result['sqlError'] = $th->getMessage();
+        } finally {
+            $db->close();
         }
 
         return $result;
     }
 
-    private function buildImportEntry(string $folder, array $wakkaConfig, string $adminMail): array
+    private function buildImportEntry(array $wiki, string $fallbackEmail): array
     {
         return [
-            'id_fiche' => genere_nom_wiki($wakkaConfig['wakka_name'] ?? $folder),
+            'id_fiche' => genere_nom_wiki($wiki['name']),
             'id_typeannonce' => strval($this->params->get('bazar_farm_id')),
-            'bf_titre' => $wakkaConfig['wakka_name'] ?? $folder,
-            'bf_description' => $wakkaConfig['meta_description'] ?? '',
-            'bf_referent' => 'À préciser (importé)',
-            'bf_mail' => $adminMail,
-            'bf_dossier-wiki' => $folder,
+            'bf_titre' => $wiki['name'],
+            'bf_description' => $wiki['description'],
+            'bf_referent' => _t('FERME_IMPORTED_REFERENT'),
+            'bf_mail' => $wiki['adminEmail'] ?? $fallbackEmail,
+            'bf_dossier-wiki' => $wiki['folder'],
             'radioListeOuiNon' => 'oui',
             'imagebf_image' => 'wiki-imported-placeholder.png',
             'date_creation_fiche' => date('Y-m-d H:i:s'),

@@ -477,11 +477,6 @@ $(document).ready(function() {
             $row.append($sqlBadge);
           }
 
-          $row.append(
-            $('<span class="badge">').css('background-color', wiki.httpOk ? '#5cb85c' : '#d9534f')
-              .text(wiki.httpOk ? i18n.searchHttpOk : i18n.searchHttpError)
-          );
-
           $item.append($row);
           $list.append($item);
         });
