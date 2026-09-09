@@ -115,7 +115,45 @@ class WikiConfigEditor
     }
 
     /**
+     * The keys --smtp writes in one wiki: the master's mail settings, plus the
+     * same settings inside yeswiki-farm-extra-config when that wiki is itself a
+     * farm, so the wikis it creates in turn inherit them.
+     */
+    public function smtpChangesFor(array $wikiConfig): array
+    {
+        $smtp = $this->smtpFromMaster();
+        $set = $smtp;
+
+        if (isset($wikiConfig['yeswiki-farm-extra-config']) && is_array($wikiConfig['yeswiki-farm-extra-config'])) {
+            foreach ($smtp as $key => $value) {
+                $set['yeswiki-farm-extra-config.' . $key] = $value;
+            }
+        }
+
+        return $set;
+    }
+
+    /**
+     * What --smtp writes in the master itself: only inside yeswiki-farm-extra-config,
+     * which WikiCreator merges into every wiki it creates from then on. The master's
+     * own contact_* settings are the source here, so they are left alone.
+     */
+    public function smtpChangesForMaster(): array
+    {
+        $set = [];
+        foreach ($this->smtpFromMaster() as $key => $value) {
+            $set['yeswiki-farm-extra-config.' . $key] = $value;
+        }
+
+        return $set;
+    }
+
+    /**
      * The master's own mail settings, the ones its wikis should inherit.
+     *
+     * A farm that does not send through SMTP itself has nothing to propagate:
+     * the contact defaults are an empty host and contact_mail_func 'mail', and
+     * copying those into every wiki would break their mail silently.
      */
     public function smtpFromMaster(): array
     {
@@ -125,7 +163,8 @@ class WikiConfigEditor
                 $smtp[$key] = $this->wiki->config[$key];
             }
         }
-        if (empty($smtp)) {
+
+        if (($smtp['contact_mail_func'] ?? '') !== 'smtp' || ($smtp['contact_smtp_host'] ?? '') === '') {
             throw new \RuntimeException(_t('FERME_CLI_NO_SMTP_IN_MASTER'));
         }
 
