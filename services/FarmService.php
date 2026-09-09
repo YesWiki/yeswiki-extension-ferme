@@ -11,6 +11,7 @@ class FarmService
     protected $updater;
     protected $remover;
     protected $repository;
+    protected $modelAssets;
 
     public function __construct(
         FarmConfig $config,
@@ -19,7 +20,8 @@ class FarmService
         WikiCreator $creator,
         WikiUpdater $updater,
         WikiRemover $remover,
-        WikiRepository $repository
+        WikiRepository $repository,
+        ModelAssets $modelAssets
     ) {
         $this->config = $config;
         $this->files = $files;
@@ -28,6 +30,7 @@ class FarmService
         $this->updater = $updater;
         $this->remover = $remover;
         $this->repository = $repository;
+        $this->modelAssets = $modelAssets;
     }
 
     public function initFarmConfig()
@@ -38,6 +41,11 @@ class FarmService
     public function getWikiConfig($wiki)
     {
         return $this->config->readWikiConfig($wiki);
+    }
+
+    public function collectModelAssets(string $model, string $baseUrl, array $credentials = []): array
+    {
+        return $this->modelAssets->collect($model, $baseUrl, $credentials);
     }
 
     public function getModelLabels()

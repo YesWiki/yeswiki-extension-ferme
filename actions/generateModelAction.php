@@ -109,11 +109,12 @@ class GenerateModelAction extends YesWikiAction
         }
         list($baseUrl, $rootPage, $rewriteModeEnabled) = $extraction;
 
-        $foldername = 'custom/wiki-models/' . str_replace(
+        $model = str_replace(
             ['http://', 'https://', '/'],
             ['', '', '--'],
             $baseUrl
         );
+        $foldername = 'custom/wiki-models/' . $model;
         if (!is_dir($foldername)) {
             @mkdir($foldername, 0777, true);
         }
@@ -225,9 +226,38 @@ class GenerateModelAction extends YesWikiAction
             $output .= '<div class="alert alert-success">'
                    . _t('Le fichier <a href="' . $filename . '">' . $filename . '</a> vient d\'être enregistré avec succès.')
                    . '</div>' . "\n";
+            $output .= $this->collectAssets($model, $baseUrl, $data);
         }
 
         return $output;
+    }
+
+    /**
+     * The sql dump only names the images, the attachments and the styles the model
+     * needs. Fetching a backup of them from another server takes minutes, so this
+     * gets a time limit of its own.
+     */
+    private function collectAssets(string $model, string $baseUrl, array $data): string
+    {
+        set_time_limit(1800);
+
+        $farm = $this->getService(FarmService::class);
+        try {
+            $messages = $farm->collectModelAssets($model, $baseUrl, [
+                'username' => $data['source_admin_user'] ?? '',
+                'password' => $data['source_admin_password'] ?? '',
+            ]);
+        } catch (\Throwable $th) {
+            return $this->render('@templates/alert-message.twig', [
+                'type' => 'warning',
+                'message' => _t('FERME_MODEL_ASSETS_FAILED') . ' ' . htmlspecialchars($th->getMessage()),
+            ]);
+        }
+
+        return $this->render('@templates/alert-message.twig', [
+            'type' => 'info',
+            'message' => implode('<br />', $messages),
+        ]);
     }
 
     public function deleteModel($model)

@@ -42,6 +42,17 @@
       </span>
     </div>
   </div>
+  <div class="form-group">
+    <p class="help-block">{{ _t('FERME_MODEL_CREDENTIALS_HINT') }}</p>
+    <div class="row">
+      <div class="col-sm-6">
+        <input name="source_admin_user" class="form-control" placeholder="{{ _t('FERME_MODEL_ADMIN_USER') }}" type="text" autocomplete="off">
+      </div>
+      <div class="col-sm-6">
+        <input name="source_admin_password" class="form-control" placeholder="{{ _t('FERME_MODEL_ADMIN_PASSWORD') }}" type="password" autocomplete="new-password">
+      </div>
+    </div>
+  </div>
   <div id="wiki-response"></div>
   <input id="wiki-import-forms" name="wiki-import-forms" type="hidden" value="">
   <input id="wiki-import-lists" name="wiki-import-lists" type="hidden" value="">
