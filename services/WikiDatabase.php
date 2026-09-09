@@ -61,31 +61,121 @@ class WikiDatabase
     }
 
     /**
+     * The triple that holds a group's members, or null when the group has none yet.
+     */
+    public function groupTriple(\mysqli $db, string $tablePrefix, string $group): ?array
+    {
+        $resource = GROUP_PREFIX . $group;
+        $property = WIKINI_VOC_ACLS_URI;
+
+        $statement = $db->prepare('SELECT id, value FROM `' . $this->table($tablePrefix, 'triples') . '` WHERE resource = ? AND property = ? LIMIT 1');
+        $statement->bind_param('ss', $resource, $property);
+        $statement->execute();
+        $row = $statement->get_result()->fetch_assoc();
+        $statement->close();
+
+        return $row ?: null;
+    }
+
+    /**
      * Members of a wiki group, in the order the triple lists them.
      *
      * @return array<int,string>
      */
     public function groupMembers(\mysqli $db, string $tablePrefix, string $group = ADMIN_GROUP): array
     {
-        $resource = GROUP_PREFIX . $group;
-        $property = WIKINI_VOC_ACLS_URI;
-
-        $statement = $db->prepare('SELECT value FROM `' . $this->table($tablePrefix, 'triples') . '` WHERE resource = ? AND property = ? LIMIT 1');
-        $statement->bind_param('ss', $resource, $property);
-        $statement->execute();
-        $row = $statement->get_result()->fetch_assoc();
-        $statement->close();
-
-        if ($row === null) {
+        $triple = $this->groupTriple($db, $tablePrefix, $group);
+        if ($triple === null) {
             return [];
         }
 
         return array_values(array_unique(array_filter(
-            array_map('trim', preg_split('/[\r\n]+/', (string)$row['value'])),
+            array_map('trim', preg_split('/[\r\n]+/', (string)$triple['value'])),
             function ($member) {
                 return $member !== '';
             }
         )));
+    }
+
+    /**
+     * Write a group's member list, the way YesWiki stores it: one name per line
+     * on the ThisWikiGroup:<group> triple.
+     */
+    public function saveGroupMembers(\mysqli $db, string $tablePrefix, string $group, array $members): void
+    {
+        $resource = GROUP_PREFIX . $group;
+        $property = WIKINI_VOC_ACLS_URI;
+        $value = implode("\n", $members);
+        $table = $this->table($tablePrefix, 'triples');
+
+        $triple = $this->groupTriple($db, $tablePrefix, $group);
+        if ($triple === null) {
+            $statement = $db->prepare('INSERT INTO `' . $table . '` (resource, property, value) VALUES (?, ?, ?)');
+            $statement->bind_param('sss', $resource, $property, $value);
+        } else {
+            $statement = $db->prepare('UPDATE `' . $table . '` SET value = ? WHERE id = ?');
+            $statement->bind_param('si', $value, $triple['id']);
+        }
+        $statement->execute();
+        $statement->close();
+    }
+
+    public function findUser(\mysqli $db, string $tablePrefix, string $name): ?array
+    {
+        $statement = $db->prepare('SELECT name, email FROM `' . $this->table($tablePrefix, 'users') . '` WHERE name = ? LIMIT 1');
+        $statement->bind_param('s', $name);
+        $statement->execute();
+        $row = $statement->get_result()->fetch_assoc();
+        $statement->close();
+
+        return $row ?: null;
+    }
+
+    /**
+     * Hash a password the way this particular wiki expects it.
+     *
+     * YesWiki widened users.password in migration 20240425 to hold a bcrypt hash;
+     * before that the column only fits an md5, so a wiki that has not migrated yet
+     * gets md5 or it could never log the user in.
+     */
+    public function passwordHash(\mysqli $db, string $tablePrefix, string $password): string
+    {
+        $result = $db->query('SHOW COLUMNS FROM `' . $this->table($tablePrefix, 'users') . "` LIKE 'password'");
+        $column = $result === false ? null : $result->fetch_assoc();
+        if ($column === null) {
+            throw new \RuntimeException(_t('FERME_CLI_NO_PASSWORD_COLUMN') . ' ' . $this->table($tablePrefix, 'users'));
+        }
+
+        preg_match('/\((\d+)\)/', $column['Type'], $matches);
+        $width = (int)($matches[1] ?? 0);
+
+        return $width >= 60 ? password_hash($password, PASSWORD_BCRYPT) : md5($password);
+    }
+
+    public function insertUser(\mysqli $db, string $tablePrefix, string $name, string $hash, string $email): void
+    {
+        $statement = $db->prepare(
+            'INSERT INTO `' . $this->table($tablePrefix, 'users') . "` (name, password, email, motto, signuptime) VALUES (?, ?, ?, '', NOW())"
+        );
+        $statement->bind_param('sss', $name, $hash, $email);
+        $statement->execute();
+        $statement->close();
+    }
+
+    public function updateUser(\mysqli $db, string $tablePrefix, string $name, string $hash, string $email): void
+    {
+        $statement = $db->prepare('UPDATE `' . $this->table($tablePrefix, 'users') . '` SET password = ?, email = ? WHERE name = ?');
+        $statement->bind_param('sss', $hash, $email, $name);
+        $statement->execute();
+        $statement->close();
+    }
+
+    public function deleteUser(\mysqli $db, string $tablePrefix, string $name): void
+    {
+        $statement = $db->prepare('DELETE FROM `' . $this->table($tablePrefix, 'users') . '` WHERE name = ?');
+        $statement->bind_param('s', $name);
+        $statement->execute();
+        $statement->close();
     }
 
     /**
