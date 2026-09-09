@@ -170,3 +170,59 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
     'custom', // pour avoir le meme custom de partout, et ne changer qu'a un endroit
   ]
 ```
+
+## Les commandes en ligne
+
+Elles se lancent depuis la racine du wiki de la ferme, comme toutes les commandes YesWiki :
+
+```
+./yeswicli ferme:list
+./yeswicli ferme:config --smtp --dry-run
+./yeswicli ferme:admin --user Support --password 'une longue phrase de passe'
+./yeswicli ferme:update
+```
+
+Les quatre commandes partagent la façon de choisir les wikis : sans rien, elles
+travaillent sur les wikis de la ferme ; `--path` scanne un autre dossier,
+`--depth` dit jusqu'où descendre, `--wiki` ne vise qu'un dossier. Le wiki maître
+n'est jamais une cible de `ferme:update`. Un wiki que l'utilisateur qui lance la
+commande ne peut pas écrire est signalé en échec : il n'y a pas de `sudo` ici.
+`--dry-run` montre ce qui serait fait sans rien écrire.
+
+- **`ferme:list`** dit, pour chaque wiki trouvé, s'il a une fiche dans le
+  formulaire de la ferme, si sa base répond, s'il ne lui manque pas de table, et
+  qui l'administre. `--format=json|csv` sort la même chose pour un autre
+  programme. `--import` crée les fiches manquantes, avec l'email du premier admin
+  du wiki concerné.
+- **`ferme:config`** écrit et retire des clés dans le `wakka.config.php` de chaque
+  wiki : `--set cle=valeur` (répétable, les points font des tableaux imbriqués,
+  `int:5`, `json:{...}`, `true`, `false` et `null` gardent leur type) et
+  `--unset cle`. `--smtp` recopie les réglages `contact_*` de la ferme dans tous
+  les wikis, et dans le `yeswiki-farm-extra-config` de la ferme pour que les
+  prochains wikis en héritent.
+- **`ferme:admin`** crée l'utilisateur ou remet son mot de passe dans chaque wiki
+  et l'ajoute au groupe voulu, avec les valeurs `yeswiki-farm-admin-*` par défaut.
+  `--remove` fait l'inverse.
+- **`ferme:update`** met les wikis à l'état du wiki maître : sauvegarde des
+  fichiers remplacés et de la base, copie, migrations, mise à niveau des
+  extensions que le wiki a en plus, puis effacement de la sauvegarde si tout
+  s'est bien passé. `--workers` en traite plusieurs à la fois, `--force` refait
+  un wiki déjà à jour, `--archive-url` part d'une archive zip plutôt que du wiki
+  maître.
+
+Trois réglages s'ajoutent au `wakka.config.php`, modifiables depuis `{{editconfig}}` :
+
+```php
+  // email des fiches créées par `ferme:list --import` quand le wiki n'a pas d'admin avec email
+  'yeswiki-farm-admin-email' => '',
+
+  // archive utilisée par `ferme:update --archive-url` quand on ne lui donne pas d'adresse
+  'yeswiki-farm-archive-url' => '',
+
+  // sauvegardes de `ferme:update` et `ferme:config`, relatif au wiki de la ferme
+  'yeswiki-farm-backup-dir' => 'private/backups/farm',
+```
+
+Le dossier de sauvegarde doit être sur le même système de fichiers que les wikis :
+`ferme:update` déplace les fichiers au lieu de les copier, et refuse de démarrer
+sinon.
