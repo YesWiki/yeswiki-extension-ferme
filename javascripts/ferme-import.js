@@ -9,6 +9,36 @@ $(document).ready(function () {
 
   var importedData = { forms: {}, lists: {}, entries: {}, pages: {} };
 
+  /**
+   * What a failed request actually said, so that a broken import names its cause.
+   */
+  function ajaxDetail(xhr) {
+    var body = (xhr.responseJSON && xhr.responseJSON.error) || '';
+    if (!body) {
+      body = String(xhr.responseText || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 300);
+    }
+    return 'HTTP ' + (xhr.status || 0) + (body || xhr.statusText ? ' - ' + (body || xhr.statusText) : '');
+  }
+
+  function importFailed(url) {
+    return function (xhr) {
+      $results.find('.loading').remove();
+      $results.append(
+        '<div class="alert alert-danger">' +
+          $translate.noanswers +
+          '<br><code>' +
+          htmlEntities(url) +
+          '</code> : ' +
+          htmlEntities(ajaxDetail(xhr)) +
+          '</div>',
+      );
+    };
+  }
+
   // import de formes à partir d'un yeswiki
   var $form = $('#yw-import-from-url');
   var $btnimport = $('#btn-import-wiki');
@@ -94,11 +124,7 @@ $(document).ready(function () {
           }
           $results.append(buildSection('forms', count, output, 'nbformsfound'));
         })
-        .fail(function () {
-          $results.append(
-            '<div class="alert alert-danger">' + $translate.noanswers + '.</div>',
-          );
-        });
+        .fail(importFailed(url + '?api/forms'));
 
       // listes
       $results.append(
@@ -128,11 +154,7 @@ $(document).ready(function () {
           }
           $results.append(buildSection('lists', count, output, 'nblistsfound'));
         })
-        .fail(function () {
-          $results.append(
-            '<div class="alert alert-danger">' + $translate.noanswers + '.</div>',
-          );
-        });
+        .fail(importFailed(url + '?BazaR/json&demand=lists'));
 
       // fiches
       $results.append(
@@ -151,22 +173,18 @@ $(document).ready(function () {
       })
         .done(function (data) {
           $results.find('.loading').remove();
-          importedData.entries = data;
+          importedData.entries = {};
           var count = 0;
           var output = '';
-          for (var key in data) {
-            if (data.hasOwnProperty(key)) {
-              count++;
-              output += makeCheckbox('entries', key, data[key].bf_titre);
-            }
-          }
+          $.each(data || {}, function (index, entry) {
+            if (!entry || !entry.id_fiche) return;
+            importedData.entries[entry.id_fiche] = entry;
+            count++;
+            output += makeCheckbox('entries', entry.id_fiche, entry.bf_titre);
+          });
           $results.append(buildSection('entries', count, output, 'nbentriesfound'));
         })
-        .fail(function () {
-          $results.append(
-            '<div class="alert alert-danger">' + $translate.noanswers + '.</div>',
-          );
-        });
+        .fail(importFailed(url + '?api/entries'));
 
       // pages
       $results.append(
@@ -196,11 +214,7 @@ $(document).ready(function () {
           }
           $results.append(buildSection('pages', count, output, 'nbpagesfound'));
         })
-        .fail(function () {
-          $results.append(
-            '<div class="alert alert-danger">' + $translate.noanswers + '.</div>',
-          );
-        });
+        .fail(importFailed(url + '?api/pages'));
     } else {
       $results.append(
         '<div class="alert alert-danger">' +
@@ -279,7 +293,7 @@ $(document).ready(function () {
         setTimeout(pollAssets, data.step === 'downloading' ? 1000 : 2000);
       },
       function (xhr) {
-        assetsStop(htmlEntities(xhr.statusText || 'error'), 'danger');
+        assetsStop(htmlEntities(ajaxDetail(xhr)), 'danger');
       },
     );
   }
@@ -348,7 +362,7 @@ $(document).ready(function () {
     sections.forEach(function (section) {
       var filtered = {};
       $('.import-cb-' + section.type + ':checked').each(function () {
-        var key = $(this).data('key');
+        var key = $(this).attr('data-key');
         if (importedData[section.type].hasOwnProperty(key)) {
           filtered[key] = importedData[section.type][key];
         }

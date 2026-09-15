@@ -190,6 +190,8 @@ class GenerateModelAction extends YesWikiAction
         $lists = json_decode(html_entity_decode($data['wiki-import-lists']), 1);
         if (is_array($lists) && !empty($lists)) {
             $sql .= '# Bazar lists' . "\n";
+            $tablists = [];
+            $tabliststriple = [];
             foreach ($lists as $id => $list) {
                 $json = json_encode($list);
                 $tablists[] = "('" . $id . "',  now(), '" . addslashes($json)
@@ -205,9 +207,14 @@ class GenerateModelAction extends YesWikiAction
         }
 
         $entries = json_decode(html_entity_decode($data['wiki-import-entries']), 1);
-        if (is_array($entries) && !empty($entries)) {
-            $sql .= '# Bazar entries' . "\n";
-            foreach ($entries as $id => $item) {
+        $tabentries = [];
+        $tabentriestriple = [];
+        if (is_array($entries)) {
+            foreach ($entries as $item) {
+                $id = $this->dbService->escape((string)($item['id_fiche'] ?? ''));
+                if ($id === '') {
+                    continue;
+                }
                 // remove not needed fields (to synchronize with EntryManager::formatDataBeforeSave)
                 unset($item['valider']);
                 unset($item['MAX_FILE_SIZE']);
@@ -223,6 +230,9 @@ class GenerateModelAction extends YesWikiAction
                     . "', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
                 $tabentriestriple[] = "('" . $id . "', 'http://outils-reseaux.org/_vocabulary/type', 'fiche_bazar')";
             }
+        }
+        if (!empty($tabentries)) {
+            $sql .= '# Bazar entries' . "\n";
             $sql .= 'INSERT INTO `{{prefix}}pages` (`tag`, `time`, `body`, `body_r`,'
                 . " `owner`, `user`, `latest`, `handler`, `comment_on`) VALUES\n"
                 . implode(',' . "\n", $tabentries) . ";\n";

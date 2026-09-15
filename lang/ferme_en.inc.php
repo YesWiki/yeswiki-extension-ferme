@@ -59,6 +59,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_MODEL_FETCH_CANCELLED' => 'Fetch cancelled. The model keeps the files it had.',
         'FERME_MODEL_NO_ROOM' => 'Not enough room on disk to unpack the files of the model. Needed / free:',
         'FERME_MODEL_ASSETS_FAILED' => 'The files of the model could not be fetched:',
+        'FERME_MIGRATION_FAILED' => 'The migrations of the new wiki could not be run. The wiki exists but its database is not up to date:',
         'FERME_ALL_WIKIS_ADMIN' => 'Wikis management',
         'FERME_UPDATING' => 'Updating ',
         'FERME_WIKI' => 'Wiki ',

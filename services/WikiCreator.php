@@ -68,7 +68,7 @@ class WikiCreator
             $this->applyOptions($prefix, $entry['yeswiki-farm-options']);
         }
 
-        $this->yeswicli->migrate($destfolder);
+        $this->reportMigration($this->yeswicli->migrate($destfolder));
 
         $this->createGroup($prefix, $entry);
     }
@@ -328,6 +328,23 @@ class WikiCreator
     private function insertionReport(int $index, int $rows): string
     {
         return str_replace(['{num}', '{nbRows}'], [$index, $rows], _t('FERME_INSERTION')) . '<br/>';
+    }
+
+    /**
+     * @param array<int,string> $errors
+     */
+    private function reportMigration(array $errors): void
+    {
+        if (empty($errors)) {
+            return;
+        }
+
+        $message = _t('FERME_MIGRATION_FAILED') . '<br /><pre>' . htmlspecialchars(implode("\n", $errors)) . '</pre>';
+        if (function_exists('flash')) {
+            flash($message, 'danger');
+        } else {
+            $this->wiki->SetMessage($message);
+        }
     }
 
     private function reportSql(string $sqlReport): void

@@ -79,6 +79,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_MODEL_FETCH_CANCELLED' => 'Récupération annulée. Le modèle garde les fichiers qu\'il avait.',
         'FERME_MODEL_NO_ROOM' => 'Pas assez de place sur le disque pour extraire les fichiers du modèle. Nécessaire / disponible :',
         'FERME_MODEL_ASSETS_FAILED' => 'Les fichiers du modèle n\'ont pas pu être récupérés :',
+        'FERME_MIGRATION_FAILED' => 'Les migrations du nouveau wiki n\'ont pas pu être lancées. Le wiki existe mais sa base n\'est pas à jour :',
         'FERME_SEARCH_FOR_WIKIS' => 'Rechercher d\'autres wikis sur ce serveur',
         'FERME_UPGRADE_ALL_WIKIS' => 'Mettre à jour tous les wikis',
         'FERME_UPGRADE_ALL_WIKIS_TO_LATEST_VERSION' => 'Mettre à jour le logiciel',
