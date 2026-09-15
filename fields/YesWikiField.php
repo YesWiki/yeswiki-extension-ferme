@@ -4,6 +4,7 @@ namespace YesWiki\Ferme\Field;
 
 use Psr\Container\ContainerInterface;
 use YesWiki\Bazar\Field\BazarField;
+use YesWiki\Ferme\Exception\WikiCreationException;
 use YesWiki\Ferme\Service\FarmService;
 use YesWiki\Wiki;
 
@@ -20,6 +21,9 @@ class YesWikiField extends BazarField
 
     protected const FIELD_EMAIL_FIELD = 3;
 
+    /** @var array{message:string,field:?string}|array{} what a failed creation refused, for the render that follows */
+    private static $refused = [];
+
     public function __construct(array $values, ContainerInterface $services)
     {
         parent::__construct($values, $services);
@@ -32,9 +36,22 @@ class YesWikiField extends BazarField
     public function renderInput($entry)
     {
         $models = $this->getService(FarmService::class)->getModelLabels();
+        $value = $this->getValue($entry);
+        $error = self::$refused['message'] ?? null;
+        $blamed = self::$refused['field'] ?? null;
+
+        $posted = is_array($entry) ? $entry : [];
+        if ($blamed !== null) {
+            unset($posted[$blamed]);
+        }
 
         return $this->render('@ferme/inputs/yeswiki.twig', [
-            'value' => $this->getValue($entry),
+            'value' => $value,
+            'created' => !empty($value) && is_null($error),
+            'addressValue' => $blamed === $this->propertyName ? '' : $value,
+            'error' => $error,
+            'blamed' => $blamed,
+            'posted' => $posted,
             'rootUrl' => $this->wiki->config['yeswiki-farm-root-url'],
             'adminUsername' => $this->wiki->config['yeswiki-farm-default-WikiAdmin'] ?? null,
             'adminEmail' => $this->wiki->config['yeswiki-farm-email-WikiAdmin'] ?? null,
@@ -49,18 +66,27 @@ class YesWikiField extends BazarField
     public function formatValuesBeforeSave($entry)
     {
         $value = $this->getValue($entry);
-        // only create wiki on first time
         if (empty($entry[$this->propertyName . '_exists']) && empty($entry[$this->propertyName . '-previous']) && $this->canEdit($entry)) {
             if (!empty($value) && preg_match('/^[0-9a-zA-Z-_]*$/', $value)) {
                 $farm = $this->getService(FarmService::class);
-                $farm->createWikiFromEntry(
-                    $entry,
-                    $this->propertyName,
-                    $_POST['yeswiki-farm-theme'] ?? '0',
-                    $_POST['yeswiki-farm-model'] ?? 'default-content'
-                );
+
+                try {
+                    $farm->createWikiFromEntry(
+                        $entry,
+                        $this->propertyName,
+                        (string)($_POST['yeswiki-farm-theme'] ?? '0'),
+                        (string)($_POST['yeswiki-farm-model'] ?? 'default-content')
+                    );
+                } catch (WikiCreationException $e) {
+                    self::$refused = ['message' => $e->getMessage(), 'field' => $e->getBlamedField()];
+
+                    throw $e;
+                } catch (\Throwable $th) {
+                    self::$refused = ['message' => $th->getMessage(), 'field' => null];
+
+                    throw new WikiCreationException($th->getMessage(), null);
+                }
             } else {
-                // If no new value was set, keep the old encoded one
                 $value = $entry[$this->propertyName . '-previous'] ?? null;
             }
         }

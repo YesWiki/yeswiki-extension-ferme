@@ -3,6 +3,7 @@
 namespace YesWiki\Ferme\Service;
 
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Core\Service\PageManager;
 use YesWiki\Core\Service\TripleStore;
@@ -90,12 +91,7 @@ class WikiRepository
         return ['total' => $total, 'filtered' => $filtered, 'fiches' => $fiches];
     }
 
-    /**
-     * Read-only look at the wikis on disk: is bazar aware of them, does their
-     * database answer, are all the tables there, who administers them.
-     *
-     * @param array<int,array> $wikis as WikiFinder describes them
-     */
+    /** @param array<int,array> $wikis as WikiFinder describes them */
     public function inspect(array $wikis): array
     {
         $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
@@ -108,11 +104,7 @@ class WikiRepository
         return $results;
     }
 
-    /**
-     * Create a farm entry for every inspected wiki bazar does not know yet.
-     *
-     * @return array<int,string> the folders that got one
-     */
+    /** @return array<int,string> the folders that got a farm entry */
     public function import(array $inspected, string $fallbackEmail = ''): array
     {
         $toImport = [];
@@ -126,9 +118,7 @@ class WikiRepository
         return $this->importEntries($toImport);
     }
 
-    /**
-     * What the AdminWikis search button calls: inspect the farm root, then import.
-     */
+    /** What the AdminWikis search button calls: inspect the farm root, then import. */
     public function searchOnServer(string $fallbackEmail = ''): array
     {
         $wikis = $this->finder->find();
@@ -248,7 +238,13 @@ class WikiRepository
 
     private function processWikiEntry(array $fiche): array
     {
-        $folder = $fiche['bf_dossier-wiki'];
+        $folder = is_string($fiche['bf_dossier-wiki'] ?? null) ? $fiche['bf_dossier-wiki'] : '';
+
+        if (!FarmConfig::isSafeName($folder, true)) {
+            $fiche['error'] = _t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"';
+
+            return $fiche;
+        }
 
         if (!file_exists($this->config->wikiConfigFile($folder))) {
             $fiche['error'] = _t('FERME_FILE') . $folder . '/wakka.config.php' . _t('FERME_NOT_FOUND');
@@ -298,7 +294,13 @@ class WikiRepository
             $updateUrl = '';
         } elseif (empty($wikiRelease) || $wikiRelease < $this->wiki->config['yeswiki_release']) {
             $status = 'outdated';
-            $updateUrl = $this->wiki->href('', $this->wiki->GetPageTag(), 'maj=' . $folder);
+            $token = $this->wiki->services->get(CsrfTokenManager::class)->getToken('main')->getValue();
+            $updateUrl = $this->wiki->href(
+                '',
+                $this->wiki->GetPageTag(),
+                ['maj' => $folder, 'csrf-token' => $token],
+                false
+            );
         } else {
             $status = 'up-to-date';
             $updateUrl = '';

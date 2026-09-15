@@ -281,5 +281,17 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_WOULD_UPGRADE' => 'la mise à niveau de',
         'FERME_CLI_WOULD_STAMP' => 'Inscrirait la version',
         'FERME_CLI_OPT_FROM_PARENT' => 'Lancé par un processus parent (utilisé en interne, retire les entêtes et le résumé)',
+        'FERME_INVALID_FOLDER_NAME' => 'Nom de dossier de wiki invalide :',
+        'FERME_INVALID_MODEL_NAME' => 'Nom de modèle invalide :',
+        'FERME_INVALID_THEME' => 'Thème graphique inconnu :',
+        'FERME_INVALID_ACL' => 'Droits d\'accès inconnus :',
+        'FERME_INVALID_OPTION' => 'Option inconnue :',
+        'FERME_ADDRESS_TAKEN_1' => 'L\'adresse',
+        'FERME_ADDRESS_TAKEN_2' => 'est déjà prise, choisissez-en une autre.',
+        'FERME_USER_TAKEN_1' => 'Le compte',
+        'FERME_USER_TAKEN_2' => 'existe déjà : choisissez une autre adresse pour votre wiki.',
+        'FERME_USER_TAKEN_3' => 'existe déjà : choisissez un autre nom d\'administrateur.',
+        'FERME_RETYPE_PASSWORD' => 'Le mot de passe n\'est jamais renvoyé par la page, merci de le retaper.',
+        'FERME_INVALID_CSRF' => 'Jeton de sécurité absent ou périmé, rechargez la page et recommencez.',
     ]
 );

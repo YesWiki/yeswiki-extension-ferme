@@ -1,5 +1,6 @@
 <h2>{{ _t('FERME_AVAILABLE_MODELS') }}</h2>
 <form method="POST">
+<input type="hidden" name="csrf-token" value="{{ csrfToken({id: 'main', refresh: false})|e('html_attr') }}">
 <ol>
 <li style="margin-bottom:1rem;">
   {{ _t('FERME_BASIC_INSTALL') }} <br />
@@ -24,7 +25,7 @@
         </label>
       </div>
       <a target="_blank" href="{{ model.url }}" class="btn btn-xs btn-default"><i class="fas fa-eye"></i> {{ _t('FERME_VIEW_SOURCE') }}</a>
-      <a onclick="return confirm('{{ _t('FERME_CONFIRM_DELETE_MODEL') }}')" href="{{ model.deleteurl|raw }}" class="btn btn-xs btn-danger"><i class="fas fa-trash"></i> {{ _t('FERME_DELETE') }}</a>
+      <button type="submit" name="delete_model" value="{{ model.model }}" onclick="return confirm('{{ _t('FERME_CONFIRM_DELETE_MODEL') }}')" class="btn btn-xs btn-danger"><i class="fas fa-trash"></i> {{ _t('FERME_DELETE') }}</button>
     </li>
 {% endfor %}
 </ol>

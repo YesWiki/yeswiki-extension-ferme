@@ -258,5 +258,17 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_WOULD_UPGRADE' => 'and upgrade',
         'FERME_CLI_WOULD_STAMP' => 'Would stamp version',
         'FERME_CLI_OPT_FROM_PARENT' => 'Started by a parent process (used internally, drops the banners and the summary)',
+        'FERME_INVALID_FOLDER_NAME' => 'Invalid wiki folder name:',
+        'FERME_INVALID_MODEL_NAME' => 'Invalid model name:',
+        'FERME_INVALID_THEME' => 'Unknown graphical theme:',
+        'FERME_INVALID_ACL' => 'Unknown access rights:',
+        'FERME_INVALID_OPTION' => 'Unknown option:',
+        'FERME_ADDRESS_TAKEN_1' => 'The address',
+        'FERME_ADDRESS_TAKEN_2' => 'is already taken, please pick another one.',
+        'FERME_USER_TAKEN_1' => 'The account',
+        'FERME_USER_TAKEN_2' => 'already exists: please pick another address for your wiki.',
+        'FERME_USER_TAKEN_3' => 'already exists: please pick another administrator name.',
+        'FERME_RETYPE_PASSWORD' => 'The page never sends a password back, please type it again.',
+        'FERME_INVALID_CSRF' => 'Security token missing or expired, reload the page and try again.',
     ]
 );

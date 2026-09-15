@@ -1,5 +1,6 @@
 <?php
 
+use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiAction;
 use YesWiki\Ferme\Service\FarmService;
 
@@ -13,6 +14,12 @@ class AdminWikisAction extends YesWikiAction
 
             if (isset($_GET['maj']) and !empty($_GET['maj'])) {
                 try {
+                    if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $_GET['maj'])) {
+                        throw new Exception(_t('FERME_INVALID_FOLDER_NAME') . ' "' . $_GET['maj'] . '"');
+                    }
+                    if (!$this->getService(CsrfTokenController::class)->checkToken('main', 'GET', 'csrf-token', false)) {
+                        throw new Exception(_t('FERME_INVALID_CSRF'));
+                    }
                     $farm->updateWiki($_GET['maj']);
                     $output .= $this->render('@templates/alert-message.twig', [
                         'type' => 'success',

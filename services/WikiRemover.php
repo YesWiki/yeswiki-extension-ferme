@@ -65,7 +65,12 @@ class WikiRemover
             return ['success' => false, 'error' => 'Wiki folder not set for entry: ' . $idFiche];
         }
 
-        return $entry['bf_dossier-wiki'];
+        $folder = is_string($entry['bf_dossier-wiki']) ? $entry['bf_dossier-wiki'] : '';
+        if (!FarmConfig::isSafeName($folder, true)) {
+            return ['success' => false, 'error' => _t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"'];
+        }
+
+        return $folder;
     }
 
     private function deleteWikiData(string $folder): void

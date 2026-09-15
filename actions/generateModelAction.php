@@ -1,6 +1,7 @@
 <?php
 
 use Tamtamchik\SimpleFlash\Flash;
+use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\Service\DbService;
 use YesWiki\Core\YesWikiAction;
 use YesWiki\Ferme\Service\FarmConfig;
@@ -17,14 +18,12 @@ class GenerateModelAction extends YesWikiAction
             'template' => !empty($args['template']) ? $args['template'] : 'generate-model.twig',
             'wiki-import-forms' => $_POST['wiki-import-forms'] ?? null,
             'model_label' => !empty($_POST['model_label']) ? $_POST['model_label'] : null,
-            // the administrator account of a source wiki hosted elsewhere, kept out of
-            // the POST copy below so that it travels no further than the fetch needs
             'source_admin' => [
                 'username' => $_POST['source_admin_user'] ?? '',
                 'password' => $_POST['source_admin_password'] ?? '',
             ],
             'POST' => array_diff_key($_POST, array_flip(['source_admin_user', 'source_admin_password'])),
-            'delete_model' => $_GET['delete_model'] ?? null,
+            'delete_model' => $_POST['delete_model'] ?? null,
         ];
     }
 
@@ -36,27 +35,34 @@ class GenerateModelAction extends YesWikiAction
             $this->dbService = $this->getService(DbService::class);
 
             $farm->initFarmConfig();
-            // a model will be imported
             if (!is_null($this->arguments['wiki-import-forms'])) {
                 $output .= $this->generateSqlModel($this->arguments['POST']);
             }
-            // a model will be deleted
-            if (!empty($this->arguments['delete_model'])) {
-                if (in_array($this->arguments['delete_model'], $this->wiki->config['yeswiki-farm-models'])) {
-                    $yeswikiFarmModels = $this->wiki->config['yeswiki-farm-models'];
-                    $model = $this->arguments['delete_model'];
-                    $yeswikiFarmModels = array_filter($yeswikiFarmModels, function ($modelInConfig) use ($model) {
-                        return $modelInConfig !== $model;
-                    });
+            if (!empty($this->arguments['delete_model']) && !$this->tokenIsValid()) {
+                $output .= $this->render('@templates/alert-message.twig', [
+                    'type' => 'danger',
+                    'message' => _t('FERME_INVALID_CSRF'),
+                ]);
+            } elseif (!empty($this->arguments['delete_model'])) {
+                $model = $this->arguments['delete_model'];
+                $deleteOutput = $this->deleteModel($model);
+                if (in_array($model, $this->wiki->config['yeswiki-farm-models'])) {
+                    $yeswikiFarmModels = array_filter(
+                        $this->wiki->config['yeswiki-farm-models'],
+                        function ($modelInConfig) use ($model) {
+                            return $modelInConfig !== $model;
+                        }
+                    );
                     $dataConfig = [];
                     foreach ($yeswikiFarmModels as $modelName) {
                         $dataConfig[$modelName] = 1;
                     }
                     list($outputTmp, $yeswikiFarmModels) = $this->saveConfig(['config' => $dataConfig]);
+                    Flash::info(strip_tags($deleteOutput));
                     Flash::info(strip_tags($outputTmp));
                     $this->wiki->Redirect($this->wiki->Href('', $this->wiki->GetPageTag()));
                 }
-                $output .= $this->deleteModel($this->arguments['delete_model']);
+                $output .= $deleteOutput;
             }
 
             if (isset($this->arguments['POST']['save_config'])) {
@@ -67,7 +73,6 @@ class GenerateModelAction extends YesWikiAction
                 }
             }
 
-            // get all custom models
             $modelsFolder = glob(FarmConfig::MODELS_DIR . '/*', GLOB_ONLYDIR);
             $defaultModelIsAvailable = (isset($yeswikiFarmModels) && in_array('default-content', $yeswikiFarmModels))
                 || (!isset($yeswikiFarmModels) && in_array('default-content', $this->wiki->config['yeswiki-farm-models']));
@@ -79,7 +84,6 @@ class GenerateModelAction extends YesWikiAction
                     $models[$model]['label'] = $json['label'];
                     $models[$model]['model'] = $model;
                     $models[$model]['url'] = 'https://' . str_replace(['--'], ['/', ''], $model);
-                    $models[$model]['deleteurl'] = $this->wiki->href('', '', 'delete_model=' . $model);
                     $models[$model]['isavailable'] = (isset($yeswikiFarmModels) && in_array($model, $yeswikiFarmModels))
                         || (!isset($yeswikiFarmModels) && in_array($model, $this->wiki->config['yeswiki-farm-models']));
                 }
@@ -110,6 +114,16 @@ class GenerateModelAction extends YesWikiAction
         return $output;
     }
 
+    /** A missing token throws rather than returning false, so both mean the same here. */
+    private function tokenIsValid(): bool
+    {
+        try {
+            return $this->getService(CsrfTokenController::class)->checkToken('main', 'POST', 'csrf-token', false);
+        } catch (Throwable $th) {
+            return false;
+        }
+    }
+
     public function generateSqlModel($data)
     {
         $output = '';
@@ -128,6 +142,12 @@ class GenerateModelAction extends YesWikiAction
             ['', '', '--'],
             $baseUrl
         );
+        if (!FarmConfig::isSafeName($model)) {
+            return $this->render('@templates/alert-message.twig', [
+                'type' => 'warning',
+                'message' => _t('FERME_INVALID_MODEL_NAME') . ' "' . $model . '"',
+            ]);
+        }
         $foldername = FarmConfig::MODELS_DIR . '/' . $model;
         if (!is_dir($foldername)) {
             @mkdir($foldername, 0777, true);
@@ -146,12 +166,10 @@ class GenerateModelAction extends YesWikiAction
             $tabpages = [];
             $sql .= '# YesWiki pages' . "\n";
             foreach ($pages as $page) {
-                // remove hardcoded source urls in pages
                 if (!$rewriteModeEnabled) {
                     $page['body'] = str_replace(str_replace('/', '\\/', $baseUrl) . '\\/wakka.php?', '{{url}}', $page['body']);
                     $page['body'] = str_replace(str_replace('/', '\\/', $baseUrl) . '\\/?', '{{url}}', $page['body']);
                 }
-                // replace rootPage
                 $page['body'] = str_replace($rootPage, '{{rootPage}}', $page['body']);
                 $tabpages[] = "('" . ($page['tag'] == $rootPage ? '{{rootPage}}' : $page['tag']) . "',  now(), '" . addslashes($page['body'])
                     . "', '', '{{WikiName}}', '{{WikiName}}', 'Y', 'page', '')";
@@ -166,7 +184,6 @@ class GenerateModelAction extends YesWikiAction
         if (is_array($forms) && !empty($forms)) {
             $sql .= '# Bazar forms' . "\n";
             $tabforms = [];
-            // Derive column list from the bn_* keys of the first form (api/forms response)
             $firstForm = reset($forms);
             $validColumns = array_values(array_filter(array_keys($firstForm), function ($key) {
                 return strpos($key, 'bn_') === 0;
@@ -215,7 +232,6 @@ class GenerateModelAction extends YesWikiAction
                 if ($id === '') {
                     continue;
                 }
-                // remove not needed fields (to synchronize with EntryManager::formatDataBeforeSave)
                 unset($item['valider']);
                 unset($item['MAX_FILE_SIZE']);
                 unset($item['antispam']);
@@ -241,7 +257,6 @@ class GenerateModelAction extends YesWikiAction
             $sql .= '# end Bazar entries' . "\n\n";
         }
 
-        // creation du fichier sql
         if (!file_put_contents($filename, $sql)) {
             $output .= '<div class="alert alert-danger">' .
                    '  <strong>' . _t('TEMPLATE_ACTION') . ' {{generatemodel}}</strong> : '
@@ -257,14 +272,9 @@ class GenerateModelAction extends YesWikiAction
         return $output;
     }
 
-    /**
-     * The sql dump only names the images, the attachments and the styles the model
-     * needs. A source on this server is copied here and now; one on another server is
-     * a job the page then walks forward, because it takes longer than a request lives.
-     */
+    /** Fetch the files and custom folders of the model source, on this server or another. */
     private function startAssets(string $model, string $baseUrl): string
     {
-        // logging in to the source, or copying the files of a big wiki off the disk
         set_time_limit(300);
 
         $farm = $this->getService(FarmService::class);
@@ -275,8 +285,6 @@ class GenerateModelAction extends YesWikiAction
                 'type' => 'warning',
                 'message' => _t('FERME_MODEL_ASSETS_FAILED') . ' ' . htmlspecialchars($th->getMessage()),
             ]);
-            // a fetch of our own left behind by a browser that went away is what blocks
-            // this one, so hand the admin the way to stop it
             $running = $farm->runningModelAssets();
 
             return is_null($running) ? $output : $output . $this->renderAssetsProgress($running, true);
@@ -292,9 +300,7 @@ class GenerateModelAction extends YesWikiAction
         ]);
     }
 
-    /**
-     * The block the javascript polls, and the way out of a fetch a browser walked away from.
-     */
+    /** The block the javascript polls, and the way out of a fetch a browser walked away from. */
     private function renderAssetsProgress(string $model, bool $cancelOnly = false): string
     {
         $this->assetsProgressShown = true;
@@ -308,6 +314,10 @@ class GenerateModelAction extends YesWikiAction
 
     public function deleteModel($model)
     {
+        if (!FarmConfig::isSafeName($model)) {
+            return '<div class="alert alert-warning">' . _t('FERME_INVALID_MODEL_NAME')
+                . ' "' . htmlspecialchars($model) . '"</div>';
+        }
         $modelDir = FarmConfig::MODELS_DIR . '/' . $model;
         if (is_dir($modelDir)) {
             $this->rrmdir($modelDir);
@@ -319,13 +329,7 @@ class GenerateModelAction extends YesWikiAction
         return $output;
     }
 
-    /**
-     * recursive remove file or folder.
-     *
-     * @param string $src path
-     *
-     * @return void
-     */
+    /** Recursively remove a file or folder. */
     protected function rrmdir($src)
     {
         $dir = opendir($src);
@@ -343,36 +347,22 @@ class GenerateModelAction extends YesWikiAction
         rmdir($src);
     }
 
-    /**
-     * extract baseUrl and rootPage.
-     *
-     * @return array [$baseUrl,$rootPage,$rewriteModeEnabled]
-     */
+    /** The root page is where the source wiki sends "/", not the page whose url was pasted. */
     private function extractBaseUrlAndRootPage(string $inputUrl): array
     {
-        $redirectedInputUrl = $this->retrieveUrlAfterRedirect($inputUrl);
-        $extraction = $this->extractBaseUrlModeAndTag($redirectedInputUrl);
+        $extraction = $this->extractBaseUrlModeAndTag($this->retrieveUrlAfterRedirect($inputUrl));
         if (empty($extraction)) {
             return [];
         }
         list($baseUrl, $rewriteModeEnabled, $tag) = $extraction;
-        $redirectedRootUrl = $this->retrieveUrlAfterRedirect($baseUrl . '/');
-        $extraction = $this->extractBaseUrlModeAndTag($redirectedInputUrl);
-        if (empty($extraction)) {
-            return [];
-        }
-        list($baseUrl, $rewriteModeEnabled, $rootPage) = $extraction;
+
+        $rootExtraction = $this->extractBaseUrlModeAndTag($this->retrieveUrlAfterRedirect($baseUrl . '/'));
+        $rootPage = empty($rootExtraction) ? $tag : $rootExtraction[2];
 
         return [$baseUrl, $rootPage, $rewriteModeEnabled];
     }
 
-    /**
-     * extract baseUrl, rewriteModeEnabled and tag.
-     *
-     * @param string $inputUrl
-     *
-     * @return array [$baseUrl, $rewriteModeEnabled, $tag]
-     */
+    /** @return array [$baseUrl, $rewriteModeEnabled, $tag] */
     private function extractBaseUrlModeAndTag($inputUrl): array
     {
         if (preg_match('/wiki=(' . WN_CAMEL_CASE_EVOLVED . ')/u', $inputUrl, $matches)) {
@@ -407,11 +397,7 @@ class GenerateModelAction extends YesWikiAction
         return [$baseUrl, $rewriteModeEnabled, $tag];
     }
 
-    /**
-     * retrieve url after redirection.
-     *
-     * @return string $outputUrl
-     */
+    /** Follow the redirects of an url and return where it lands. */
     private function retrieveUrlAfterRedirect(string $inputUrl): string
     {
         $headers = get_headers($inputUrl, true);
@@ -427,16 +413,12 @@ class GenerateModelAction extends YesWikiAction
         return $outputUrl;
     }
 
-    /**
-     * save config.
-     *
-     * @return array [string $output,array $yeswikiFarmModels]
-     */
+    /** Write the model labels posted by the admin into each infos.json. */
     private function saveModelLabels(array $labels): void
     {
         foreach ($labels as $model => $label) {
             $label = trim(strip_tags($label));
-            if (empty($label)) {
+            if (empty($label) || !FarmConfig::isSafeName((string)$model)) {
                 continue;
             }
             $infoFile = FarmConfig::MODELS_DIR . '/' . $model . '/infos.json';
@@ -455,7 +437,6 @@ class GenerateModelAction extends YesWikiAction
             || !is_array($data['config'])
             || empty($data['config'])
             || (count($data['config']) == 1 && isset($data['config']['default-content.sql']) && in_array($data['config']['default-content.sql'], ['on', 1, true, '1']));
-        // get Config
 
         include_once 'tools/templates/libs/Configuration.php';
         $config = new Configuration('wakka.config.php');

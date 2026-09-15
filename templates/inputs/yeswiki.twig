@@ -1,3 +1,10 @@
+{% import _self as ferme %}
+{% macro accessControl(posted, needsUser) %}
+        <div id="access-control"{% if not needsUser %} class="hide"{% endif %}>
+            <input type="text" class="form-control" name="access-username" required{% if not needsUser %} disabled{% endif %} value="{{ posted['access-username']|default('') }}" placeholder="{{ _t('FERME_ACCESS_ID') }}">
+            <input type="password" class="form-control" name="access-password" required{% if not needsUser %} disabled{% endif %} placeholder="{{ _t('FERME_ACCESS_PASSWORD') }}">
+        </div>
+{% endmacro %}
 <div class="yeswiki-form">
   <div class="form-group input-{{ field.type}}">
     <label class="control-label col-sm-3">       
@@ -10,21 +17,23 @@
     <div class="controls col-sm-9">
         <div class="input-prepend input-group">
             <span class="add-on input-group-addon">{{ rootUrl }}</span>
-            {% if value is not empty %}
+            {% if created %}
                 <input type="text" class="form-control" id="{{ field.name }}" name="{{ field.name }}" required disabled value="{{ value }}" />
                 <input type="hidden" name="{{ field.name }}_exists" value="1">
                 <input type="hidden" name="{{ field.name }}" value="{{ value }}">
             {% else %}
-                <input type="text" class="form-control" id="{{ field.name }}" name="{{ field.name }}" maxlength="50" required value="" oninput="var c = this.selectionStart,r = /[^a-z0-9\-_]/gi, v = this.value;if(r.test(v)) { this.value = v.replace(r, ''); c--; } this.setSelectionRange(c, c);" pattern="[a-zA-Z0-9\-_]+" placeholder="{{ _t('FERME_SITE_NAME') }}" />
+                <input type="text" class="form-control{% if blamed == field.name %} input-error{% endif %}" id="{{ field.name }}" name="{{ field.name }}" maxlength="50" required value="{{ addressValue }}" oninput="var c = this.selectionStart,r = /[^a-z0-9\-_]/gi, v = this.value;if(r.test(v)) { this.value = v.replace(r, ''); c--; } this.setSelectionRange(c, c);" pattern="[a-zA-Z0-9\-_]+" placeholder="{{ _t('FERME_SITE_NAME') }}" />
             {% endif %}
-        </div>        
+        </div>
+        {% if error and (blamed is null or blamed == field.name) %}
+            <span class="help-block text-danger yeswiki-farm-error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</span>
+        {% endif %}
     </div>
   </div>
-  {% if value is empty %}
+  {% if not created %}
     <div class="yeswiki-farm-section yeswiki-farm-section-user">
         <h5>{{ _t('FERME_ADMIN_USER') }}</h5>
         {% if adminUsername is null or adminUsername is empty %}
-        {# TODO : jamais vraiment instancié #}
         <div class="form-group input-{{ field.type}}">
             <label class="control-label col-sm-3">       
                 <span class="symbole_obligatoire"></span>
@@ -32,8 +41,11 @@
             </label>
             <div class="controls col-sm-9">
                 <div class="input-prepend input-group">
-                    <input type="text" class="form-control" id="{{ field.name }}_wikiname" name="{{ field.name }}_wikiname" required placeholder="{{ _t('FERME_ADMIN_NAME') }}">
+                    <input type="text" class="form-control{% if blamed == field.name ~ '_wikiname' %} input-error{% endif %}" id="{{ field.name }}_wikiname" name="{{ field.name }}_wikiname" required value="{{ posted[field.name ~ '_wikiname']|default('') }}" placeholder="{{ _t('FERME_ADMIN_NAME') }}">
                 </div>
+                {% if error and blamed == field.name ~ '_wikiname' %}
+                    <span class="help-block text-danger yeswiki-farm-error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</span>
+                {% endif %}
             </div>
         </div>
         {% else %}
@@ -48,7 +60,7 @@
             </label>
             <div class="controls col-sm-9">
                 <div class="input-prepend input-group">
-                    <input type="email" class="form-control" id="{{ field.name }}_email" name="{{ field.name }}_email" required placeholder="{{ _t('FERME_ADMIN_MAIL') }}">
+                    <input type="email" class="form-control" id="{{ field.name }}_email" name="{{ field.name }}_email" required value="{{ posted[field.name ~ '_email']|default('') }}" placeholder="{{ _t('FERME_ADMIN_MAIL') }}">
                 </div>
             </div>
         </div>
@@ -66,6 +78,7 @@
                 <div class="input-prepend input-group">
                     <input type="password" class="form-control" id="{{ field.name }}_password" name="{{ field.name }}_password" required placeholder="{{ _t('FERME_ADMIN_PASSWORD') }}">
                 </div>
+                {% if error %}<span class="help-block">{{ _t('FERME_RETYPE_PASSWORD') }}</span>{% endif %}
                 <span class="help-block text-danger"><strong>{{ _t('FERME_ATTENTION') }}</strong> : {{ _t('FERME_REMEMBER_PASSWORD') }}.<br/>
                 {{ _t('FERME_TO_LOGIN') }}.</span>
             </div>
@@ -81,10 +94,11 @@
         <div class="col-md-6">
             <h5>{{ _t('FERME_GRAPHICAL_THEME') }}</h5>
             <div class="input-radio bazar-radio radio_required">
+                {% set selectedTheme = posted['yeswiki-farm-theme'] is defined ? posted['yeswiki-farm-theme'] : farmThemes|keys|first %}
                 {% for key, theme in farmThemes %}
                     <div class="radio">
                     <label for="yeswiki-farm-theme-{{ key }}">
-                        <input id="yeswiki-farm-theme-{{ key }}" type="radio" value="{{ key }}" name="yeswiki-farm-theme" {% if loop.first %}checked{% endif %} />
+                        <input id="yeswiki-farm-theme-{{ key }}" type="radio" value="{{ key }}" name="yeswiki-farm-theme" {% if key == selectedTheme %}checked{% endif %} />
                         <span>{{ theme.label }}</span>
                     </label>
                     </div>
@@ -94,7 +108,7 @@
         <div class="col-md-6">
             {% for key, theme in farmThemes %}
                 {% if theme.screenshot %}
-                    <img class="theme-screenshot img-responsive{% if not loop.first %} hide {% endif %}"
+                    <img class="theme-screenshot img-responsive{% if key != selectedTheme %} hide {% endif %}"
                          src="{{ theme.screenshot }}"
                          alt="screenshot for theme {{ theme.label }}" />
                 {% endif %}
@@ -103,17 +117,18 @@
       </div>
     </div>
     {% else %}
-    <input type="hidden" name="yeswiki-farm-theme" value="0">
+    <input type="hidden" name="yeswiki-farm-theme" value="{{ farmThemes|keys|first|default(0) }}">
     {% endif %}
 
     {% if farmModels|length > 1 %}
     <div class="yeswiki-farm-section yeswiki-farm-section-models">
         <h5>{{ _t('FERME_MODEL_OF_WIKI') }}</h5>
         <div class="input-radio bazar-radio radio_required">
+            {% set selectedModel = posted['yeswiki-farm-model'] is defined ? posted['yeswiki-farm-model'] : farmModels|keys|first %}
             {% for key, model in farmModels %}
                 <div class="radio">
                 <label for="yeswiki-farm-model-{{ key }}">
-                    <input id="yeswiki-farm-model-{{ key }}" type="radio" value="{{ key }}" name="yeswiki-farm-model" {% if loop.first %}checked{% endif %} />
+                    <input id="yeswiki-farm-model-{{ key }}" type="radio" value="{{ key }}" name="yeswiki-farm-model" {% if key == selectedModel %}checked{% endif %} />
                     <span>{{ model }}</span>
                 </label>
                 </div>
@@ -126,6 +141,8 @@
     <input type="hidden" name="yeswiki-farm-model" value="default-content">
     {% endif %}
 
+    {% set selectedAcl = posted['yeswiki-farm-acls'] is defined ? posted['yeswiki-farm-acls'] : farmAcls|keys|first %}
+    {% set needsUser = farmAcls[selectedAcl].create_user|default(false) %}
     {% if farmAcls|length > 1 %}
     <div class="yeswiki-farm-section yeswiki-farm-section-acls">
         <h5>{{ _t('FERME_ACCESS_RIGHTS') }}</h5>
@@ -133,19 +150,22 @@
             {% for key, acls in farmAcls %}
                 <div class="radio">
                 <label for="yeswiki-farm-acls-{{ key }}">
-                    <input id="yeswiki-farm-acls-{{ key }}"{% if acls.create_user %} class="create_user"{% endif %} type="radio" value="{{ key }}" name="yeswiki-farm-acls" {% if loop.first %}checked{% endif %} />
+                    <input id="yeswiki-farm-acls-{{ key }}"{% if acls.create_user %} class="create_user"{% endif %} type="radio" value="{{ key }}" name="yeswiki-farm-acls" {% if key == selectedAcl %}checked{% endif %} />
                     <span>{{ acls.label }}</span>
                 </label>
                 </div>
             {% endfor %}
         </div>
-        <div id="access-control" class="hide">
-            <input type="text" class="form-control" name="access-username" required placeholder="{{ _t('FERME_ACCESS_ID') }}">
-            <input type="password" class="form-control" name="access-password" required placeholder="{{ _t('FERME_ACCESS_PASSWORD') }}">
-        </div>
+        {{ ferme.accessControl(posted, needsUser) }}
     </div>
     {% else %}
-    <input type="hidden" name="yeswiki-farm-acls" value="0">
+    <input type="hidden" name="yeswiki-farm-acls" value="{{ farmAcls|keys|first|default(0) }}">
+    {% if needsUser %}
+    <div class="yeswiki-farm-section yeswiki-farm-section-acls">
+        <h5>{{ _t('FERME_ACCESS_RIGHTS') }}</h5>
+        {{ ferme.accessControl(posted, needsUser) }}
+    </div>
+    {% endif %}
     {% endif %}
 
     {% if farmOptions|length > 1 %}
@@ -154,7 +174,7 @@
         {% for key, option in farmOptions %}
         <div class="checkbox">
             <label>
-            <input type="checkbox"{% if option.checked %} checked{% endif %} name="yeswiki-farm-options{{ key }}" value="{{ key }}" />
+            <input type="checkbox"{% if error ? posted['yeswiki-farm-options' ~ key] is defined : option.checked %} checked{% endif %} name="yeswiki-farm-options{{ key }}" value="{{ key }}" />
             {{ option.label }}
             </label>
         </div>
@@ -182,6 +202,12 @@
 .bazar-radio {
     margin-bottom:1em
 }
+.yeswiki-form .input-error {
+    border-color: #a94442;
+}
+.yeswiki-form .yeswiki-farm-error {
+    margin-top: .5em;
+}
 </style>
 
 <script>
@@ -195,13 +221,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  $('#yeswiki-farm-acls').on('change', function() {
-    if ($(this).find('option:selected').hasClass('create_user')) {
-    $('#access-control').removeClass('hide');
-    } else {
-    $('#access-control').addClass('hide');
-    }
-  });
+  var $aclRadios = $('input[type="radio"][name="yeswiki-farm-acls"]');
+
+  function toggleAccessControl() {
+    var $block = $('#access-control');
+    if (!$block.length || !$aclRadios.length) return;
+    var needsUser = $aclRadios.filter(':checked').hasClass('create_user');
+    $block.toggleClass('hide', !needsUser);
+    $block.find('input').prop('disabled', !needsUser);
+  }
+
+  $aclRadios.on('change', toggleAccessControl);
+  toggleAccessControl();
 
   $('#radioListeOuiNonoui').on('click', function(e) {
     $('.btn-primary[type="submit"]').removeAttr('disabled');

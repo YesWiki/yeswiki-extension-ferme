@@ -43,11 +43,7 @@ class FarmConfig
         return $this->wiki->config['yeswiki-farm-root-url'] ?? '';
     }
 
-    /**
-     * Where the updater and the config editor put their backups. A relative
-     * value is taken from the farm master, so the default lands in private/,
-     * which YesWiki and the generated nginx config both deny.
-     */
+    /** Where the updater and the config editor put their backups, under private/ by default. */
     public function backupDir(): string
     {
         $dir = $this->wiki->config['yeswiki-farm-backup-dir'] ?? self::DEFAULT_BACKUP_DIR;
@@ -89,17 +85,40 @@ class FarmConfig
             : getcwd() . DIRECTORY_SEPARATOR . $this->rootFolder();
     }
 
+    /** Refuse a folder or model name that would walk out of the folder it names. */
+    public static function isSafeName(string $name, bool $nested = false): bool
+    {
+        if ($name === '' || strpbrk($name, "\\\0") !== false) {
+            return false;
+        }
+        if (!$nested && strpos($name, '/') !== false) {
+            return false;
+        }
+        foreach (explode('/', $name) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function wikiDir(string $folder): string
     {
+        if (!self::isSafeName($folder, true)) {
+            throw new \InvalidArgumentException(_t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"');
+        }
+
         return $this->files->getAbsolutePath($this->basePath() . DIRECTORY_SEPARATOR . $folder);
     }
 
-    /**
-     * Where a wiki model keeps its sql dump, its infos.json and the files and custom
-     * folders it hands to every wiki built from it.
-     */
+    /** Where a model keeps its sql dump, its infos.json and the folders it hands to new wikis. */
     public function modelDir(string $model): string
     {
+        if (!self::isSafeName($model)) {
+            throw new \InvalidArgumentException(_t('FERME_INVALID_MODEL_NAME') . ' "' . $model . '"');
+        }
+
         return self::MODELS_DIR . '/' . $model;
     }
 
@@ -298,6 +317,12 @@ class FarmConfig
 
         foreach ($this->wiki->config['yeswiki-farm-models'] as $key => $folder) {
             if ($folder == 'default-content') {
+                continue;
+            }
+            if (!self::isSafeName($folder)) {
+                unset($this->wiki->config['yeswiki-farm-models'][$key]);
+                trigger_error('"' . $folder . '" n\'est pas un nom de modele valide.');
+
                 continue;
             }
             $modelDir = $this->modelDir($folder);

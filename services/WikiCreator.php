@@ -2,6 +2,7 @@
 
 namespace YesWiki\Ferme\Service;
 
+use YesWiki\Ferme\Exception\WikiCreationException;
 use YesWiki\Wiki;
 
 class WikiCreator
@@ -21,6 +22,8 @@ class WikiCreator
 
     public function createFromEntry(array $entry, string $fieldName, string $theme = '0', string $model = 'default-content'): void
     {
+        $this->checkChoices($entry, $theme, $model);
+
         $entry = $this->resolveWikiName($entry, $fieldName);
         $entry = $this->resolveEmail($entry, $fieldName);
 
@@ -32,10 +35,10 @@ class WikiCreator
         $destfolder = $this->config->wikiDir($folder);
 
         if (is_dir($destfolder)) {
-            throw new \Exception('L\'adresse ' . $this->config->rootUrl() . $folder . ' est déja utilisée, veuillez en prendre une autre.');
+            throw new WikiCreationException(_t('FERME_ADDRESS_TAKEN_1') . ' ' . $this->config->rootUrl() . $folder . ' ' . _t('FERME_ADDRESS_TAKEN_2'), $fieldName);
         }
         if (!is_writable($this->config->rootFolder())) {
-            throw new \Exception('Le dossier ' . $this->config->rootFolder() . ' n\'est pas accessible en écriture');
+            throw new WikiCreationException('Le dossier ' . $this->config->rootFolder() . ' n\'est pas accessible en écriture');
         }
 
         $this->copyWikiFiles(getcwd() . DIRECTORY_SEPARATOR, $destfolder);
@@ -73,6 +76,29 @@ class WikiCreator
         $this->createGroup($prefix, $entry);
     }
 
+    /** Refuse a theme, model, acl or option the farm does not offer. */
+    private function checkChoices(array $entry, string $theme, string $model): void
+    {
+        if ($model !== 'default-content' && !in_array($model, $this->wiki->config['yeswiki-farm-models'], true)) {
+            throw new WikiCreationException(_t('FERME_INVALID_MODEL_NAME') . ' "' . $model . '"');
+        }
+
+        if (!isset($this->wiki->config['yeswiki-farm-themes'][$theme])) {
+            throw new WikiCreationException(_t('FERME_INVALID_THEME') . ' "' . $theme . '"');
+        }
+
+        $acl = $entry['yeswiki-farm-acls'] ?? '';
+        if (!is_scalar($acl) || !isset($this->wiki->config['yeswiki-farm-acls'][$acl])) {
+            throw new WikiCreationException(_t('FERME_INVALID_ACL') . ' "' . (is_scalar($acl) ? $acl : '') . '"');
+        }
+
+        foreach (array_filter(explode(',', (string)($entry['yeswiki-farm-options'] ?? ''))) as $option) {
+            if (!isset($this->wiki->config['yeswiki-farm-options'][$option])) {
+                throw new WikiCreationException(_t('FERME_INVALID_OPTION') . ' "' . $option . '"');
+            }
+        }
+    }
+
     private function resolveWikiName(array $entry, string $fieldName): array
     {
         if ($entry[$fieldName . '_wikiname'] !== '{{folder}}') {
@@ -81,7 +107,7 @@ class WikiCreator
 
         $entry[$fieldName . '_wikiname'] = genere_nom_wiki($entry[$fieldName], 0);
         if ($this->wiki->LoadUser($entry[$fieldName . '_wikiname'])) {
-            throw new \Exception('L\'utilisateur ' . $entry[$fieldName . '_wikiname'] . ' existe déjà, veuillez trouver un autre nom pour votre wiki.');
+            throw new WikiCreationException(_t('FERME_USER_TAKEN_1') . ' ' . $entry[$fieldName . '_wikiname'] . ' ' . _t('FERME_USER_TAKEN_2'), $fieldName);
         }
 
         return $entry;
@@ -330,9 +356,7 @@ class WikiCreator
         return str_replace(['{num}', '{nbRows}'], [$index, $rows], _t('FERME_INSERTION')) . '<br/>';
     }
 
-    /**
-     * @param array<int,string> $errors
-     */
+    /** @param array<int,string> $errors */
     private function reportMigration(array $errors): void
     {
         if (empty($errors)) {
@@ -363,7 +387,7 @@ class WikiCreator
     private function createFarmUser(array $entry, string $fieldName): void
     {
         if ($this->wiki->LoadUser($entry[$fieldName . '_wikiname'])) {
-            throw new \Exception('L\'utilisateur ' . $entry[$fieldName . '_wikiname'] . ' existe déjà, veuillez trouver un autre nom pour votre utilisateur.');
+            throw new WikiCreationException(_t('FERME_USER_TAKEN_1') . ' ' . $entry[$fieldName . '_wikiname'] . ' ' . _t('FERME_USER_TAKEN_3'), $fieldName . '_wikiname');
         }
 
         $this->wiki->Query(
