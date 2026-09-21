@@ -155,6 +155,10 @@ $(document).ready(function() {
           + '</small>'
           + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + '</small>'
           + '</div>';
+        (row.problems || []).forEach(function(problem) {
+          html += '<div><span class="label label-danger"><i class="fas fa-triangle-exclamation"></i> '
+            + esc(problem.label) + '</span></div>';
+        });
         if (row.custom_warning) { html += row.custom_warning; }
         if (row.error) { html += row.error; }
         return html;

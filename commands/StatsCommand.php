@@ -6,25 +6,23 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use YesWiki\Ferme\Exception\WikiStatsException;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
-use YesWiki\Ferme\Service\WikiStats;
+use YesWiki\Ferme\Service\StatsRefresher;
 use YesWiki\Ferme\Service\WikiStatsStore;
 use YesWiki\Wiki;
 
 class StatsCommand extends AbstractFarmCommand
 {
     private const LOCK_FILE = 'cache/ferme-stats.lock';
-    private const RECOMPUTE_AFTER = 604800;
 
-    protected $stats;
     protected $store;
+    protected $refresher;
 
     public function __construct(Wiki &$wiki)
     {
         parent::__construct($wiki);
-        $this->stats = $wiki->services->get(WikiStats::class);
         $this->store = $wiki->services->get(WikiStatsStore::class);
+        $this->refresher = $wiki->services->get(StatsRefresher::class);
     }
 
     protected function configure()
@@ -37,6 +35,7 @@ class StatsCommand extends AbstractFarmCommand
             ->addOption('stale', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_STALE'), '24h')
             ->addOption('force', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_FORCE_STATS'))
             ->addOption('no-disk', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_NO_DISK'))
+            ->addOption('check', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_CHECK'))
             ->addWikiSelectionOptions()
             ->addDryRunOption();
     }
@@ -45,6 +44,10 @@ class StatsCommand extends AbstractFarmCommand
     {
         $started = microtime(true);
         $dryRun = $this->isDryRun($input);
+
+        if ($input->getOption('check')) {
+            return $this->check($input, $output, $started);
+        }
 
         $lock = $dryRun ? null : $this->lock();
         if ($lock === false) {
@@ -110,7 +113,7 @@ class StatsCommand extends AbstractFarmCommand
 
             $folder = $wiki['FOLDER'];
             $known = $stored[$folder] ?? null;
-            if (!$force && !$this->isStale($known, $stale)) {
+            if (!$force && !$this->refresher->isStale($known, $stale)) {
                 continue;
             }
             if (!$this->isInsideFarm($wiki)) {
@@ -122,50 +125,85 @@ class StatsCommand extends AbstractFarmCommand
             $done++;
             $counters['probed']++;
 
-            $countAgain = $force || $this->databaseMoved($folder, $known);
-            $walkAgain = $withDisk && ($force || $this->diskMoved($folder, $known));
-
-            if (!$countAgain && !$walkAgain) {
-                $counters['unchanged']++;
-                if (!$dryRun) {
-                    $this->store->touch($folder);
-                }
-                continue;
-            }
-
             if ($dryRun) {
-                $counters['counted'] += $countAgain ? 1 : 0;
-                $counters['walked'] += $walkAgain ? 1 : 0;
-                $output->writeln($this->dryRunPrefix($input) . $this->label($wiki) . ': '
-                    . ($countAgain ? _t('FERME_CLI_STATS_WOULD_COUNT') : '')
-                    . ($countAgain && $walkAgain ? ' + ' : '')
-                    . ($walkAgain ? _t('FERME_CLI_STATS_WOULD_WALK') : ''));
+                $output->writeln($this->dryRunPrefix($input) . $this->label($wiki) . ': ' . _t('FERME_CLI_STATS_WOULD_MEASURE'));
                 continue;
             }
 
-            try {
-                $measured = [];
-                if ($countAgain) {
-                    $measured = $this->stats->fromDatabase($folder);
-                    $counters['counted']++;
-                }
-                if ($walkAgain) {
-                    $measured = array_merge($measured, $this->stats->fromDisk($folder), [
-                        'filesMtime' => $this->stats->diskProbe($folder),
-                    ]);
-                    $counters['walked']++;
-                }
-                $this->store->save($folder, $measured);
-            } catch (WikiStatsException $exception) {
-                $this->store->fail($folder, $exception->getReason());
+            $result = $this->refresher->refresh($folder, [
+                'force' => $force,
+                'withDisk' => $withDisk,
+                'known' => $known,
+            ]);
+
+            $counters['counted'] += $result['counted'] ? 1 : 0;
+            $counters['walked'] += $result['walked'] ? 1 : 0;
+            if ($result['failed'] !== null) {
                 $counters['failed'][] = $this->label($wiki);
-                $output->writeln('<error>  ' . $this->label($wiki) . ': ' . $exception->getReason() . '</error>');
+                $output->writeln('<error>  ' . $this->label($wiki) . ': ' . $result['failed'] . '</error>');
+            } elseif (!$result['counted'] && !$result['walked']) {
+                $counters['unchanged']++;
             }
         }
 
-        $this->stats->close();
+        $this->refresher->close();
 
         return $counters;
+    }
+
+    /**
+     * Measures nothing: says whether the farm is being measured at all, and fails
+     * when it is not, so a supervision can watch a cron that stopped.
+     */
+    private function check(InputInterface $input, OutputInterface $output, float $started): int
+    {
+        $olderThan = $this->seconds((string)$input->getOption('check'));
+        $wikis = $this->selectWikis($input);
+        if (empty($wikis)) {
+            $this->warnNothingFound($input, $output);
+
+            return Command::SUCCESS;
+        }
+
+        $stored = $this->store->readMany(array_column($wikis, 'FOLDER'));
+        $late = [];
+        $failing = 0;
+        $never = 0;
+        $oldest = null;
+
+        foreach ($wikis as $wiki) {
+            $known = $stored[$wiki['FOLDER']] ?? null;
+            if ($known === null || empty($known['checkedAt'])) {
+                $never++;
+                $late[] = $this->label($wiki);
+                continue;
+            }
+            if (($known['status'] ?? '') === WikiStatsStore::STATUS_ERROR) {
+                $failing++;
+            }
+            if ($oldest === null || $known['checkedAt'] < $oldest['checkedAt']) {
+                $oldest = ['checkedAt' => $known['checkedAt'], 'label' => $this->label($wiki)];
+            }
+            if ($this->refresher->isStale($known, $olderThan)) {
+                $late[] = $this->label($wiki);
+            }
+        }
+
+        return $this->renderSummary(
+            $output,
+            _t('FERME_CLI_STATS_CHECK_SUMMARY'),
+            [
+                _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+                _t('FERME_CLI_STATS_NEVER') => $never,
+                _t('FERME_CLI_STATS_OLDEST') => $oldest === null
+                    ? '-'
+                    : $oldest['checkedAt'] . ' (' . $oldest['label'] . ')',
+                _t('FERME_CLI_STATS_LATE') => count($late),
+                _t('FERME_CLI_STATS_FAILING') => $failing,
+                _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+            ],
+            $late
+        );
     }
 
     /**
@@ -202,46 +240,6 @@ class StatsCommand extends AbstractFarmCommand
         });
 
         return $wikis;
-    }
-
-    private function isStale(?array $known, int $stale): bool
-    {
-        if ($known === null || empty($known['checkedAt'])) {
-            return true;
-        }
-
-        return strtotime($known['checkedAt']) < time() - $stale;
-    }
-
-    private function databaseMoved(string $folder, ?array $known): bool
-    {
-        if ($known === null || !isset($known['lastPageId']) || $this->tooOld($known)) {
-            return true;
-        }
-
-        $probe = $this->stats->probe($folder);
-
-        return $probe === null || $probe !== $known['lastPageId'];
-    }
-
-    private function diskMoved(string $folder, ?array $known): bool
-    {
-        if ($known === null || !isset($known['filesMtime']) || $this->tooOld($known)) {
-            return true;
-        }
-
-        $probe = $this->stats->diskProbe($folder);
-
-        return $probe === null || $probe !== $known['filesMtime'];
-    }
-
-    /**
-     * Deleting an account moves no page id and touches no folder, so a week without
-     * a full count is enough to recount whatever the probes say.
-     */
-    private function tooOld(array $known): bool
-    {
-        return empty($known['computedAt']) || strtotime($known['computedAt']) < time() - self::RECOMPUTE_AFTER;
     }
 
     private function isInsideFarm(array $wiki): bool

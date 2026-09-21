@@ -79,13 +79,16 @@ class WikiRepository
         string $direction,
         string $filter = ''
     ): array {
+        $fiches = $this->getAllWikiFiches();
+
         $page = $this->dashboard->select(
-            $this->getAllWikiFiches(),
+            $fiches,
             $this->statsStore->readAll(),
             [
                 'version' => (string)$this->wiki->config['yeswiki_version'],
                 'release' => (string)$this->wiki->config['yeswiki_release'],
             ],
+            $this->wikisOnDisk($fiches),
             $search,
             $filter,
             $sort,
@@ -99,6 +102,29 @@ class WikiRepository
         }
 
         return $page;
+    }
+
+    /**
+     * Which of the farm entries still have a wiki behind them. One stat per entry,
+     * about 4 ms for a farm of 2 700, so an entry left over from a deleted wiki is
+     * counted with the broken ones instead of passing for one nobody measured yet.
+     *
+     * @param array<int,array<string,mixed>> $fiches
+     *
+     * @return array<string,bool>
+     */
+    private function wikisOnDisk(array $fiches): array
+    {
+        $onDisk = [];
+        foreach ($fiches as $fiche) {
+            $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
+            if ($folder === '' || isset($onDisk[$folder]) || !FarmConfig::isSafeName($folder, true)) {
+                continue;
+            }
+            $onDisk[$folder] = file_exists($this->config->wikiConfigFile($folder));
+        }
+
+        return $onDisk;
     }
 
     /** @param array<int,array> $wikis as WikiFinder describes them */

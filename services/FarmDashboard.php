@@ -13,6 +13,7 @@ class FarmDashboard
     public const HEAVY_ARCHIVES = 1073741824;
 
     public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'failed', 'unmeasured'];
+    public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
     public const SORTS = ['title', 'referent', 'lastActivity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
     private const TEXT_SORTS = ['title', 'referent', 'lastActivity'];
@@ -21,6 +22,7 @@ class FarmDashboard
      * @param array<int,array<string,mixed>>    $fiches  the farm entries, as bazar returns them
      * @param array<string,array<string,mixed>> $stats   what the store holds, keyed by folder
      * @param array<string,string>              $current the version and release the farm runs
+     * @param array<string,bool>                $onDisk  folder => whether its wakka.config.php is there
      *
      * @return array{fiches:array<int,array<string,mixed>>,total:int,filtered:int,counts:array<string,int>,totals:array<string,int>}
      */
@@ -28,6 +30,7 @@ class FarmDashboard
         array $fiches,
         array $stats,
         array $current,
+        array $onDisk = [],
         string $search = '',
         string $filter = '',
         string $sort = 'title',
@@ -35,7 +38,7 @@ class FarmDashboard
         int $start = 0,
         int $length = 100
     ): array {
-        $fiches = $this->attach($fiches, $stats, $current);
+        $fiches = $this->attach($fiches, $stats, $current, $onDisk);
         $total = count($fiches);
         $counts = $this->counts($fiches);
         $totals = $this->totals($fiches);
@@ -81,14 +84,25 @@ class FarmDashboard
      * @param array<int,array<string,mixed>>    $fiches
      * @param array<string,array<string,mixed>> $stats
      * @param array<string,string>              $current
+     * @param array<string,bool>                $onDisk
      *
      * @return array<int,array<string,mixed>>
      */
-    private function attach(array $fiches, array $stats, array $current): array
+    private function attach(array $fiches, array $stats, array $current, array $onDisk): array
     {
+        $claims = array_count_values(array_filter(array_map(function (array $fiche) {
+            return (string)($fiche['bf_dossier-wiki'] ?? '');
+        }, $fiches)));
+
         foreach ($fiches as $index => $fiche) {
             $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
             $measured = $stats[$folder] ?? null;
+
+            $fiches[$index]['problems'] = [
+                'noFolder' => $folder === '',
+                'missingWiki' => $folder !== '' && array_key_exists($folder, $onDisk) && !$onDisk[$folder],
+                'duplicateFolder' => $folder !== '' && ($claims[$folder] ?? 0) > 1,
+            ];
 
             if ($measured !== null) {
                 $measured['diskBytes'] = (int)($measured['filesBytes'] ?? 0)
@@ -118,6 +132,11 @@ class FarmDashboard
     {
         $counts = array_fill_keys(self::FILTERS, 0);
         foreach ($fiches as $fiche) {
+            if ($this->hasProblem($fiche)) {
+                $counts['failed']++;
+                continue;
+            }
+
             $stats = $fiche['stats'] ?? null;
             if ($stats === null) {
                 $counts['unmeasured']++;
@@ -162,20 +181,38 @@ class FarmDashboard
     }
 
     /**
-     * @param array<int,array<string,mixed>> $fiches
-     *
      * @return array<int,array<string,mixed>>
      */
+    /**
+     * A farm entry whose wiki is not on disk, or whose folder another entry claims
+     * too, is broken whatever its stats say.
+     *
+     * @param array<string,mixed> $fiche
+     */
+    private function hasProblem(array $fiche): bool
+    {
+        foreach ($fiche['problems'] ?? [] as $problem) {
+            if ($problem) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function filter(array $fiches, string $search, string $filter): array
     {
         $needle = mb_strtolower(trim($search));
         $filter = in_array($filter, self::FILTERS, true) ? $filter : '';
 
         return array_values(array_filter($fiches, function (array $fiche) use ($needle, $filter) {
-            if ($filter === 'unmeasured' && $fiche['stats'] !== null) {
+            if ($filter === 'failed' && !$this->hasProblem($fiche) && empty($fiche['stats']['failed'])) {
                 return false;
             }
-            if ($filter !== '' && $filter !== 'unmeasured' && empty($fiche['stats'][$filter])) {
+            if ($filter === 'unmeasured' && ($fiche['stats'] !== null || $this->hasProblem($fiche))) {
+                return false;
+            }
+            if ($filter !== '' && !in_array($filter, ['failed', 'unmeasured'], true) && empty($fiche['stats'][$filter])) {
                 return false;
             }
             if ($needle === '') {

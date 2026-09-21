@@ -8,6 +8,11 @@ use YesWiki\Core\Service\DbService;
  * Keeps each wiki's numbers as triples of the farm wiki, one triple per value, so
  * the farm can order and filter on them without opening ten thousand databases.
  * A wiki with no triples has never been measured, which is not the same as empty.
+ *
+ * Folder names are compared exactly. The triples table collates case-insensitively,
+ * so two wikis whose folders differ only in case, which a farm really does have,
+ * would otherwise share one row and erase each other. The indexed comparison stays
+ * in every query and the exact one is added on top, so the index is still used.
  */
 class WikiStatsStore
 {
@@ -22,6 +27,7 @@ class WikiStatsStore
     public const STATUS_ERROR = 'error';
 
     private const ERROR_LENGTH = 255;
+    private const EXACT = 'utf8mb4_bin';
 
     private $db;
 
@@ -65,16 +71,41 @@ class WikiStatsStore
     }
 
     /**
-     * Say a wiki was looked at without claiming its numbers were made again.
+     * Say a wiki was looked at without claiming its numbers were made again. One
+     * timestamp moves, so this is one UPDATE and not a rewrite of the whole row:
+     * a sweep over a farm where nothing changed does this once per wiki.
      */
     public function touch(string $folder): void
     {
-        $known = $this->read($folder);
-        if ($known === null) {
+        $this->touchMany([$folder]);
+    }
+
+    /**
+     * The same for a whole sweep, in one statement. Each write costs a commit, so
+     * a farm of a few thousand wikis is a second of disk if this is done one wiki
+     * at a time, and a few milliseconds if it is done once.
+     *
+     * @param array<int,string> $folders
+     */
+    public function touchMany(array $folders): void
+    {
+        $resources = [];
+        foreach (array_unique($folders) as $folder) {
+            if (is_string($folder) && FarmConfig::isSafeName($folder, true)) {
+                $resources[] = '"' . $this->db->escape(self::RESOURCE_PREFIX . $folder) . '"';
+            }
+        }
+        if (empty($resources)) {
             return;
         }
 
-        $this->write($folder, array_merge($known, ['checkedAt' => date('Y-m-d H:i:s')]));
+        $this->db->query(
+            'UPDATE ' . $this->db->prefixTable('triples')
+            . ' SET value = "' . $this->db->escape(date('Y-m-d H:i:s')) . '"'
+            . ' WHERE property = "' . $this->db->escape(self::PROPERTY_PREFIX . 'checkedAt') . '"'
+            . ' AND resource IN (' . implode(',', $resources) . ')'
+            . ' AND resource COLLATE ' . self::EXACT . ' IN (' . implode(',', $resources) . ')'
+        );
     }
 
     /**
@@ -107,11 +138,14 @@ class WikiStatsStore
             return '"' . $this->db->escape(self::RESOURCE_PREFIX . $folder) . '"';
         }, $folders);
 
-        return $this->hydrate($this->db->loadAll(
-            'SELECT resource, property, value FROM ' . $this->db->prefixTable('triples')
-            . ' WHERE resource IN (' . implode(',', $quoted) . ')'
-            . ' AND property LIKE "' . $this->db->escape(self::PROPERTY_PREFIX) . '%"'
-        ));
+        return $this->hydrate(
+            $this->db->loadAll(
+                'SELECT resource, property, value FROM ' . $this->db->prefixTable('triples')
+                . ' WHERE resource IN (' . implode(',', $quoted) . ')'
+                . ' AND property LIKE "' . $this->db->escape(self::PROPERTY_PREFIX) . '%"'
+            ),
+            $folders
+        );
     }
 
     /**
@@ -146,9 +180,12 @@ class WikiStatsStore
             return;
         }
 
+        $resource = $this->db->escape(self::RESOURCE_PREFIX . $folder);
+
         $this->db->query(
             'DELETE FROM ' . $this->db->prefixTable('triples')
-            . ' WHERE resource = "' . $this->db->escape(self::RESOURCE_PREFIX . $folder) . '"'
+            . ' WHERE resource = "' . $resource . '"'
+            . ' AND resource COLLATE ' . self::EXACT . ' = "' . $resource . '"'
             . ' AND property LIKE "' . $this->db->escape(self::PROPERTY_PREFIX) . '%"'
         );
     }
@@ -219,16 +256,21 @@ class WikiStatsStore
 
     /**
      * @param array<int,array<string,string>> $rows
+     * @param array<int,string>|null          $asked the folders whose rows are wanted, exactly
      *
      * @return array<string,array<string,mixed>>
      */
-    private function hydrate(array $rows): array
+    private function hydrate(array $rows, ?array $asked = null): array
     {
+        $wanted = $asked === null ? null : array_flip($asked);
         $wikis = [];
         foreach ($rows as $row) {
             $folder = substr($row['resource'], strlen(self::RESOURCE_PREFIX));
             $property = substr($row['property'], strlen(self::PROPERTY_PREFIX));
             if ($folder === '' || $property === '') {
+                continue;
+            }
+            if ($wanted !== null && !isset($wanted[$folder])) {
                 continue;
             }
             $wikis[$folder][$property] = $this->decode($property, $row['value']);

@@ -481,6 +481,7 @@ class ApiController extends YesWikiController
                 : '<div><span class="label label-warning"><i class="fas fa-exclamation-triangle"></i> '
                     . htmlspecialchars(_t('FERME_CUSTOM_BROKEN')) . '</span></div>',
             'stats' => $this->formatStats($fiche['stats'] ?? null),
+            'problems' => $this->formatProblems($fiche['problems'] ?? []),
         ];
     }
 
@@ -526,6 +527,31 @@ class ApiController extends YesWikiController
             'computed_age' => $presenter->age($stats['computedAt'] ?? null),
             'sparkline' => $presenter->sparkline($stats['activity'] ?? []),
         ];
+    }
+
+    /**
+     * What is wrong with a farm entry itself, whatever its wiki holds.
+     *
+     * @param array<string,bool> $problems
+     *
+     * @return array<int,array<string,string>>
+     */
+    private function formatProblems(array $problems): array
+    {
+        $said = [
+            'noFolder' => 'FERME_PROBLEM_NO_FOLDER',
+            'missingWiki' => 'FERME_PROBLEM_MISSING_WIKI',
+            'duplicateFolder' => 'FERME_PROBLEM_DUPLICATE_FOLDER',
+        ];
+
+        $found = [];
+        foreach ($said as $problem => $key) {
+            if (!empty($problems[$problem])) {
+                $found[] = ['kind' => $problem, 'label' => _t($key)];
+            }
+        }
+
+        return $found;
     }
 
     /**

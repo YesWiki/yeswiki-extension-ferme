@@ -7,6 +7,17 @@ parameters:
   yeswiki-farm-archive-url: ''
   # relative to the farm, so the default lands in the folder YesWiki and nginx deny
   yeswiki-farm-backup-dir: 'private/backups/farm'
+  # keep the statistics moving without a cron line, by measuring wikis after a page of
+  # the master has been served. Set to false on a farm that runs 'ferme:stats' from
+  # cron, which is the better way round on a big farm.
+  yeswiki-farm-stats-on-visit: true
+  # seconds between two of those. What the farm gets per hour is 3600 / interval x the
+  # batch below, so these defaults carry 1200 wikis an hour, as long as the master is
+  # visited at least once per interval.
+  yeswiki-farm-stats-interval: 300
+  # how many wikis each turn measures. A hundred wikis where nothing moved costs about
+  # 30 ms, spent after the visitor has their page.
+  yeswiki-farm-stats-per-visit: 100
   contact_wikis:
     default_template: 'list-email.twig'
   yeswiki_symlinked_files:
@@ -87,6 +98,9 @@ parameters:
     - 'yeswiki-farm-extra-themes'
     - 'yeswiki-farm-archive-url'
     - 'yeswiki-farm-backup-dir'
+    - 'yeswiki-farm-stats-on-visit'
+    - 'yeswiki-farm-stats-interval'
+    - 'yeswiki-farm-stats-per-visit'
 services:
   _defaults:
     autowire: true

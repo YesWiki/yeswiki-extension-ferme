@@ -48,6 +48,7 @@ class FarmDashboardTest extends YesWikiTestCase
                 'casse' => $this->stats(['status' => WikiStatsStore::STATUS_ERROR]),
             ],
             $this->current,
+            [],
             '',
             'dormant'
         );
@@ -56,6 +57,70 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(5, $page['total']);
         $this->assertSame(1, $page['filtered'], 'the chip narrowed the list');
         $this->assertSame('dormant', $page['fiches'][0]['bf_dossier-wiki']);
+    }
+
+    public function testAnEntryWhoseWikiIsGoneCountsAsBrokenAndNotAsUnmeasured()
+    {
+        $page = $this->dashboard->select(
+            [$this->fiche('vivant'), $this->fiche('disparu')],
+            ['vivant' => $this->stats()],
+            $this->current,
+            ['vivant' => true, 'disparu' => false]
+        );
+
+        $this->assertSame(1, $page['counts']['failed'], 'the entry with no wiki behind it');
+        $this->assertSame(0, $page['counts']['unmeasured'], 'and it is not merely waiting to be measured');
+        $this->assertTrue($page['fiches'][0]['problems']['missingWiki'] ?? $page['fiches'][1]['problems']['missingWiki']);
+    }
+
+    public function testTwoEntriesClaimingTheSameFolderAreBothFlagged()
+    {
+        $fiches = [$this->fiche('memedossier', 'Premier'), $this->fiche('memedossier', 'Second'), $this->fiche('seul')];
+
+        $page = $this->dashboard->select($fiches, [], $this->current, ['memedossier' => true, 'seul' => true]);
+
+        $this->assertSame(2, $page['counts']['failed']);
+        foreach ($page['fiches'] as $fiche) {
+            $expected = $fiche['bf_dossier-wiki'] === 'memedossier';
+            $this->assertSame($expected, $fiche['problems']['duplicateFolder'], $fiche['bf_titre']);
+        }
+    }
+
+    public function testTheErrorChipSelectsBrokenEntriesAndFailedMeasurements()
+    {
+        $page = $this->dashboard->select(
+            [$this->fiche('disparu'), $this->fiche('casse'), $this->fiche('sain')],
+            [
+                'casse' => $this->stats(['status' => WikiStatsStore::STATUS_ERROR]),
+                'sain' => $this->stats(),
+            ],
+            $this->current,
+            ['disparu' => false, 'casse' => true, 'sain' => true],
+            '',
+            'failed'
+        );
+
+        $this->assertSame(2, $page['filtered']);
+        $this->assertSame(['casse', 'disparu'], array_column($page['fiches'], 'bf_dossier-wiki'), 'sorted by title, as always');
+    }
+
+    public function testAnEntryWithNoFolderAtAllIsBrokenToo()
+    {
+        $orphan = $this->fiche('sansdossier');
+        $orphan['bf_dossier-wiki'] = '';
+
+        $page = $this->dashboard->select([$orphan], [], $this->current, []);
+
+        $this->assertTrue($page['fiches'][0]['problems']['noFolder']);
+        $this->assertSame(1, $page['counts']['failed']);
+    }
+
+    public function testAFolderNobodyCheckedOnDiskIsNotAccused()
+    {
+        $page = $this->dashboard->select([$this->fiche('alpha')], [], $this->current, []);
+
+        $this->assertFalse($page['fiches'][0]['problems']['missingWiki'], 'not knowing is not the same as missing');
+        $this->assertSame(1, $page['counts']['unmeasured']);
     }
 
     public function testAWikiOnAnotherVersionOrAnOlderReleaseIsToUpdate()
@@ -111,6 +176,7 @@ class FarmDashboardTest extends YesWikiTestCase
                 'moyen' => $this->stats(['entries' => 50]),
             ],
             $this->current,
+            [],
             '',
             '',
             'entries',
@@ -127,6 +193,7 @@ class FarmDashboardTest extends YesWikiTestCase
                 [$this->fiche('inconnu'), $this->fiche('connu')],
                 ['connu' => $this->stats(['entries' => 5])],
                 $this->current,
+                [],
                 '',
                 '',
                 'entries',
@@ -154,7 +221,7 @@ class FarmDashboardTest extends YesWikiTestCase
         $fiches[1]['bf_mail'] = 'contact@exemple.org';
 
         foreach (['second', 'contact@', 'beta'] as $needle) {
-            $page = $this->dashboard->select($fiches, [], $this->current, $needle);
+            $page = $this->dashboard->select($fiches, [], $this->current, [], $needle);
             $this->assertSame(1, $page['filtered'], 'searching ' . $needle);
             $this->assertSame('beta', $page['fiches'][0]['bf_dossier-wiki']);
         }
@@ -167,7 +234,7 @@ class FarmDashboardTest extends YesWikiTestCase
             $fiches[] = $this->fiche('wiki' . str_pad((string)$i, 2, '0', STR_PAD_LEFT));
         }
 
-        $page = $this->dashboard->select($fiches, [], $this->current, '', '', 'title', 'asc', 20, 10);
+        $page = $this->dashboard->select($fiches, [], $this->current, [], '', '', 'title', 'asc', 20, 10);
 
         $this->assertCount(5, $page['fiches']);
         $this->assertSame(25, $page['total']);
@@ -181,6 +248,7 @@ class FarmDashboardTest extends YesWikiTestCase
             [$this->fiche('b', 'beta'), $this->fiche('a', 'alpha')],
             [],
             $this->current,
+            [],
             '',
             'pasunfiltre',
             'DROP TABLE'

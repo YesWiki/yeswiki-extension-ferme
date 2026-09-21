@@ -83,6 +83,34 @@ class WikiStatsStoreTest extends YesWikiTestCase
         $this->assertSame(741, $this->store->read($folder)['users']);
     }
 
+    public function testTouchingMovesTheCheckDateAndNothingElse()
+    {
+        $folder = $this->folder();
+        $this->store->save($folder, $this->measurements());
+        $saved = $this->store->read($folder);
+        $rows = $this->countTriples();
+
+        sleep(1);
+        $this->store->touch($folder);
+
+        $touched = $this->store->read($folder);
+        $this->assertNotSame($saved['checkedAt'], $touched['checkedAt'], 'the check date moved');
+        $this->assertSame($saved['computedAt'], $touched['computedAt'], 'the numbers are still from when they were made');
+        $this->assertSame($saved['entries'], $touched['entries']);
+        $this->assertSame($rows, $this->countTriples(), 'and nothing was rewritten');
+    }
+
+    public function testTouchingAWikiNobodyMeasuredWritesNothing()
+    {
+        $folder = $this->folder();
+        $rows = $this->countTriples();
+
+        $this->store->touch($folder);
+
+        $this->assertNull($this->store->read($folder));
+        $this->assertSame($rows, $this->countTriples());
+    }
+
     public function testAFailedRunKeepsTheNumbersOfTheLastGoodOne()
     {
         $folder = $this->folder();
@@ -166,6 +194,59 @@ class WikiStatsStoreTest extends YesWikiTestCase
         $this->store->fail($folder, str_repeat('é', 400));
 
         $this->assertSame(255, mb_strlen($this->store->read($folder)['error']));
+    }
+
+    public function testTwoFoldersDifferingOnlyInCaseAreTwoWikis()
+    {
+        $lower = 'fermetest' . bin2hex(random_bytes(5));
+        $upper = strtoupper($lower);
+        $this->folders[] = $lower;
+        $this->folders[] = $upper;
+
+        $this->store->save($lower, array_merge($this->measurements(), ['entries' => 11]));
+        $this->store->save($upper, array_merge($this->measurements(), ['entries' => 22]));
+
+        $this->assertSame(11, $this->store->read($lower)['entries'], 'the second save must not have erased the first');
+        $this->assertSame(22, $this->store->read($upper)['entries']);
+
+        $both = $this->store->readMany([$lower, $upper]);
+        $this->assertSame(11, $both[$lower]['entries']);
+        $this->assertSame(22, $both[$upper]['entries']);
+
+        $this->assertSame(11, $this->store->readMany([$lower])[$lower]['entries'] ?? null, 'asking for one must not answer with the other');
+        $this->assertArrayNotHasKey($upper, $this->store->readMany([$lower]));
+    }
+
+    public function testForgettingOneCaseLeavesTheOtherAlone()
+    {
+        $lower = 'fermetest' . bin2hex(random_bytes(5));
+        $upper = strtoupper($lower);
+        $this->folders[] = $lower;
+        $this->folders[] = $upper;
+        $this->store->save($lower, $this->measurements());
+        $this->store->save($upper, $this->measurements());
+
+        $this->store->forget($upper);
+
+        $this->assertNull($this->store->read($upper));
+        $this->assertNotNull($this->store->read($lower), 'its twin is a different wiki');
+    }
+
+    public function testTouchingOneCaseDoesNotMoveTheOthersDate()
+    {
+        $lower = 'fermetest' . bin2hex(random_bytes(5));
+        $upper = strtoupper($lower);
+        $this->folders[] = $lower;
+        $this->folders[] = $upper;
+        $this->store->save($lower, $this->measurements());
+        $this->store->save($upper, $this->measurements());
+        $untouched = $this->store->read($upper)['checkedAt'];
+
+        sleep(1);
+        $this->store->touch($lower);
+
+        $this->assertNotSame($untouched, $this->store->read($lower)['checkedAt']);
+        $this->assertSame($untouched, $this->store->read($upper)['checkedAt']);
     }
 
     public function testAFolderNameThatIsNotOneIsRefused()

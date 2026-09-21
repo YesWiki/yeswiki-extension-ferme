@@ -211,6 +211,36 @@ commande ne peut pas écrire est signalé en échec : il n'y a pas de `sudo` ici
   en échec est signalé et la série continue, comme dans la page d'administration ;
   `--stop-on-error` arrête tout au premier échec.
 
+Les statistiques viennent d'une passe `ferme:stats`, à mettre au cron. Toutes les
+quinze minutes suffisent largement, une passe sur 2 700 wikis tenant en quelques
+secondes puisque presque tous sont écartés par deux sondes :
+
+```
+*/15 * * * * cd /chemin/de/la/ferme && /usr/bin/php includes/commands/console ferme:stats --stale=10m >> private/logs/ferme-stats.log 2>&1
+```
+
+`--stale` doit rester plus court que la période du cron, sinon les passages suivants
+écartent tout et ne font rien. Deux passages ne peuvent pas se chevaucher, un verrou
+s'en charge, donc une passe lente ne s'empile pas sur la suivante.
+
+Pour vérifier que ça tourne vraiment, `ferme:stats --check=30m` ne mesure rien, dit
+quelle est la mesure la plus ancienne de la ferme et sort en erreur si un wiki dépasse
+la cible. C'est la ligne à donner à une supervision :
+
+```
+*/30 * * * * cd /chemin/de/la/ferme && /usr/bin/php includes/commands/console ferme:stats --check=30m || echo "les stats de la ferme ne se mettent plus à jour" | mail -s "ferme" admin@exemple.org
+```
+
+Les statistiques se rafraîchissent aussi toutes seules sans cron : après qu'une page
+du wiki maître a été servie, et au plus une fois par intervalle, un lot de wikis est
+remesuré une fois le visiteur parti, sans qu'il attende. Par défaut, un lot de 100
+toutes les 5 minutes, soit 1200 wikis à l'heure : une ferme jusqu'à 1000 wikis a donc
+ses statistiques à jour toutes les heures, pourvu que le maître reçoive une visite par
+intervalle. La formule est `3600 ÷ intervalle × lot`, à ajuster avec
+`yeswiki-farm-stats-interval` et `yeswiki-farm-stats-per-visit` pour une ferme plus
+grande. `'yeswiki-farm-stats-on-visit' => false` coupe tout, ce qu'il faut faire quand
+le cron est en place. Les trois réglages sont modifiables depuis `{{editconfig}}`.
+
 Personne n'a à mettre les extensions à jour à la main : la commande va chercher
 au dépôt la version publiée pour la version de YesWiki visée, et ne télécharge
 que les extensions qui en ont besoin. Elles passent toujours avant `migrate`,
