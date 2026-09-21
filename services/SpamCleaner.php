@@ -26,6 +26,9 @@ class SpamCleaner
     public const WORDS_FOR_SPAM = 2;
     public const LINKS_FOR_SPAM = 50;
     public const LINKS_FOR_SPAM_LINE = 5;
+    public const TEXT_BESIDE_LINK = 20;
+    public const LINES_FOR_LINK_FARM = 10;
+    public const SHARE_FOR_LINK_FARM = 0.6;
 
     private $wiki;
     private $config;
@@ -33,6 +36,7 @@ class SpamCleaner
     private $lock;
     private $hibernator;
     private $refresher;
+    private $fingerprints;
 
     public function __construct(
         \YesWiki\Wiki $wiki,
@@ -40,7 +44,8 @@ class SpamCleaner
         WikiDatabase $database,
         FolderLock $lock,
         WikiHibernator $hibernator,
-        StatsRefresher $refresher
+        StatsRefresher $refresher,
+        SpamFingerprints $fingerprints
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -48,6 +53,7 @@ class SpamCleaner
         $this->lock = $lock;
         $this->hibernator = $hibernator;
         $this->refresher = $refresher;
+        $this->fingerprints = $fingerprints;
     }
 
     /**
@@ -85,19 +91,18 @@ class SpamCleaner
      */
     public function clean(string $folder, bool $dryRun = true): array
     {
-        if (!$dryRun) {
-            $this->hibernator->refuseIfAsleep($folder);
-        }
         $wakkaConfig = $this->config->readWikiConfig($folder);
         if (empty($wakkaConfig['table_prefix'])) {
             throw new WikiStatsException($folder, _t('FERME_CLI_NO_CONFIG_FILE'));
         }
 
         return $this->lock->during($this->config->wikiDir($folder), _t('FERME_LOCK_CLEAN'), function () use ($folder, $wakkaConfig, $dryRun) {
-            $db = $this->database->connect($wakkaConfig);
+            $awoken = $dryRun ? false : $this->wakeUp($folder, $wakkaConfig);
+            $db = null;
             $prefix = (string)$wakkaConfig['table_prefix'];
 
             try {
+                $db = $this->database->connect($wakkaConfig);
                 $pages = $this->look($db, $prefix);
                 $todo = array_values(array_filter($pages, function (array $page) {
                     return $page['action'] !== 'keep';
@@ -127,9 +132,29 @@ class SpamCleaner
                     'dump' => $dump,
                 ];
             } finally {
-                $db->close();
+                if ($db !== null) {
+                    $db->close();
+                }
+                if ($awoken) {
+                    $this->hibernator->hibernate($folder);
+                }
             }
         });
+    }
+
+    /**
+     * A sleeping wiki is cleaned like any other, and goes back to sleep after. The
+     * farm writes to its database directly, so the status does not stand in the
+     * way — waking it is what keeps the wiki honest about its own state while
+     * somebody is working on it.
+     */
+    private function wakeUp(string $folder, array $wakkaConfig): bool
+    {
+        if (!WikiHibernator::isAsleep(trim((string)($wakkaConfig['wiki_status'] ?? '')))) {
+            return false;
+        }
+
+        return $this->hibernator->wake($folder)['changed'];
     }
 
     /**
@@ -143,19 +168,18 @@ class SpamCleaner
      */
     public function repair(string $folder, bool $dryRun = true): array
     {
-        if (!$dryRun) {
-            $this->hibernator->refuseIfAsleep($folder);
-        }
         $wakkaConfig = $this->config->readWikiConfig($folder);
         if (empty($wakkaConfig['table_prefix'])) {
             throw new WikiStatsException($folder, _t('FERME_CLI_NO_CONFIG_FILE'));
         }
 
-        return $this->lock->during($this->config->wikiDir($folder), _t('FERME_LOCK_CLEAN'), function () use ($wakkaConfig, $dryRun) {
-            $db = $this->database->connect($wakkaConfig);
+        return $this->lock->during($this->config->wikiDir($folder), _t('FERME_LOCK_CLEAN'), function () use ($folder, $wakkaConfig, $dryRun) {
+            $awoken = $dryRun ? false : $this->wakeUp($folder, $wakkaConfig);
+            $db = null;
             $table = $this->database->table((string)$wakkaConfig['table_prefix'], 'pages');
 
             try {
+                $db = $this->database->connect($wakkaConfig);
                 $headless = [];
                 $result = $db->query(
                     'SELECT tag FROM `' . $table . '` GROUP BY tag HAVING SUM(latest = "Y") = 0'
@@ -180,7 +204,12 @@ class SpamCleaner
 
                 return ['repaired' => $headless, 'pages' => count($headless)];
             } finally {
-                $db->close();
+                if ($db !== null) {
+                    $db->close();
+                }
+                if ($awoken) {
+                    $this->hibernator->hibernate($folder);
+                }
             }
         });
     }
@@ -200,9 +229,9 @@ class SpamCleaner
      * The one rule: what the cleaning would touch. The statistics ask it too, so a
      * wiki is marked "contenu spammé" when — and only when — there is work here.
      */
-    public static function isSpamPage(string $body, int $words, int $links, string $hosts = ''): bool
+    public static function isSpamPage(string $body, int $words, int $links, string $hosts = '', bool $campaign = false): bool
     {
-        if ($words >= self::WORDS_FOR_SPAM || $links >= self::LINKS_FOR_SPAM) {
+        if ($campaign || $words >= self::WORDS_FOR_SPAM || $links >= self::LINKS_FOR_SPAM) {
             return true;
         }
 
@@ -210,13 +239,49 @@ class SpamCleaner
     }
 
     /**
+     * The lines of a page that is little more than a stack of links, by their
+     * position. This decides what a cleaning takes out, never whether a page is
+     * spam: a page listing its resources looks the same from far away, and only
+     * pages already condemned are ever stripped.
+     *
+     * @param array<int,string> $lines
+     *
+     * @return array<int,true> the indexes of the lines to take out
+     */
+    public static function linkFarm(array $lines): array
+    {
+        $farm = [];
+        $written = 0;
+        foreach ($lines as $index => $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+            $written++;
+            if (preg_match('#https?://#i', $line) !== 1 || str_contains($line, '{{')) {
+                continue;
+            }
+            $beside = trim((string)preg_replace('#\[\[|\]\]|https?://\S+#i', '', $line));
+            if (strlen($beside) <= self::TEXT_BESIDE_LINK) {
+                $farm[$index] = true;
+            }
+        }
+
+        return count($farm) >= self::LINES_FOR_LINK_FARM && count($farm) / max(1, $written) >= self::SHARE_FOR_LINK_FARM
+            ? $farm
+            : [];
+    }
+
+    /**
      * A body with nothing left once the spam is out is a page the robot wrote.
      */
-    public static function strip(string $body, string $hosts = ''): string
+    public static function strip(string $body, string $hosts = '', ?SpamFingerprints $campaigns = null): string
     {
+        $lines = preg_split(self::LINES, $body) ?: [];
+        $farm = self::linkFarm($lines);
+
         $kept = [];
-        foreach (preg_split(self::LINES, $body) ?: [] as $line) {
-            if (self::isSpamLine($line, $hosts)) {
+        foreach ($lines as $index => $line) {
+            if (isset($farm[$index]) || self::isSpamLine($line, $hosts) || ($campaigns !== null && $campaigns->isKnownLine($line))) {
                 continue;
             }
             $kept[] = $line;
@@ -255,7 +320,7 @@ class SpamCleaner
             $body = (string)($row['body'] ?? '');
             $words = preg_match_all(WikiStats::SPAM_VOCABULARY, $body);
             $links = preg_match_all('#https?://#i', $body);
-            if (!self::isSpamPage($body, (int)$words, (int)$links, $hosts)) {
+            if (!self::isSpamPage($body, (int)$words, (int)$links, $hosts, $this->fingerprints->isCampaignPage($body))) {
                 continue;
             }
 
@@ -286,7 +351,7 @@ class SpamCleaner
             return 'delete';
         }
 
-        return self::strip($body, $this->hosts()) === '' ? 'delete' : 'strip';
+        return self::strip($body, $this->hosts(), $this->fingerprints) === '' ? 'delete' : 'strip';
     }
 
     private function startsWithSkeleton(string $tag): bool
@@ -375,7 +440,7 @@ class SpamCleaner
             return;
         }
 
-        $cleaned = self::strip((string)$row['body'], $this->hosts());
+        $cleaned = self::strip((string)$row['body'], $this->hosts(), $this->fingerprints);
 
         $db->begin_transaction();
 

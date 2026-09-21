@@ -3,17 +3,36 @@
 namespace YesWiki\Test\Ferme\Service;
 
 use PHPUnit\Framework\Attributes\CoversMethod;
+use YesWiki\Ferme\Service\FarmConfig;
+use YesWiki\Ferme\Service\FileSystem;
+use YesWiki\Ferme\Service\FolderLock;
 use YesWiki\Ferme\Service\SpamCleaner;
+use YesWiki\Ferme\Service\SpamFingerprints;
+use YesWiki\Ferme\Service\StatsRefresher;
+use YesWiki\Ferme\Service\WikiDatabase;
+use YesWiki\Ferme\Service\WikiHibernator;
 use YesWiki\Test\Core\YesWikiTestCase;
 
 require_once 'tests/YesWikiTestCase.php';
 
 #[CoversMethod(SpamCleaner::class, 'strip')]
+#[CoversMethod(SpamCleaner::class, 'clean')]
 class SpamCleanerTest extends YesWikiTestCase
 {
+    /** @var array<int,string> */
+    private array $temporary = [];
+
     protected function setUp(): void
     {
         self::getWiki();
+    }
+
+    protected function tearDown(): void
+    {
+        foreach ($this->temporary as $path) {
+            (new FileSystem())->rrmdir($path);
+        }
+        $this->temporary = [];
     }
 
     public function testTheLinesCarryingTheSpamGoAndTheRestStays()
@@ -87,6 +106,83 @@ class SpamCleanerTest extends YesWikiTestCase
         $this->assertTrue(
             SpamCleaner::isSpamPage('blog [[https://first42.fr/ ici]]', 0, 1, 'first42\\.fr'),
             'un domaine de campagne suffit, même sur une ligne'
+        );
+    }
+
+    public function testAPageThatIsNothingButAStackOfLinksIsCleared()
+    {
+        $body = "====== Page Fan ======\n";
+        for ($i = 0; $i < 12; $i++) {
+            $body .= 'https://boutique' . $i . '.example/ Basket ' . $i . "\n";
+        }
+        $body = trim($body);
+
+        $this->assertSame('====== Page Fan ======', SpamCleaner::strip($body));
+    }
+
+    public function testAPageListingItsResourcesKeepsThem()
+    {
+        $body = "====== Nos ressources ======\n"
+            . "Voici les pads que nous utilisons pour la formation de mai.\n"
+            . "Formation BPJeps mai 2026 : [[https://pad.example.org/bpjeps le pad de la session]]\n"
+            . "Formation ASEC juin 2026 : [[https://pad.example.org/asec le pad de la session]]\n"
+            . 'Compte rendu de la réunion : [[https://pad.example.org/cr le pad de la réunion]]';
+
+        $this->assertSame($body, SpamCleaner::strip($body));
+    }
+
+    public function testASleepingWikiIsWokenForTheCleaningAndPutBackToSleepEvenOnAFailure()
+    {
+        $hibernator = $this->createMock(WikiHibernator::class);
+        $hibernator->expects($this->once())->method('wake')->willReturn(['changed' => true, 'status' => 'running', 'before' => 'hibernate']);
+        $hibernator->expects($this->once())->method('hibernate')->willReturn(['changed' => true, 'status' => 'hibernate', 'before' => 'running']);
+
+        $database = $this->createStub(WikiDatabase::class);
+        $database->method('connect')->willThrowException(new \RuntimeException('base injoignable'));
+
+        $this->expectException(\RuntimeException::class);
+        $this->cleaner($hibernator, 'hibernate', $database)->clean('monwiki', false);
+    }
+
+    public function testAWikiInServiceIsNeitherWokenNorPutToSleep()
+    {
+        $hibernator = $this->createMock(WikiHibernator::class);
+        $hibernator->expects($this->never())->method('wake');
+        $hibernator->expects($this->never())->method('hibernate');
+
+        $database = $this->createStub(WikiDatabase::class);
+        $database->method('connect')->willThrowException(new \RuntimeException('base injoignable'));
+
+        $this->expectException(\RuntimeException::class);
+        $this->cleaner($hibernator, '', $database)->clean('monwiki', false);
+    }
+
+    private function cleaner(WikiHibernator $hibernator, string $status, ?WikiDatabase $database = null): SpamCleaner
+    {
+        $tmp = sys_get_temp_dir() . '/ferme-nettoyage-' . bin2hex(random_bytes(6));
+        mkdir($tmp, 0777, true);
+        $this->temporary[] = $tmp;
+
+        $config = $this->createStub(FarmConfig::class);
+        $config->method('wikiDir')->willReturn($tmp . '/monwiki/');
+        $config->method('readWikiConfig')->willReturn(['table_prefix' => 'yw_', 'wiki_status' => $status]);
+
+        $lock = new FolderLock();
+        $lock->useDirectory($tmp . '/locks');
+
+        if ($database === null) {
+            $database = $this->createStub(WikiDatabase::class);
+            $database->method('connect')->willThrowException(new \RuntimeException('base injoignable'));
+        }
+
+        return new SpamCleaner(
+            self::getWiki(),
+            $config,
+            $database,
+            $lock,
+            $hibernator,
+            $this->createStub(StatsRefresher::class),
+            $this->createStub(SpamFingerprints::class)
         );
     }
 

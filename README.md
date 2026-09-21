@@ -247,6 +247,22 @@ Un wiki qui sort du modèle et que personne n'a touché a une signature reconnai
 autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
 `--min-users=2` écartent. Pour se faire une idée avant de choisir les seuils,
 `ferme:list --format=csv` sort une colonne par chiffre, qui se trie dans un tableur.
+- **`ferme:clean-spam`** retire des wikis ce que les robots y ont écrit : une page
+  qu'ils ont créée de toutes pièces est supprimée, une page du wiki dont ils ont
+  gâché quelques lignes garde son histoire, perd ces lignes-là et passe en écriture
+  au groupe admin. Tout ce qui part est écrit dans les sauvegardes de la ferme
+  avant de partir. `--dry-run` d'abord, `--list` détaille page par page, `--repair`
+  rend sa dernière révision à une page qui n'en a plus.
+- **`ferme:spam-index`** recense les lignes porteuses de liens que plusieurs wikis
+  affichent. Une même ferme donne le même modèle à tous ses wikis : une ligne n'est
+  donc retenue que si elle vient d'une page déjà condamnée **et** qu'aucune page
+  saine, nulle part, ne la porte. Ce que cela attrape, c'est le bloc de liens collé
+  dans cinquante wikis, que rien d'autre ne voit : les mots du lexique n'y sont pas,
+  les domaines changent, et un seul lien par ligne passe sous la règle des lignes
+  denses. Sur une ferme de 3 149 wikis, l'index retient 14 000 lignes, en écarte 129
+  parce qu'une page saine les porte, et fait passer le spam vu de 175 wikis à 411.
+  `--min` règle le nombre de wikis qui fait une campagne, `--show` montre l'index.
+  `ferme:stats` le reconstruit tout seul une fois par semaine.
 - **`ferme:config`** écrit et retire des clés dans le `wakka.config.php` de chaque
   wiki : `--set cle=valeur` (répétable, les points font des tableaux imbriqués,
   `int:5`, `json:{...}`, `true`, `false` et `null` gardent leur type) et

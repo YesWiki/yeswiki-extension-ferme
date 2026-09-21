@@ -8,6 +8,8 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
 use YesWiki\Ferme\Service\FolderLock;
+use YesWiki\Ferme\Service\SpamCleaner;
+use YesWiki\Ferme\Service\SpamFingerprints;
 use YesWiki\Ferme\Service\StatsRefresher;
 use YesWiki\Ferme\Service\WikiArchiver;
 use YesWiki\Ferme\Service\WikiStatsStore;
@@ -16,11 +18,14 @@ use YesWiki\Wiki;
 class StatsCommand extends AbstractFarmCommand
 {
     private const LOCK_FILE = 'cache/ferme-stats.lock';
+    private const INDEX_AGE = 604800;
 
     protected $store;
     protected $refresher;
     protected $folderLock;
     protected $archiver;
+    protected $fingerprints;
+    protected $cleaner;
 
     public function __construct(Wiki &$wiki)
     {
@@ -29,6 +34,8 @@ class StatsCommand extends AbstractFarmCommand
         $this->refresher = $wiki->services->get(StatsRefresher::class);
         $this->folderLock = $wiki->services->get(FolderLock::class);
         $this->archiver = $wiki->services->get(WikiArchiver::class);
+        $this->fingerprints = $wiki->services->get(SpamFingerprints::class);
+        $this->cleaner = $wiki->services->get(SpamCleaner::class);
     }
 
     protected function configure()
@@ -70,6 +77,7 @@ class StatsCommand extends AbstractFarmCommand
                 return Command::SUCCESS;
             }
 
+            $campaigns = $dryRun ? 0 : $this->refreshIndex($output);
             $orphans = $this->sweepOrphans($input, $output, $wikis);
             $counters = $this->refresh($input, $output, $wikis);
             $staleLocks = $dryRun ? 0 : $this->folderLock->prune();
@@ -91,6 +99,7 @@ class StatsCommand extends AbstractFarmCommand
                 _t('FERME_CLI_STATS_WALKED') => $counters['walked'],
                 _t('FERME_CLI_STATS_UNCHANGED') => $counters['unchanged'],
                 _t('FERME_CLI_STATS_ORPHANS') => count($orphans),
+                _t('FERME_CLI_INDEX_KEPT') => $campaigns,
                 _t('FERME_CLI_STATS_STALE_LOCKS') => $staleLocks,
                 _t('FERME_CLI_STATS_PRIVATE_MADE') => $tidied['private'],
                 _t('FERME_CLI_STATS_ARCHIVES_SWEPT') => $tidied['archives'],
@@ -276,6 +285,22 @@ class StatsCommand extends AbstractFarmCommand
         }
 
         return $handle;
+    }
+
+    /**
+     * The campaign index is rebuilt once a week: reading every wiki is too long to
+     * do on every sweep, and a robot's block does not appear and vanish in a day.
+     */
+    private function refreshIndex(OutputInterface $output): int
+    {
+        $about = $this->fingerprints->about();
+        if ($about !== null && strtotime($about['builtAt']) > time() - self::INDEX_AGE) {
+            return $about['kept'];
+        }
+
+        $output->writeln('<comment>' . _t('FERME_CLI_INDEX_SUMMARY') . '</comment>');
+
+        return $this->fingerprints->build($this->cleaner->hosts())['kept'];
     }
 
     /**

@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\CoversMethod;
 use YesWiki\Ferme\Exception\WikiStatsException;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FileSystem;
+use YesWiki\Ferme\Service\SpamFingerprints;
 use YesWiki\Ferme\Service\WikiDatabase;
 use YesWiki\Ferme\Service\WikiStats;
 use YesWiki\Test\Core\YesWikiTestCase;
@@ -239,7 +240,7 @@ class WikiStatsTest extends YesWikiTestCase
             return $prefix . $name;
         });
 
-        $stats = new WikiStats(self::getWiki(), $this->farmConfig(), $database);
+        $stats = new WikiStats(self::getWiki(), $this->farmConfig(), $database, $this->createStub(SpamFingerprints::class));
         $stats->fromDatabase('monwiki');
         $stats->fromDatabase('monwiki');
         $stats->probe('monwiki');
@@ -296,7 +297,7 @@ class WikiStatsTest extends YesWikiTestCase
 
     private function stats(?array $configOverride = null): WikiStats
     {
-        return new WikiStats(self::getWiki(), $this->farmConfig($configOverride), new WikiDatabase());
+        return new WikiStats(self::getWiki(), $this->farmConfig($configOverride), new WikiDatabase(), $this->createStub(SpamFingerprints::class));
     }
 
     private function farmConfig(?array $configOverride = null): FarmConfig

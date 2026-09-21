@@ -21,13 +21,15 @@ class WikiStats
     private $wiki;
     private $config;
     private $database;
+    private $fingerprints;
     private $connections = [];
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, SpamFingerprints $fingerprints)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->database = $database;
+        $this->fingerprints = $fingerprints;
     }
 
     /**
@@ -234,7 +236,7 @@ class WikiStats
                 $hosts[$host] = ($hosts[$host] ?? 0) + 1;
             }
 
-            if (SpamCleaner::isSpamPage($body, $itsWords, $itsLinks, $known)) {
+            if (SpamCleaner::isSpamPage($body, $itsWords, $itsLinks, $known, $this->fingerprints->isCampaignPage($body))) {
                 $dirty++;
             }
         }
