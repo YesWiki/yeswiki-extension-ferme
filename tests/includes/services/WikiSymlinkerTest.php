@@ -62,6 +62,50 @@ class WikiSymlinkerTest extends YesWikiTestCase
         $this->assertSame(6, $plan['javascripts']['bytes'], 'les deux fichiers du dossier');
     }
 
+    public function testAThemeIsLentEvenWhenTheMasterAloneCarriesItsVersionFile()
+    {
+        $this->wikiApp->config['yeswiki-farm-lent-files'] = ['themes/margot'];
+        mkdir($this->master . '/themes/margot/vendor/composer', 0777, true);
+        mkdir($this->wikiDir . '/themes/margot', 0777, true);
+        file_put_contents($this->master . '/themes/margot/margot.css', 'body{}');
+        file_put_contents($this->wikiDir . '/themes/margot/margot.css', 'body{}');
+        file_put_contents($this->master . '/themes/margot/infos.json', '{"name":"margot","release":"1.1.8"}');
+        file_put_contents($this->master . '/themes/margot/vendor/composer/ClassLoader.php', '<?php');
+
+        $plan = $this->byEntry($this->linker()->inspect($this->wikiDir));
+
+        $this->assertSame('link', $plan['themes/margot']['action'], 'le marqueur de version et l\'autoloader ne font pas un thème différent');
+    }
+
+    public function testAThemeWhoseStylesDifferIsStillLeftAlone()
+    {
+        $this->wikiApp->config['yeswiki-farm-lent-files'] = ['themes/margot'];
+        mkdir($this->master . '/themes/margot', 0777, true);
+        mkdir($this->wikiDir . '/themes/margot', 0777, true);
+        file_put_contents($this->master . '/themes/margot/margot.css', 'body{}');
+        file_put_contents($this->master . '/themes/margot/infos.json', '{"release":"1.1.8"}');
+        file_put_contents($this->wikiDir . '/themes/margot/margot.css', 'body{ color: rebeccapurple; }');
+
+        $plan = $this->byEntry($this->linker()->inspect($this->wikiDir));
+
+        $this->assertSame('keep', $plan['themes/margot']['action']);
+    }
+
+    public function testACacheALibraryLeftBehindIsNotAModification()
+    {
+        $this->wikiApp->config['yeswiki-farm-lent-files'] = ['vendor'];
+        $cache = '/vendor/ezyang/htmlpurifier/library/HTMLPurifier/DefinitionCache/Serializer/CSS';
+        mkdir($this->master . $cache, 0777, true);
+        mkdir($this->wikiDir . '/vendor/ezyang/htmlpurifier/library/HTMLPurifier', 0777, true);
+        file_put_contents($this->master . '/vendor/ezyang/htmlpurifier/library/HTMLPurifier/Lexer.php', '<?php');
+        file_put_contents($this->wikiDir . '/vendor/ezyang/htmlpurifier/library/HTMLPurifier/Lexer.php', '<?php');
+        file_put_contents($this->master . $cache . '/4.19.0,abc,1.ser', 'a:0:{}');
+
+        $plan = $this->byEntry($this->linker()->inspect($this->wikiDir));
+
+        $this->assertSame('link', $plan['vendor']['action']);
+    }
+
     public function testAFolderTheWikiHasChangedIsLeftAlone()
     {
         file_put_contents($this->wikiDir . '/tools/bazar/bazar.php', 'trois, plus un correctif maison');

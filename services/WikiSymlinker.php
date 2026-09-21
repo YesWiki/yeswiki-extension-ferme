@@ -16,6 +16,14 @@ class WikiSymlinker
     public const GUARD_LINK = 'tools/ferme-client';
     public const GUARD_SOURCE = 'tools/ferme/client';
 
+    /**
+     * What a package install writes and nobody edits: the release marker, the
+     * autoloader composer regenerates, and the serialized definitions HTMLPurifier
+     * once left inside its own library. A wiki created before the master gained
+     * them is not a modified wiki, and there are three thousand of those.
+     */
+    public const GENERATED = '#^(infos\.json|(vendor/)?autoload\.php|(vendor/)?composer/)|DefinitionCache/Serializer/#';
+
     private $wiki;
     private $config;
     private $files;
@@ -163,7 +171,7 @@ class WikiSymlinker
 
         $mine = self::inventory($master);
         $its = self::inventory($theirs);
-        if ($mine !== $its) {
+        if (self::comparable($mine) !== self::comparable($its)) {
             return $this->step($entry, 'keep', 0, 'FERME_SYMLINK_DIFFERENT');
         }
 
@@ -235,6 +243,20 @@ class WikiSymlinker
         ksort($found);
 
         return $found;
+    }
+
+    /**
+     * The inventory without what a package install generates.
+     *
+     * @param array<string,int> $inventory
+     *
+     * @return array<string,int>
+     */
+    public static function comparable(array $inventory): array
+    {
+        return array_filter($inventory, function (string $path) {
+            return preg_match(self::GENERATED, $path) !== 1;
+        }, ARRAY_FILTER_USE_KEY);
     }
 
     /**
