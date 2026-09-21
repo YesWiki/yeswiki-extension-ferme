@@ -179,7 +179,8 @@ $(document).ready(function() {
       orderable: false,
       render: function(data, type, row) {
         var html = '<div class="ferme-identity">'
-          + '<strong><a href="' + esc(row.url) + '">' + esc(row.title) + '</a>'
+          + '<strong><a href="' + esc(row.view_url || row.url) + '" title="' + esc(tableI18n.see) + '">'
+          + esc(row.title) + '</a>'
           + (row.url
             ? ' <a class="ferme-open-wiki" href="' + esc(row.url) + '" target="_blank" rel="noopener"'
               + ' title="' + esc(i18n.i18nOpenWiki) + '"><i class="fas fa-external-link-alt"></i></a>'

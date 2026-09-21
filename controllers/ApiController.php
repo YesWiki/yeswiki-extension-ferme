@@ -11,6 +11,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use YesWiki\Core\ApiResponse;
 use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiController;
+use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FarmMailer;
 use YesWiki\Ferme\Service\FarmService;
 use YesWiki\Ferme\Service\SpamCleaner;
@@ -96,7 +97,7 @@ class ApiController extends YesWikiController
     {
         $wikiFolder = trim($request->request->get('folder', ''));
 
-        if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
+        if (!FarmConfig::isSafeName($wikiFolder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -130,7 +131,7 @@ class ApiController extends YesWikiController
     {
         $wikiFolder = trim($request->request->get('folder', ''));
 
-        if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
+        if (!FarmConfig::isSafeName($wikiFolder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -164,7 +165,7 @@ class ApiController extends YesWikiController
     {
         $wikiFolder = trim($request->request->get('folder', ''));
 
-        if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
+        if (!FarmConfig::isSafeName($wikiFolder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -246,7 +247,7 @@ class ApiController extends YesWikiController
     {
         $wikiFolder = trim($request->request->get('folder', ''));
 
-        if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
+        if (!FarmConfig::isSafeName($wikiFolder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
         if (!$this->tokenIsValid()) {
@@ -408,7 +409,7 @@ class ApiController extends YesWikiController
     public function archiveWiki(Request $request)
     {
         $folder = trim($request->request->get('folder', ''));
-        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+        if (!FarmConfig::isSafeName($folder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
         if (!$this->tokenIsValid()) {
@@ -450,7 +451,7 @@ class ApiController extends YesWikiController
     {
         $folder = trim((string)$request->query->get('folder', ''));
         $file = trim((string)$request->query->get('file', ''));
-        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+        if (!FarmConfig::isSafeName($folder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -474,7 +475,7 @@ class ApiController extends YesWikiController
     public function cleanSpam(Request $request)
     {
         $folder = trim($request->request->get('folder', ''));
-        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+        if (!FarmConfig::isSafeName($folder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
         if (!$this->tokenIsValid()) {
@@ -572,11 +573,6 @@ class ApiController extends YesWikiController
             $folders = $single === '' ? [] : [$single];
         }
 
-        foreach ($folders as $folder) {
-            if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
-                return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
-            }
-        }
         if ($folders === [] || count($folders) > self::MAX_PER_BATCH) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
@@ -592,6 +588,12 @@ class ApiController extends YesWikiController
         $farm = $this->getService(FarmService::class);
         $results = [];
         foreach ($folders as $folder) {
+            if (!FarmConfig::isSafeName($folder, true)) {
+                $results[] = ['folder' => $folder, 'success' => false, 'error' => _t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"'];
+
+                continue;
+            }
+
             try {
                 $result = $asleep ? $farm->hibernateWiki($folder) : $farm->wakeWiki($folder);
                 $results[] = [
@@ -620,7 +622,7 @@ class ApiController extends YesWikiController
     {
         $folder = trim($request->request->get('folder', ''));
 
-        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+        if (!FarmConfig::isSafeName($folder, true)) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
