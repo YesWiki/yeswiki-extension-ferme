@@ -149,6 +149,14 @@ class FarmService
         return $this->remover->deleteForApi($idFiche);
     }
 
+    /**
+     * @return array<int,string> the other farm entries pointing at that wiki
+     */
+    public function entriesClaiming(string $folder, string $idFiche): array
+    {
+        return $this->remover->otherEntriesClaiming($folder, $idFiche);
+    }
+
     public function deleteWikiFromEntry($id)
     {
         $this->remover->deleteFromEntry($id);

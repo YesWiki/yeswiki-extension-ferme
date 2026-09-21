@@ -88,6 +88,20 @@ $(document).ready(function() {
     return answered.promise();
   }
 
+  /**
+   * Keeps the wiki being worked on in sight, and says where the run is in the
+   * title, because a batch of two hundred otherwise scrolls away from the reader.
+   */
+  function follow(modal, listSelector, $item, index, total) {
+    $(modal).find('.ferme-progress').text(total > 0 ? (index + 1) + ' / ' + total : '');
+
+    var $list = $(listSelector);
+    if (!$list.length || !$item.length || !$item[0]) { return; }
+
+    var haut = $item[0].offsetTop - $list[0].offsetTop;
+    $list.stop(true).animate({ scrollTop: haut - ($list.height() - $item.outerHeight()) / 2 }, 150);
+  }
+
   function summarise($list, ok, failed) {
     var text = String(i18n.i18nRunSummary || '%{ok} / %{failed}')
       .replace('%{ok}', ok)
@@ -603,6 +617,7 @@ $(document).ready(function() {
 
     if (index >= wikis.length) {
       summarise($('#mail-wikis-list'), done.ok, done.failed);
+      $('#mail-selected-modal').find('.ferme-progress').text('');
       $('#btn-close-mail-modal').prop('disabled', false);
 
       return;
@@ -610,6 +625,8 @@ $(document).ready(function() {
 
     var wiki = wikis[index];
     var $item = $('#mail-item-' + wiki.folder);
+    follow('#mail-selected-modal', '#mail-wikis-list', $item, index, wikis.length);
+
     $item.find('.mail-icon').attr('class', 'fas fa-spinner fa-spin mail-icon text-info');
     $item.find('.mail-badge').text(i18n.i18nMailSending).css('background-color', '#5bc0de');
 
@@ -679,6 +696,7 @@ $(document).ready(function() {
 
     if (index >= wikis.length) {
       summarise($('#delete-wikis-list'), done.ok, done.failed);
+      $('#delete-selected-modal').find('.ferme-progress').text('');
       $('#btn-close-delete-modal').prop('disabled', false);
       wikisTable.ajax.reload(null, false);
       return;
@@ -686,6 +704,8 @@ $(document).ready(function() {
 
     var wiki = wikis[index];
     var $item = $('#delete-item-' + wiki.folder);
+    follow('#delete-selected-modal', '#delete-wikis-list', $item, index, wikis.length);
+
     $item.find('.delete-icon').attr('class', 'fas fa-spinner fa-spin delete-icon text-info');
     $item.find('.delete-badge').text(i18n.deleting).css('background-color', '#5bc0de');
 
@@ -776,6 +796,7 @@ $(document).ready(function() {
 
     if (index >= wikis.length) {
       summarise($('#admin-wikis-list'), done.ok, done.failed);
+      $('#admin-selected-modal').find('.ferme-progress').text('');
       $('#btn-close-admin-modal').prop('disabled', false);
       wikisTable.ajax.reload(null, false);
       return;
@@ -783,6 +804,8 @@ $(document).ready(function() {
 
     var wiki = wikis[index];
     var $item = $('#admin-item-' + wiki.folder);
+    follow('#admin-selected-modal', '#admin-wikis-list', $item, index, wikis.length);
+
     $item.find('.admin-icon').attr('class', 'fas fa-spinner fa-spin admin-icon text-info');
     $item.find('.admin-badge').text(i18n.inProgress).css('background-color', '#5bc0de');
 
@@ -905,6 +928,7 @@ $(document).ready(function() {
 
     if (index >= wikis.length) {
       summarise($('#upgrade-wikis-list'), done.ok, done.failed);
+      $('#upgrade-selected-modal').find('.ferme-progress').text('');
       $('#btn-close-upgrade-modal').prop('disabled', false);
       wikisTable.ajax.reload(null, false);
       return;
@@ -912,6 +936,7 @@ $(document).ready(function() {
 
     var wiki = wikis[index];
     var $item = $('#upgrade-item-' + wiki.folder);
+    follow('#upgrade-selected-modal', '#upgrade-wikis-list', $item, index, wikis.length);
 
     $item.find('.upgrade-icon').attr('class', 'fas fa-spinner fa-spin upgrade-icon text-info');
     $item.find('.upgrade-badge').text(i18n.inProgress).css('background-color', '#5bc0de');

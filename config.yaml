@@ -25,6 +25,10 @@ parameters:
   yeswiki-farm-spam-threshold: 3
   # words of your own to add to the ones above, as a regular expression fragment
   yeswiki-farm-spam-words: ''
+  # a Mattermost incoming webhook, to be told when a wiki is created or deleted.
+  # The message carries a link to the entry's deletion page, which asks for a login
+  # and a confirmation like any other, so nothing here is a button that deletes.
+  yeswiki-farm-mattermost-webhook: ''
   contact_wikis:
     default_template: 'list-email.twig'
   yeswiki_symlinked_files:
@@ -110,6 +114,17 @@ parameters:
     - 'yeswiki-farm-stats-per-visit'
     - 'yeswiki-farm-spam-threshold'
     - 'yeswiki-farm-spam-words'
+    # comptes créés dans chaque wiki
+    - 'yeswiki-farm-create-user'
+    - 'yeswiki-farm-default-WikiAdmin'
+    - 'yeswiki-farm-password-WikiAdmin'
+    - 'yeswiki-farm-email-WikiAdmin'
+    # le reste de la ferme
+    - 'yeswiki-farm-prefix'
+    - 'yeswiki-farm-homepage'
+    - 'yeswiki-farm-bg-img'
+    - 'contact_wikis[default_template]'
+    - 'yeswiki-farm-mattermost-webhook'
 services:
   _defaults:
     autowire: true

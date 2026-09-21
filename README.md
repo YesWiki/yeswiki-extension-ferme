@@ -296,6 +296,25 @@ dans son menu d'actions.
 Un `custom/` réapparu entre-temps part dans le dossier de sauvegarde, jamais à la
 poubelle.
 
+Avec `yeswiki-farm-mattermost-webhook`, un salon Mattermost reçoit un message à
+chaque création et à chaque suppression de wiki : le titre, le dossier, la personne
+référente, son adresse, qui a fait l'action, et deux liens, l'un vers la fiche et
+l'autre vers sa page de suppression. Le lien de suppression ne supprime rien par
+lui-même : il mène sur la ferme, où il faut être identifié·e comme admin et
+confirmer, comme pour n'importe quelle page. Un wiki dont le nom sent le spam arrive
+en rouge avec les raisons, ce qui permet de modérer au fil de l'eau plutôt qu'une fois
+par mois. Un webhook injoignable est écrit dans le journal et n'empêche jamais la
+création qu'il annonçait.
+
+La plupart des réglages de la ferme se modifient depuis `{{editconfig}}`. Quatre
+restent volontairement en dehors, parce qu'une erreur de frappe y casse les mises à
+jour ou ment sur ce qui est installé : `yeswiki_files`, `yeswiki_empty_folders`,
+`yeswiki_symlinked_files` et les `yeswiki_version`/`yeswiki_release` que le cœur
+écrit lui-même. Les listes de choix offerts aux créateurs de wikis
+(`yeswiki-farm-themes`, `-acls`, `-options`, `-models`, `-extra-config`,
+`-extra-tools`) en sont aussi, faute d'une interface qui sache éditer des structures
+imbriquées sans les abîmer.
+
 Trois réglages s'ajoutent au `wakka.config.php`, modifiables depuis `{{editconfig}}` :
 
 ```php

@@ -12,19 +12,22 @@ class WikiRemover
     protected $files;
     protected $entryManager;
     protected $stats;
+    protected $mattermost;
 
     public function __construct(
         Wiki $wiki,
         FarmConfig $config,
         FileSystem $files,
         EntryManager $entryManager,
-        WikiStatsStore $stats
+        WikiStatsStore $stats,
+        MattermostNotifier $mattermost
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->files = $files;
         $this->entryManager = $entryManager;
         $this->stats = $stats;
+        $this->mattermost = $mattermost;
     }
 
     public function deleteForApi(string $idFiche): array
@@ -34,6 +37,7 @@ class WikiRemover
             return $folder;
         }
 
+        $entry = $this->entryManager->getOne($idFiche) ?? [];
         $kept = $this->deleteWikiData($folder, $idFiche);
 
         try {
@@ -41,6 +45,8 @@ class WikiRemover
         } catch (\Throwable $th) {
             return ['success' => false, 'error' => 'Entry deletion failed: ' . $th->getMessage()];
         }
+
+        $this->mattermost->deleted($entry, $folder, $kept !== []);
 
         return $kept === []
             ? ['success' => true]
@@ -50,9 +56,13 @@ class WikiRemover
     public function deleteFromEntry(string $idFiche): void
     {
         $folder = $this->resolveFolder($idFiche);
-        if (is_string($folder)) {
-            $this->deleteWikiData($folder, $idFiche);
+        if (!is_string($folder)) {
+            return;
         }
+
+        $entry = $this->entryManager->getOne($idFiche) ?? [];
+        $kept = $this->deleteWikiData($folder, $idFiche);
+        $this->mattermost->deleted($entry, $folder, $kept !== []);
     }
 
     private function resolveFolder(string $idFiche)
@@ -119,7 +129,7 @@ class WikiRemover
     /**
      * @return array<int,string> the farm entries other than this one naming that folder
      */
-    private function otherEntriesClaiming(string $folder, string $idFiche): array
+    public function otherEntriesClaiming(string $folder, string $idFiche): array
     {
         $farmId = (string)($this->wiki->config['bazar_farm_id'] ?? '1100');
 

@@ -11,13 +11,20 @@ class WikiCreator
     protected $config;
     protected $files;
     protected $yeswicli;
+    protected $mattermost;
 
-    public function __construct(Wiki $wiki, FarmConfig $config, FileSystem $files, Yeswicli $yeswicli)
-    {
+    public function __construct(
+        Wiki $wiki,
+        FarmConfig $config,
+        FileSystem $files,
+        Yeswicli $yeswicli,
+        MattermostNotifier $mattermost
+    ) {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->files = $files;
         $this->yeswicli = $yeswicli;
+        $this->mattermost = $mattermost;
     }
 
     public function createFromEntry(array $entry, string $fieldName, string $theme = '0', string $model = 'default-content'): void
@@ -74,6 +81,8 @@ class WikiCreator
         $this->reportMigration($this->yeswicli->migrate($destfolder));
 
         $this->createGroup($prefix, $entry);
+
+        $this->mattermost->created($entry, $folder);
     }
 
     /** Refuse a theme, model, acl or option the farm does not offer. */

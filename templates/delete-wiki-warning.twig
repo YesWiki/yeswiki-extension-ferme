@@ -1,0 +1,50 @@
+<div class="alert {{ alsoClaimedBy is empty ? 'alert-danger' : 'alert-warning' }}">
+    <h4>
+        {% if alsoClaimedBy is empty %}
+            <i class="fas fa-exclamation-triangle"></i> {{ _t("FERME_DELETE_WIKI_TOO") }}
+        {% else %}
+            <i class="fas fa-info-circle"></i> {{ _t("FERME_DELETE_ENTRY_ONLY") }}
+        {% endif %}
+    </h4>
+    <p>
+        {% if alsoClaimedBy is empty %}
+            {{ _t("FERME_DELETE_WIKI_EXPLAIN") }}
+        {% else %}
+            {{ _t("FERME_DELETE_ENTRY_ONLY_EXPLAIN") }} <strong>{{ alsoClaimedBy|join(', ') }}</strong>
+        {% endif %}
+    </p>
+    <dl class="dl-horizontal" style="margin-bottom:0;">
+        <dt>{{ _t("FERME_WIKI_NAME") }}</dt>
+        <dd>
+            <a href="{{ url }}" target="_blank" rel="noopener">{{ title }}</a>
+            <small class="text-muted">{{ folder }}</small>
+        </dd>
+        {% if referent or mail %}
+            <dt>{{ _t("FERME_WIKI_OWNER") }}</dt>
+            <dd>{{ referent }}{% if mail %} · {{ mail }}{% endif %}</dd>
+        {% endif %}
+        {% if stats %}
+            <dt>{{ _t("FERME_STATS_CONTENT") }}</dt>
+            <dd>
+                {{ stats.pages|default(0) }} {{ _t("FERME_SORT_PAGES")|lower }} ·
+                {{ stats.entries|default(0) }} {{ _t("FERME_SORT_ENTRIES")|lower }} ·
+                {{ stats.users|default(0) }} {{ _t("FERME_SORT_USERS")|lower }} ·
+                {{ stats.files|default(0) }} {{ _t("FERME_STATS_FILES") }} ({{ disk }})
+            </dd>
+            <dt>{{ _t("FERME_SORT_ACTIVITY") }}</dt>
+            <dd>
+                {{ lastActivity ?: _t("FERME_DELETE_NEVER_EDITED") }}
+                {% if measuredNow %}<small class="text-muted">· {{ _t("FERME_DELETE_MEASURED_NOW") }}</small>{% endif %}
+            </dd>
+        {% else %}
+            <dt>{{ _t("FERME_STATS_CONTENT") }}</dt>
+            <dd class="text-muted">
+                {% if unreadable %}
+                    {{ _t("FERME_DELETE_UNREADABLE") }} <code>{{ unreadable }}</code>
+                {% else %}
+                    {{ _t("FERME_STATS_NEVER_MEASURED") }}
+                {% endif %}
+            </dd>
+        {% endif %}
+    </dl>
+</div>

@@ -91,6 +91,11 @@
     font-size: 0.9em;
     margin-top: 6px;
 }
+.ferme-progress {
+    float: right;
+    opacity: 0.7;
+    font-weight: normal;
+}
 .ferme-detail-title {
     margin-top: 12px;
     font-weight: bold;
@@ -316,6 +321,7 @@
                 <h4 class="modal-title" id="upgrade-selected-modal-label">
                     <i id="upgrade-selected-modal-icon" class="fas fa-sync-alt"></i>
                     <span id="upgrade-selected-modal-label-text">{{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}</span>
+                    <small class="ferme-progress"></small>
                 </h4>
             </div>
             <div class="modal-body">
@@ -348,6 +354,7 @@
             <div class="modal-header">
                 <h4 class="modal-title" id="delete-selected-modal-label">
                     <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}
+                    <small class="ferme-progress"></small>
                 </h4>
             </div>
             <div class="modal-body">
@@ -396,6 +403,7 @@
             <div class="modal-header">
                 <h4 class="modal-title" id="mail-selected-modal-label">
                     <i class="fas fa-envelope"></i> {{ _t("FERME_MAIL_SELECTED") }}
+                    <small class="ferme-progress"></small>
                 </h4>
             </div>
             <div class="modal-body">
@@ -451,6 +459,7 @@
                 <h4 class="modal-title" id="admin-selected-modal-label">
                     <i id="admin-selected-modal-icon" class="fas fa-user-plus"></i>
                     <span id="admin-selected-modal-label-text"></span>
+                    <small class="ferme-progress"></small>
                 </h4>
             </div>
             <div class="modal-body">
