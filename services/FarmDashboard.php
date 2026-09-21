@@ -134,13 +134,17 @@ class FarmDashboard
     }
 
     /**
+     * What the farm holds, added up over the wikis that were measured. `measured`
+     * says how many that was, so a sum over none can be shown as unknown rather
+     * than as zero.
+     *
      * @param array<int,array<string,mixed>> $fiches
      *
      * @return array<string,int>
      */
     private function totals(array $fiches): array
     {
-        $totals = array_fill_keys(['wikis', 'users', 'forms', 'entries', 'pages', 'files', 'diskBytes'], 0);
+        $totals = array_fill_keys(['wikis', 'measured', 'users', 'forms', 'entries', 'pages', 'files', 'diskBytes'], 0);
         $totals['wikis'] = count($fiches);
 
         foreach ($fiches as $fiche) {
@@ -148,6 +152,7 @@ class FarmDashboard
             if ($stats === null) {
                 continue;
             }
+            $totals['measured']++;
             foreach (['users', 'forms', 'entries', 'pages', 'files', 'diskBytes'] as $key) {
                 $totals[$key] += (int)($stats[$key] ?? 0);
             }

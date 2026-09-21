@@ -85,10 +85,20 @@ class FarmDashboardTest extends YesWikiTestCase
         );
 
         $this->assertSame(3, $page['totals']['wikis']);
+        $this->assertSame(2, $page['totals']['measured'], 'the third wiki was never measured');
         $this->assertSame(17, $page['totals']['users']);
         $this->assertSame(103, $page['totals']['entries']);
         $this->assertSame(7, $page['totals']['files']);
         $this->assertSame(3000, $page['totals']['diskBytes']);
+    }
+
+    public function testAFarmNobodyMeasuredYetSaysSoRatherThanAddingUpToZero()
+    {
+        $page = $this->dashboard->select([$this->fiche('alpha'), $this->fiche('beta')], [], $this->current);
+
+        $this->assertSame(2, $page['totals']['wikis']);
+        $this->assertSame(0, $page['totals']['measured'], 'which is what lets the page show a question mark');
+        $this->assertSame(0, $page['totals']['entries']);
     }
 
     public function testSortingOnAStatOrdersTheWholeFarmAndNotJustThePage()

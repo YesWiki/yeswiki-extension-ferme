@@ -213,6 +213,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_REFRESH_STATS_SELECTED' => 'Measure the statistics again',
         'FERME_REFRESH_STATS_INTRO' => 'Each wiki is counted and weighed again now, instead of waiting for the nightly run.',
         'FERME_STATS_REFRESHED' => '%{entries} entries, %{pages} pages, %{users} accounts',
+        'FERME_TOTALS_PARTIAL' => 'Wikis measured: %{measured}/%{wikis}',
         'FERME_RUN_SUMMARY' => '%{ok} done, %{failed} failed',
         'FERME_STATS_LOADING' => 'Loading the activity…',
         'FERME_STATS_CALENDAR_LABEL' => '%{total} edits over the last year',

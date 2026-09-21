@@ -92,6 +92,10 @@ $(document).ready(function() {
     $list.prepend($('<div class="list-group-item">').append($('<strong>').text(text)));
   }
 
+  function unknown() {
+    return '<span class="ferme-muted" title="' + esc(i18n.i18nNeverMeasured) + '">?</span>';
+  }
+
   function figure(icon, value, label) {
     return '<span class="ferme-figure" title="' + esc(label) + '">'
       + '<i class="fas fa-' + icon + '"></i> ' + esc(String(value)) + '</span>';
@@ -159,7 +163,7 @@ $(document).ready(function() {
       defaultContent: '',
       orderable: false,
       render: function(data, type, row) {
-        if (!row.stats) { return '<span class="ferme-muted">—</span>'; }
+        if (!row.stats) { return unknown(); }
         return '<div class="ferme-figures">'
           + figure('folder-open', row.stats.entries, i18n.totalEntries)
           + figure('file-alt', row.stats.pages, i18n.totalPages)
@@ -184,7 +188,7 @@ $(document).ready(function() {
       defaultContent: '',
       orderable: false,
       render: function(data, type, row) {
-        if (!row.stats) { return '<span class="ferme-muted">—</span>'; }
+        if (!row.stats) { return unknown(); }
         var html = '<div title="' + esc(row.stats.disk_detail) + '">' + esc(row.stats.disk) + '</div>'
           + '<small class="ferme-muted">' + esc(row.stats.files) + ' ' + esc(i18n.i18nFiles) + '</small>';
         if (row.stats.heavy_archives) {
@@ -259,17 +263,24 @@ $(document).ready(function() {
 
   function renderSummary(totals, counts) {
     var $totals = $('#ferme-totals').empty();
+    var measured = totals.measured || 0;
+    var partial = measured > 0 && measured < (totals.wikis || 0)
+      ? String(i18n.i18nTotalsPartial || '').replace('%{measured}', measured).replace('%{wikis}', totals.wikis)
+      : '';
+
     [
-      ['wikis', i18n.totalWikis],
-      ['entries', i18n.totalEntries],
-      ['pages', i18n.totalPages],
-      ['users', i18n.totalUsers],
-      ['disk', i18n.totalDisk]
-    ].forEach(function(pair) {
-      if (totals[pair[0]] === undefined) { return; }
+      ['wikis', i18n.totalWikis, true],
+      ['entries', i18n.totalEntries, false],
+      ['pages', i18n.totalPages, false],
+      ['users', i18n.totalUsers, false],
+      ['disk', i18n.totalDisk, false]
+    ].forEach(function(entry) {
+      if (totals[entry[0]] === undefined) { return; }
+      var known = entry[2] || measured > 0;
       $totals.append($('<div class="ferme-total">')
-        .append($('<strong>').text(totals[pair[0]]))
-        .append($('<span>').text(pair[1])));
+        .attr('title', known ? (entry[2] ? '' : partial) : i18n.i18nNeverMeasured)
+        .append($('<strong>').text(known ? totals[entry[0]] : '?'))
+        .append($('<span>').text(entry[1])));
     });
 
     var $chips = $('#ferme-chips').empty();

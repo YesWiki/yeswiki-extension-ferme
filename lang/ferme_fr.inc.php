@@ -236,6 +236,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_REFRESH_STATS_SELECTED' => 'Recalculer les statistiques',
         'FERME_REFRESH_STATS_INTRO' => 'Chaque wiki est recompté et repesé maintenant, sans attendre le passage de la nuit.',
         'FERME_STATS_REFRESHED' => '%{entries} fiches, %{pages} pages, %{users} comptes',
+        'FERME_TOTALS_PARTIAL' => 'Wikis mesurés : %{measured}/%{wikis}',
         'FERME_RUN_SUMMARY' => '%{ok} terminés, %{failed} en échec',
         'FERME_STATS_LOADING' => 'Chargement de l\'activité…',
         'FERME_STATS_CALENDAR_LABEL' => '%{total} modifications sur l\'année écoulée',
