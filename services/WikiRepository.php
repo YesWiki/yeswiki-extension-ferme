@@ -96,6 +96,7 @@ class WikiRepository
                     'release' => (string)$this->wiki->config['yeswiki_release'],
                 ],
                 'onDisk' => $this->wikisOnDisk($fiches),
+                'statuses' => $this->statuses($fiches),
                 'spamThreshold' => $this->spamScore->threshold(),
             ],
             [
@@ -162,6 +163,36 @@ class WikiRepository
         }
 
         return ['wikis' => $wikis, 'total' => $page['filtered']];
+    }
+
+    /**
+     * The `wiki_status` of every wiki, read from its configuration without including
+     * it. Counting the sleeping ones means knowing it for all of them, not only for
+     * the hundred a page shows — reading three thousand of these costs 60 ms.
+     *
+     * @param array<int,array<string,mixed>> $fiches
+     *
+     * @return array<string,string>
+     */
+    private function statuses(array $fiches): array
+    {
+        $statuses = [];
+        foreach ($fiches as $fiche) {
+            $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
+            if ($folder === '' || isset($statuses[$folder]) || !FarmConfig::isSafeName($folder, true)) {
+                continue;
+            }
+            $path = $this->config->wikiConfigFile($folder);
+            if (!is_file($path)) {
+                continue;
+            }
+            $content = (string)@file_get_contents($path);
+            $statuses[$folder] = preg_match('/[\'"]wiki_status[\'"]\s*=>\s*[\'"]([^\'"]*)[\'"]/', $content, $matches) === 1
+                ? $matches[1]
+                : '';
+        }
+
+        return $statuses;
     }
 
     /**
@@ -418,7 +449,6 @@ class WikiRepository
         }
 
         $fiche['custom_aside'] = $this->aside->isAside($this->config->wikiDir($folder));
-        $fiche['status'] = trim((string)($wakkaConfig['wiki_status'] ?? ''));
         $fiche['url'] = $wakkaConfig['base_url'] . $wakkaConfig['root_page'];
         $fiche['version'] = $this->describeVersion($wakkaConfig, $folder);
         $fiche['admin'] = $this->describeAdmin($folder);

@@ -23,7 +23,7 @@ class SpamCleaner
      * splitting there cuts them in half and the database refuses what comes back.
      */
     public const LINES = '/\r\n|\r|\n/';
-    public const WORDS_FOR_SPAM = 3;
+    public const WORDS_FOR_SPAM = 2;
     public const LINKS_FOR_SPAM = 50;
     public const LINKS_FOR_SPAM_LINE = 5;
 
@@ -170,6 +170,19 @@ class SpamCleaner
     }
 
     /**
+     * The one rule: what the cleaning would touch. The statistics ask it too, so a
+     * wiki is marked "contenu spammé" when — and only when — there is work here.
+     */
+    public static function isSpamPage(string $body, int $words, int $links, string $hosts = ''): bool
+    {
+        if ($words >= self::WORDS_FOR_SPAM || $links >= self::LINKS_FOR_SPAM) {
+            return true;
+        }
+
+        return $hosts !== '' && @preg_match('#(' . $hosts . ')#i', $body) === 1;
+    }
+
+    /**
      * A body with nothing left once the spam is out is a page the robot wrote.
      */
     public static function strip(string $body, string $hosts = ''): string
@@ -215,8 +228,7 @@ class SpamCleaner
             $body = (string)($row['body'] ?? '');
             $words = preg_match_all(WikiStats::SPAM_VOCABULARY, $body);
             $links = preg_match_all('#https?://#i', $body);
-            $known = $hosts !== '' && @preg_match('#(' . $hosts . ')#i', $body) === 1;
-            if (!$known && $words < self::WORDS_FOR_SPAM && $links < self::LINKS_FOR_SPAM) {
+            if (!self::isSpamPage($body, (int)$words, (int)$links, $hosts)) {
                 continue;
             }
 

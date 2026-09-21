@@ -74,6 +74,22 @@ class SpamCleanerTest extends YesWikiTestCase
         );
     }
 
+    public function testWhatCountsAsASpammedPageIsOneRuleForEverybody()
+    {
+        $deux = 'Best escort in town, casino open';
+        $un = 'Le contact est xxx, appelez le casino municipal';
+        $liens = str_repeat("http://a.tk/1\n", 60);
+
+        $this->assertTrue(SpamCleaner::isSpamPage($deux, 2, 0), 'deux mots du lexique sur une page');
+        $this->assertFalse(SpamCleaner::isSpamPage($un, 1, 0), 'un seul mot peut être un mot ordinaire');
+        $this->assertTrue(SpamCleaner::isSpamPage($liens, 0, 60), 'une page de liens');
+        $this->assertFalse(SpamCleaner::isSpamPage('Voir https://exemple.org', 0, 1));
+        $this->assertTrue(
+            SpamCleaner::isSpamPage('blog [[https://first42.fr/ ici]]', 0, 1, 'first42\\.fr'),
+            'un domaine de campagne suffit, même sur une ligne'
+        );
+    }
+
     public function testTheSkeletonOfAWikiIsNeverDeletedOnlyCleaned()
     {
         foreach (['PagePrincipale', 'PageMenuHaut', 'PageHeader', 'pagefooter'] as $tag) {

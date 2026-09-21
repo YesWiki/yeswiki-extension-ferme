@@ -343,6 +343,22 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(2, $page['totals']['hibernating']);
     }
 
+    public function testTheSleepingOnesAreCountedEvenWhenTheyAreNotOnThePage()
+    {
+        $fiches = [];
+        for ($i = 1; $i <= 120; $i++) {
+            $fiches[] = $this->fiche('wiki' . str_pad((string)$i, 3, '0', STR_PAD_LEFT));
+        }
+        $statuses = ['wiki119' => 'hibernate', 'wiki120' => 'hibernate'];
+
+        $page = $this->dashboard->select($fiches, [], ['statuses' => $statuses], ['start' => 0, 'length' => 10]);
+
+        $this->assertCount(10, $page['fiches'], 'une page de dix');
+        $this->assertSame(2, $page['totals']['hibernating'], 'les dormeurs des pages suivantes comptent aussi');
+        $this->assertSame(118, $page['totals']['running']);
+        $this->assertSame(2, $page['counts']['hibernating']);
+    }
+
     public function testASleepingWikiIsStillCountedAmongTheBrokenOrTheUnmeasured()
     {
         $page = $this->select(

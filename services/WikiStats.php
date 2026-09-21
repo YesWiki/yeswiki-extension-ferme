@@ -16,14 +16,16 @@ class WikiStats
     public const MONTHS = 12;
     public const PAGES_READ = 8;
 
-    public const SPAM_VOCABULARY = '/(casino|jackpot|escort|call.?girl|camgirl|viagra|cialis|sattamatka|porn|xxx|nude|hookup|adultfriend|backlink|payday.?loan|\bbet\b|\bslots?\b|\bpoker\b|\bseo\b|\bessays?\b|\bhomework\b|\bdating\b|keonhacai|nhacai|taixiu|soikeo|bongda|cacuoc|sunwin|togel|judi)/i';
+    public const SPAM_VOCABULARY = '/(casino|jackpot|escort|call.?girl|camgirl|viagra|cialis|sattamatka|porn|\bnude\b|hookup|adultfriend|backlink|payday.?loan|\bbet\b|\bslots?\b|\bpoker\b|\bseo\b|\bessays?\b|\bhomework\b|\bdating\b|keonhacai|nhacai|taixiu|soikeo|bongda|cacuoc|sunwin|togel|judi)/i';
 
+    private $wiki;
     private $config;
     private $database;
     private $connections = [];
 
-    public function __construct(FarmConfig $config, WikiDatabase $database)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database)
     {
+        $this->wiki = $wiki;
         $this->config = $config;
         $this->database = $database;
     }
@@ -207,31 +209,53 @@ class WikiStats
      */
     private function spamInPages(\mysqli $db, string $prefix, string $rootPage): array
     {
-        $body = '';
         $result = $db->query(
             'SELECT body FROM `' . $this->database->table($prefix, 'pages') . '`'
             . ' WHERE latest = "Y"'
             . ' ORDER BY tag = "' . $db->real_escape_string($rootPage) . '" DESC, time DESC'
             . ' LIMIT ' . self::PAGES_READ
         );
-        while ($result && ($row = $result->fetch_assoc())) {
-            $body .= "\n" . (string)($row['body'] ?? '');
-        }
 
-        $words = preg_match_all(self::SPAM_VOCABULARY, $body);
-        preg_match_all('#https?://([a-z0-9.\-]+)#i', $body, $found);
-
+        $words = 0;
+        $links = 0;
+        $dirty = 0;
         $hosts = [];
-        foreach (array_count_values(array_map('strtolower', $found[1] ?? [])) as $host => $times) {
-            $hosts[$host] = $times;
+        $known = $this->spamHosts();
+
+        while ($result && ($row = $result->fetch_assoc())) {
+            $body = (string)($row['body'] ?? '');
+            $itsWords = preg_match_all(self::SPAM_VOCABULARY, $body);
+            preg_match_all('#https?://([a-z0-9.\-]+)#i', $body, $found);
+            $itsLinks = count($found[1] ?? []);
+
+            $words += $itsWords;
+            $links += $itsLinks;
+            foreach (array_map('strtolower', $found[1] ?? []) as $host) {
+                $hosts[$host] = ($hosts[$host] ?? 0) + 1;
+            }
+
+            if (SpamCleaner::isSpamPage($body, $itsWords, $itsLinks, $known)) {
+                $dirty++;
+            }
         }
+
         arsort($hosts);
 
         return [
             'spamWords' => (int)$words,
-            'spamLinks' => count($found[1] ?? []),
+            'spamLinks' => $links,
+            'spamPages' => $dirty,
             'spamHosts' => implode(' ', array_slice(array_keys($hosts), 0, 3)),
         ];
+    }
+
+    /**
+     * The hosts the farm named, read here rather than injected: the cleaner owns
+     * the setting, and asking it for the service would make a circle.
+     */
+    private function spamHosts(): string
+    {
+        return trim((string)($this->wiki->config['yeswiki-farm-spam-hosts'] ?? ''));
     }
 
     private function latest(\mysqli $db, string $prefix): array

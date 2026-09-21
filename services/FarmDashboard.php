@@ -10,7 +10,6 @@ namespace YesWiki\Ferme\Service;
 class FarmDashboard
 {
     public const DORMANT_AFTER = '-6 months';
-    public const SPAMMED_WORDS = 3;
     public const HEAVY_ARCHIVES = 1073741824;
 
     public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating', 'running'];
@@ -32,7 +31,8 @@ class FarmDashboard
             $stats,
             $context['current'] ?? [],
             $context['onDisk'] ?? [],
-            (int)($context['spamThreshold'] ?? 3)
+            (int)($context['spamThreshold'] ?? 3),
+            $context['statuses'] ?? []
         );
         $total = count($fiches);
         $counts = $this->counts($fiches);
@@ -81,10 +81,11 @@ class FarmDashboard
      * @param array<string,array<string,mixed>> $stats
      * @param array<string,string>              $current
      * @param array<string,bool>                $onDisk
+     * @param array<string,string>              $statuses wiki_status of every wiki, not only the page's
      *
      * @return array<int,array<string,mixed>>
      */
-    private function attach(array $fiches, array $stats, array $current, array $onDisk, int $spamThreshold = 3): array
+    private function attach(array $fiches, array $stats, array $current, array $onDisk, int $spamThreshold = 3, array $statuses = []): array
     {
         $claims = array_count_values(array_filter(array_map(function (array $fiche) {
             return (string)($fiche['bf_dossier-wiki'] ?? '');
@@ -93,6 +94,7 @@ class FarmDashboard
         foreach ($fiches as $index => $fiche) {
             $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
             $measured = $stats[$folder] ?? null;
+            $fiches[$index]['status'] = (string)($statuses[$folder] ?? ($fiche['status'] ?? ''));
 
             $fiches[$index]['problems'] = [
                 'noFolder' => $folder === '',
@@ -109,7 +111,7 @@ class FarmDashboard
                 $measured['heavyArchives'] = (int)($measured['privateBytes'] ?? 0) >= self::HEAVY_ARCHIVES;
                 $measured['failed'] = ($measured['status'] ?? '') === WikiStatsStore::STATUS_ERROR;
                 $measured['suspect'] = (int)($measured['suspect'] ?? 0) >= $spamThreshold;
-                $measured['spammed'] = (int)($measured['spamWords'] ?? 0) >= self::SPAMMED_WORDS;
+                $measured['spammed'] = (int)($measured['spamPages'] ?? 0) > 0;
                 $measured['suspectWhy'] = array_values(array_filter(explode(',', (string)($measured['suspectWhy'] ?? ''))));
             }
 

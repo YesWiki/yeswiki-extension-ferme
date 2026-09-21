@@ -239,7 +239,7 @@ class WikiStatsTest extends YesWikiTestCase
             return $prefix . $name;
         });
 
-        $stats = new WikiStats($this->farmConfig(), $database);
+        $stats = new WikiStats(self::getWiki(), $this->farmConfig(), $database);
         $stats->fromDatabase('monwiki');
         $stats->fromDatabase('monwiki');
         $stats->probe('monwiki');
@@ -296,7 +296,7 @@ class WikiStatsTest extends YesWikiTestCase
 
     private function stats(?array $configOverride = null): WikiStats
     {
-        return new WikiStats($this->farmConfig($configOverride), new WikiDatabase());
+        return new WikiStats(self::getWiki(), $this->farmConfig($configOverride), new WikiDatabase());
     }
 
     private function farmConfig(?array $configOverride = null): FarmConfig
