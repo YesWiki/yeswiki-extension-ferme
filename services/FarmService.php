@@ -13,6 +13,8 @@ class FarmService
     protected $repository;
     protected $modelAssets;
     protected $aside;
+    protected $statsService;
+    protected $statsStore;
 
     public function __construct(
         FarmConfig $config,
@@ -23,7 +25,9 @@ class FarmService
         WikiRemover $remover,
         WikiRepository $repository,
         ModelAssets $modelAssets,
-        CustomAside $aside
+        CustomAside $aside,
+        WikiStats $statsService,
+        WikiStatsStore $statsStore
     ) {
         $this->config = $config;
         $this->files = $files;
@@ -34,6 +38,8 @@ class FarmService
         $this->repository = $repository;
         $this->modelAssets = $modelAssets;
         $this->aside = $aside;
+        $this->statsService = $statsService;
+        $this->statsStore = $statsStore;
     }
 
     public function initFarmConfig()
@@ -104,6 +110,31 @@ class FarmService
     /**
      * @return array{status:string,messages:array<int,string>}
      */
+    public function refreshWikiStats($wiki): array
+    {
+        $folder = (string)$wiki;
+        $stats = $this->statsService->compute($folder);
+        $stats['filesMtime'] = $this->statsService->diskProbe($folder);
+        $this->statsStore->save($folder, $stats);
+
+        return ['status' => 'measured', 'messages' => [_t('FERME_STATS_REFRESHED', [
+            'entries' => $stats['entries'],
+            'pages' => $stats['pages'],
+            'users' => $stats['users'],
+        ])]];
+    }
+
+    /**
+     * @return array<string,int> edits per day over the last year
+     */
+    public function wikiActivity($wiki): array
+    {
+        return $this->statsService->daily((string)$wiki);
+    }
+
+    /**
+     * @return array{status:string,messages:array<int,string>}
+     */
     public function recoverWikiCustom($wiki): array
     {
         $recovered = $this->aside->recover($this->config->wikiDir($wiki));
@@ -128,9 +159,15 @@ class FarmService
         return $this->repository->getAll();
     }
 
-    public function getWikiListPaginated(int $start, int $length, string $search, int $orderCol, string $orderDir): array
-    {
-        return $this->repository->getPaginated($start, $length, $search, $orderCol, $orderDir);
+    public function getWikiListPaginated(
+        int $start,
+        int $length,
+        string $search,
+        string $sort,
+        string $direction,
+        string $filter = ''
+    ): array {
+        return $this->repository->getPaginated($start, $length, $search, $sort, $direction, $filter);
     }
 
     public function searchWikisOnServer(string $fallbackEmail = ''): array

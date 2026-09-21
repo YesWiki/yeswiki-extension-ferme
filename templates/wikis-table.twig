@@ -9,7 +9,110 @@
     margin: 0;
     z-index: 1000;
 }
+.ferme-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.ferme-total {
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+.ferme-total strong {
+    font-size: 1.4em;
+}
+.ferme-total span {
+    opacity: 0.7;
+    font-size: 0.85em;
+}
+.ferme-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-left: auto;
+}
+.ferme-chip.active {
+    box-shadow: inset 0 0 0 2px currentColor;
+}
+.ferme-figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    white-space: nowrap;
+}
+.ferme-figure {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.ferme-figure i {
+    opacity: 0.55;
+}
+.ferme-sparkline {
+    vertical-align: middle;
+}
+.ferme-muted {
+    opacity: 0.6;
+}
+.ferme-identity strong {
+    display: block;
+}
+.ferme-identity small {
+    display: block;
+    opacity: 0.75;
+}
+#wikis-table td {
+    vertical-align: middle;
+}
+.ferme-detail dl {
+    margin: 0;
+}
+.ferme-detail dt {
+    font-weight: normal;
+    opacity: 0.7;
+}
+@media (max-width: 767px) {
+    #wikis-table,
+    #wikis-table tbody,
+    #wikis-table tr,
+    #wikis-table td {
+        display: block;
+        width: auto;
+    }
+    #wikis-table thead {
+        display: none;
+    }
+    #wikis-table tr {
+        border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+        padding: 6px 0;
+    }
+    .ferme-chips {
+        margin-left: 0;
+    }
+}
 </style>
+<div class="ferme-summary">
+    <div id="ferme-totals" class="ferme-summary"></div>
+    <div id="ferme-chips" class="ferme-chips"></div>
+</div>
+<div class="clearfix" style="margin-bottom:8px;">
+    <label class="ferme-muted" style="font-weight:normal;">
+        {{ _t("FERME_SORT_BY") }}
+        <select id="ferme-sort" class="form-control input-sm" style="display:inline-block; width:auto;">
+            <option value="title|asc">{{ _t("FERME_SORT_TITLE") }}</option>
+            <option value="referent|asc">{{ _t("FERME_WIKI_OWNER") }}</option>
+            <option value="lastActivity|desc">{{ _t("FERME_SORT_ACTIVITY") }}</option>
+            <option value="entries|desc">{{ _t("FERME_SORT_ENTRIES") }}</option>
+            <option value="pages|desc">{{ _t("FERME_SORT_PAGES") }}</option>
+            <option value="users|desc">{{ _t("FERME_SORT_USERS") }}</option>
+            <option value="forms|desc">{{ _t("FERME_SORT_FORMS") }}</option>
+            <option value="diskBytes|desc">{{ _t("FERME_SORT_DISK") }}</option>
+        </select>
+    </label>
+</div>
 <div class="table-responsive">
     <table id="wikis-table"
            class="no-dblclick datatable table table-condensed table-striped prevent-auto-init"
@@ -23,10 +126,9 @@
             <tr>
                 <th data-orderable="false" data-sortable="false"></th>
                 <th>{{ _t("FERME_WIKI_NAME") }}</th>
-                <th>{{ _t("FERME_WIKI_OWNER") }}</th>
-                <th>{{ _t("FERME_WIKI_LAST_UPDATE") }}</th>
-                <th data-orderable="false" data-sortable="false">{{ _t("FERME_WIKI_ADMIN") }}</th>
-                <th data-orderable="false" data-sortable="false">{{ _t("FERME_WIKI_VERSION") }}</th>
+                <th>{{ _t("FERME_STATS_CONTENT") }}</th>
+                <th>{{ _t("FERME_STATS_ACTIVITY") }}</th>
+                <th>{{ _t("FERME_STATS_DISK") }}</th>
                 <th data-orderable="false" data-sortable="false">{{ _t("FERME_WIKI_ACTION") }}</th>
             </tr>
         </thead>
@@ -62,6 +164,9 @@
                 <a href="#" id="btn-upgrade-extensions-selected"><i class="fas fa-puzzle-piece fa-fw"></i> {{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}</a>
             </li>
             <li>
+                <a href="#" id="btn-refresh-stats-selected"><i class="fas fa-chart-column fa-fw"></i> {{ _t("FERME_REFRESH_STATS_SELECTED") }}</a>
+            </li>
+            <li>
                 <a href="#" id="btn-recover-custom-selected"><i class="fas fa-undo fa-fw"></i> {{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}</a>
             </li>
             <li role="separator" class="divider"></li>
@@ -83,6 +188,8 @@
      data-upgrade-url="{{ upgrade_api_url }}"
      data-upgrade-extensions-url="{{ upgrade_extensions_api_url }}"
      data-recover-custom-url="{{ recover_custom_api_url }}"
+     data-refresh-stats-url="{{ refresh_stats_api_url }}"
+     data-activity-url="{{ activity_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
@@ -118,7 +225,32 @@
      data-upgrade-ext-title="{{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}"
      data-upgrade-ext-intro="{{ _t("FERME_UPGRADE_EXTENSIONS_INTRO") }}"
      data-recover-title="{{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}"
-     data-recover-intro="{{ _t("FERME_RECOVER_CUSTOM_INTRO") }}"></div>
+     data-total-wikis="{{ _t("FERME_TOTAL_WIKIS") }}"
+     data-total-users="{{ _t("FERME_SORT_USERS") }}"
+     data-total-entries="{{ _t("FERME_SORT_ENTRIES") }}"
+     data-total-pages="{{ _t("FERME_SORT_PAGES") }}"
+     data-total-forms="{{ _t("FERME_SORT_FORMS") }}"
+     data-total-disk="{{ _t("FERME_STATS_DISK") }}"
+     data-chip-to-update="{{ _t("FERME_CHIP_TO_UPDATE") }}"
+     data-chip-dormant="{{ _t("FERME_CHIP_DORMANT") }}"
+     data-chip-heavy-archives="{{ _t("FERME_CHIP_HEAVY_ARCHIVES") }}"
+     data-chip-failed="{{ _t("FERME_CHIP_FAILED") }}"
+     data-chip-unmeasured="{{ _t("FERME_CHIP_UNMEASURED") }}"
+     data-i18n-never-measured="{{ _t("FERME_STATS_NEVER_MEASURED") }}"
+     data-i18n-measured-at="{{ _t("FERME_STATS_MEASURED_AT") }}"
+     data-i18n-admin-present="{{ _t("FERME_ADMIN_PRESENT") }}"
+     data-i18n-admin-absent="{{ _t("FERME_ADMIN_ABSENT") }}"
+     data-i18n-admin-add="{{ _t("FERME_ADMIN_ADD_ACCOUNT") }}"
+     data-i18n-admin-remove="{{ _t("FERME_ADMIN_REMOVE_ACCOUNT") }}"
+     data-i18n-update-to="{{ _t("FERME_UPDATE_TO") }}"
+     data-i18n-version-different="{{ _t("FERME_VERSION_DIFFERENT") }}"
+     data-i18n-files="{{ _t("FERME_STATS_FILES") }}"
+     data-i18n-archives="{{ _t("FERME_STATS_ARCHIVES") }}"
+     data-i18n-detail="{{ _t("FERME_STATS_DETAIL") }}"
+     data-recover-intro="{{ _t("FERME_RECOVER_CUSTOM_INTRO") }}"
+     data-refresh-title="{{ _t("FERME_REFRESH_STATS_SELECTED") }}"
+     data-refresh-intro="{{ _t("FERME_REFRESH_STATS_INTRO") }}"
+     data-i18n-loading="{{ _t("FERME_STATS_LOADING") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
 {# Upgrade modal #}
 <div class="modal fade"

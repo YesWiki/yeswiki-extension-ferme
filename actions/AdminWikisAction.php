@@ -40,6 +40,8 @@ class AdminWikisAction extends YesWikiAction
                     'upgrade_api_url' => $this->wiki->href('', 'api/ferme/wikis/upgrade'),
                     'upgrade_extensions_api_url' => $this->wiki->href('', 'api/ferme/wikis/upgrade-extensions'),
                     'recover_custom_api_url' => $this->wiki->href('', 'api/ferme/wikis/recover-custom'),
+                    'refresh_stats_api_url' => $this->wiki->href('', 'api/ferme/wikis/refresh-stats'),
+                    'activity_api_url' => $this->wiki->href('', 'api/ferme/wikis/activity'),
                     'delete_api_url' => $this->wiki->href('', 'api/ferme/wikis/delete'),
                     'search_api_url' => $this->wiki->href('', 'api/ferme/wikis/search'),
                     'admin_add_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-add'),

@@ -9,6 +9,7 @@ use YesWiki\Core\ApiResponse;
 use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiController;
 use YesWiki\Ferme\Service\FarmService;
+use YesWiki\Ferme\Service\StatsPresenter;
 
 class ApiController extends YesWikiController
 {
@@ -36,12 +37,12 @@ class ApiController extends YesWikiController
         $start = max(0, intval($request->request->get('start', 0)));
         $length = min(500, max(1, intval($request->request->get('length', 100))));
         $search = trim($request->request->all('search')['value'] ?? '');
-        $order = $request->request->all('order');
-        $orderCol = intval($order[0]['column'] ?? 1);
-        $orderDir = (($order[0]['dir'] ?? 'asc') === 'desc') ? 'desc' : 'asc';
+        $sort = (string)$request->request->get('sort', 'title');
+        $direction = $request->request->get('direction') === 'desc' ? 'desc' : 'asc';
+        $filter = (string)$request->request->get('filter', '');
 
         $farm = $this->getService(FarmService::class);
-        $result = $farm->getWikiListPaginated($start, $length, $search, $orderCol, $orderDir);
+        $result = $farm->getWikiListPaginated($start, $length, $search, $sort, $direction, $filter);
 
         $rows = [];
         foreach ($result['fiches'] as $fiche) {
@@ -53,6 +54,8 @@ class ApiController extends YesWikiController
             'recordsTotal' => $result['total'],
             'recordsFiltered' => $result['filtered'],
             'data' => $rows,
+            'counts' => $result['counts'],
+            'totals' => $this->formatTotals($result['totals']),
         ]);
     }
 
@@ -153,6 +156,76 @@ class ApiController extends YesWikiController
         }
 
         return new ApiResponse(['success' => true, 'output' => implode("\n", $result['messages'])]);
+    }
+
+    /**
+     * Measure one wiki again, now, without waiting for the nightly run.
+     *
+     * @Route("/api/ferme/wikis/refresh-stats", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function refreshWikiStats(Request $request)
+    {
+        $wikiFolder = $this->askedFolder($request);
+        if (!is_string($wikiFolder)) {
+            return $wikiFolder;
+        }
+
+        set_time_limit(0);
+
+        try {
+            $result = $this->getService(FarmService::class)->refreshWikiStats($wikiFolder);
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse(['success' => true, 'output' => implode("\n", $result['messages'])]);
+    }
+
+    /**
+     * A year of one wiki's edits, day by day, drawn on the spot.
+     *
+     * @Route("/api/ferme/wikis/activity", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function wikiActivity(Request $request)
+    {
+        $wikiFolder = $this->askedFolder($request);
+        if (!is_string($wikiFolder)) {
+            return $wikiFolder;
+        }
+
+        try {
+            $edits = $this->getService(FarmService::class)->wikiActivity($wikiFolder);
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse([
+            'success' => true,
+            'calendar' => $this->getService(StatsPresenter::class)->calendar($edits),
+        ]);
+    }
+
+    /**
+     * The folder a request names, or the answer to send back when it names none
+     * we can act on.
+     *
+     * @return string|ApiResponse
+     */
+    private function askedFolder(Request $request)
+    {
+        $wikiFolder = trim($request->request->get('folder', ''));
+
+        if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+        }
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+        if (!is_dir($this->getService(FarmService::class)->getWikiPath($wikiFolder))) {
+            return new ApiResponse(['success' => false, 'error' => 'Wiki folder not found: ' . $wikiFolder], Response::HTTP_NOT_FOUND);
+        }
+
+        return $wikiFolder;
     }
 
     /**
@@ -347,8 +420,8 @@ class ApiController extends YesWikiController
             'last_modification' => $fiche['last_modification'] ?? '',
             'last_modification_iso' => $fiche['last_modification_iso'] ?? '',
             'dashboard_link' => $fiche['dashboard_link'] ?? '',
-            'admin' => $this->formatAdmin($fiche['admin'] ?? null),
-            'version' => $this->formatVersion($fiche['version'] ?? []),
+            'admin' => $this->describeAdmin($fiche['admin'] ?? null),
+            'version' => $this->describeVersion($fiche['version'] ?? []),
             'view_url' => $this->wiki->href('', $idFiche),
             'edit_url' => $this->wiki->href('edit', $idFiche),
             'delete_url' => $this->wiki->href('deletepage', $idFiche),
@@ -359,57 +432,101 @@ class ApiController extends YesWikiController
                 ? null
                 : '<div><span class="label label-warning"><i class="fas fa-exclamation-triangle"></i> '
                     . htmlspecialchars(_t('FERME_CUSTOM_BROKEN')) . '</span></div>',
+            'stats' => $this->formatStats($fiche['stats'] ?? null),
         ];
     }
 
-    private function formatVersion(array $version): string
+    /**
+     * What a row shows of a wiki's numbers. A wiki nobody measured returns null,
+     * and the page shows dashes rather than zeros.
+     *
+     * @param array<string,mixed>|null $stats
+     *
+     * @return array<string,mixed>|null
+     */
+    private function formatStats(?array $stats): ?array
     {
-        if (empty($version)) {
-            return '';
+        if ($stats === null) {
+            return null;
         }
 
-        $wikiVersion = $version['version'] ?? '';
-        $wikiRelease = $version['release'] ?? '';
+        $presenter = $this->getService(StatsPresenter::class);
+        $disk = (int)($stats['diskBytes'] ?? 0);
 
-        $text = ($wikiVersion ?: '')
-            . (!empty($wikiVersion) ? '<br />' : '')
-            . ($wikiRelease ?: 'Inconnue');
-
-        switch ($version['status'] ?? '') {
-            case 'different':
-                $text .= '<br /><i>' . _t('FERME_VERSION_DIFFERENT') . '</i>';
-                break;
-            case 'outdated':
-                $text .= '<br /><a class="btn btn-xs btn-danger" href="' . htmlspecialchars($version['update_url'] ?? '') . '">'
-                    . _t('FERME_UPDATE_TO') . ' ' . htmlspecialchars($version['source_version'] ?? '') . '</a>';
-                break;
-            case 'up-to-date':
-                $text .= '<br /><i>' . _t('FERME_VERSION_UP_TO_DATE') . '</i>';
-                break;
-        }
-
-        return $text;
+        return [
+            'users' => (int)($stats['users'] ?? 0),
+            'forms' => (int)($stats['forms'] ?? 0),
+            'entries' => (int)($stats['entries'] ?? 0),
+            'pages' => (int)($stats['pages'] ?? 0),
+            'files' => (int)($stats['files'] ?? 0),
+            'disk' => $presenter->size($disk),
+            'disk_bytes' => $disk,
+            'disk_detail' => _t('FERME_STATS_DISK_DETAIL', [
+                'files' => $presenter->size((int)($stats['filesBytes'] ?? 0)),
+                'custom' => $presenter->size((int)($stats['customBytes'] ?? 0)),
+                'private' => $presenter->size((int)($stats['privateBytes'] ?? 0)),
+            ]),
+            'private' => $presenter->size((int)($stats['privateBytes'] ?? 0)),
+            'heavy_archives' => !empty($stats['heavyArchives']),
+            'dormant' => !empty($stats['dormant']),
+            'to_update' => !empty($stats['toUpdate']),
+            'failed' => !empty($stats['failed']),
+            'error' => $stats['error'] ?? null,
+            'last_activity' => $stats['lastActivity'] ?? null,
+            'last_activity_age' => $presenter->age($stats['lastActivity'] ?? null),
+            'computed_at' => $stats['computedAt'] ?? null,
+            'computed_age' => $presenter->age($stats['computedAt'] ?? null),
+            'sparkline' => $presenter->sparkline($stats['activity'] ?? []),
+        ];
     }
 
-    private function formatAdmin(?array $admin): string
+    /**
+     * @param array<string,int> $totals
+     *
+     * @return array<string,string|int>
+     */
+    private function formatTotals(array $totals): array
+    {
+        $totals['disk'] = $this->getService(StatsPresenter::class)->size((int)($totals['diskBytes'] ?? 0));
+
+        return $totals;
+    }
+
+    /**
+     * @param array<string,mixed> $version as WikiRepository describes it
+     *
+     * @return array<string,mixed>|null
+     */
+    private function describeVersion(array $version): ?array
+    {
+        if (empty($version)) {
+            return null;
+        }
+
+        return [
+            'name' => (string)($version['version'] ?? ''),
+            'release' => (string)($version['release'] ?? ''),
+            'status' => (string)($version['status'] ?? ''),
+            'update_url' => $version['update_url'] ?? '',
+            'source_version' => (string)($version['source_version'] ?? ''),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed>|null $admin
+     *
+     * @return array<string,mixed>|null
+     */
+    private function describeAdmin(?array $admin): ?array
     {
         if (empty($admin)) {
-            return '';
+            return null;
         }
 
-        $name = htmlspecialchars($admin['name']);
-        $folder = htmlspecialchars($admin['folder'] ?? '');
-
-        if ($admin['present']) {
-            return $name . ' ' . _t('FERME_ADMIN_PRESENT')
-                . ' <button class="btn btn-xs btn-danger admin-action-btn"'
-                . ' data-admin-action="remove" data-admin-wiki="' . $folder . '">'
-                . _t('FERME_ADMIN_REMOVE_ACCOUNT') . '</button>';
-        }
-
-        return $name . ' ' . _t('FERME_ADMIN_ABSENT')
-            . ' <button class="btn btn-xs btn-success admin-action-btn"'
-            . ' data-admin-action="add" data-admin-wiki="' . $folder . '">'
-            . _t('FERME_ADMIN_ADD_ACCOUNT') . '</button>';
+        return [
+            'name' => (string)$admin['name'],
+            'folder' => (string)($admin['folder'] ?? ''),
+            'present' => !empty($admin['present']),
+        ];
     }
 }

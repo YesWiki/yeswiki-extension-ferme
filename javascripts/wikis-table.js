@@ -8,6 +8,8 @@ $(document).ready(function() {
   var upgradeUrl = $config.data('upgrade-url');
   var upgradeExtensionsUrl = $config.data('upgrade-extensions-url');
   var recoverCustomUrl = $config.data('recover-custom-url');
+  var refreshStatsUrl = $config.data('refresh-stats-url');
+  var activityUrl = $config.data('activity-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
   var adminAddUrl = $config.data('admin-add-url');
@@ -25,9 +27,47 @@ $(document).ready(function() {
   };
 
   var selectedWikis = {};
+  var activeFilter = '';
+  var chips = [
+    { key: 'toUpdate', label: 'chipToUpdate', kind: 'danger', icon: 'sync-alt' },
+    { key: 'dormant', label: 'chipDormant', kind: 'default', icon: 'moon' },
+    { key: 'heavyArchives', label: 'chipHeavyArchives', kind: 'warning', icon: 'box-archive' },
+    { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'triangle-exclamation' },
+    { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' }
+  ];
 
   function esc(str) {
     return $('<span>').text(str || '').html();
+  }
+
+  function figure(icon, value, label) {
+    return '<span class="ferme-figure" title="' + esc(label) + '">'
+      + '<i class="fas fa-' + icon + '"></i> ' + esc(String(value)) + '</span>';
+  }
+
+  function badge(kind, text, title) {
+    return '<span class="label label-' + kind + '"' + (title ? ' title="' + esc(title) + '"' : '') + '>'
+      + esc(text) + '</span>';
+  }
+
+  function versionBadge(row) {
+    if (!row.version) { return ''; }
+    var label = (row.version.name || '') + ' ' + (row.version.release || '');
+    if (row.version.status === 'outdated' && row.version.update_url) {
+      return '<a class="label label-danger" href="' + esc(row.version.update_url) + '">'
+        + esc(label) + ' → ' + esc(row.version.source_version) + '</a>';
+    }
+    if (row.version.status === 'different') {
+      return badge('warning', label, i18n.i18nVersionDifferent);
+    }
+    return badge('default', label);
+  }
+
+  function adminBadge(row) {
+    if (!row.admin) { return ''; }
+    return row.admin.present
+      ? badge('success', row.admin.name, i18n.i18nAdminPresent)
+      : badge('default', row.admin.name, i18n.i18nAdminAbsent);
   }
 
   var columns = [
@@ -48,58 +88,83 @@ $(document).ready(function() {
     {
       data: null,
       defaultContent: '',
-      orderable: true,
+      orderable: false,
       render: function(data, type, row) {
-        var html = '<strong class="wiki-title"><a href="' + esc(row.url) + '">' + esc(row.title) + '</a></strong>';
-        if (row.description) {
-          html += '<div class="wiki-desc">' + esc(row.description) + '</div>';
-        }
-        if (row.custom_warning) {
-          html += row.custom_warning; // already safe HTML from server
-        }
-        if (row.error) {
-          html += row.error; // already safe HTML from server
-        }
+        var html = '<div class="ferme-identity">'
+          + '<strong><a href="' + esc(row.url) + '">' + esc(row.title) + '</a></strong>'
+          + '<small>' + esc(row.referent || '')
+          + (row.mail ? ' · <a href="mailto:' + esc(row.mail) + '">' + esc(row.mail) + '</a>' : '')
+          + '</small>'
+          + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + '</small>'
+          + '</div>';
+        if (row.custom_warning) { html += row.custom_warning; }
+        if (row.error) { html += row.error; }
         return html;
       }
     },
-    {
-      data: null,
-      defaultContent: '',
-      orderable: true,
-      render: function(data, type, row) {
-        var html = esc(row.referent);
-        if (row.mail) {
-          html += '<br><a href="mailto:' + esc(row.mail) + '">' + esc(row.mail) + '</a>';
-        }
-        return html;
-      }
-    },
-    {
-      data: null,
-      defaultContent: '',
-      orderable: true,
-      render: function(data, type, row) {
-        if (!row.dashboard_link) { return esc(row.last_modification); }
-        return '<a class="modalbox" href="' + esc(row.dashboard_link) + '">' + esc(row.last_modification) + '</a>';
-      }
-    },
-    { data: 'admin', orderable: false, render: function(data) { return data || ''; } },
-    { data: 'version', orderable: false, render: function(data) { return data || ''; } },
     {
       data: null,
       defaultContent: '',
       orderable: false,
       render: function(data, type, row) {
-        return '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
-          + ' title="' + esc(tableI18n.see) + '" href="' + esc(row.view_url) + '">'
-          + '<i class="fa fa-eye"></i></a> '
-          + '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
-          + ' title="' + esc(tableI18n.edit) + '" href="' + esc(row.edit_url) + '">'
-          + '<i class="fa fa-pencil-alt"></i></a> '
-          + '<a class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="bottom"'
-          + ' title="' + esc(tableI18n.backup) + '" href="">';
-        //+ '<i class="fas fa-file-archive"></i></a> ';
+        if (!row.stats) { return '<span class="ferme-muted">—</span>'; }
+        return '<div class="ferme-figures">'
+          + figure('folder-open', row.stats.entries, i18n.totalEntries)
+          + figure('file-alt', row.stats.pages, i18n.totalPages)
+          + figure('list-alt', row.stats.forms, i18n.totalForms)
+          + figure('user', row.stats.users, i18n.totalUsers)
+          + '</div>';
+      }
+    },
+    {
+      data: null,
+      defaultContent: '',
+      orderable: false,
+      render: function(data, type, row) {
+        if (!row.stats) { return '<span class="ferme-muted">' + esc(i18n.i18nNeverMeasured) + '</span>'; }
+        return '<div>' + row.stats.sparkline + '</div>'
+          + '<small class="ferme-muted" title="' + esc(row.stats.last_activity || '') + '">'
+          + esc(row.stats.last_activity_age) + '</small>';
+      }
+    },
+    {
+      data: null,
+      defaultContent: '',
+      orderable: false,
+      render: function(data, type, row) {
+        if (!row.stats) { return '<span class="ferme-muted">—</span>'; }
+        var html = '<div title="' + esc(row.stats.disk_detail) + '">' + esc(row.stats.disk) + '</div>'
+          + '<small class="ferme-muted">' + esc(row.stats.files) + ' ' + esc(i18n.i18nFiles) + '</small>';
+        if (row.stats.heavy_archives) {
+          html += '<div><span class="label label-warning">' + esc(i18n.i18nArchives) + ' ' + esc(row.stats.private) + '</span></div>';
+        }
+        return html;
+      }
+    },
+    {
+      data: null,
+      defaultContent: '',
+      orderable: false,
+      render: function(data, type, row) {
+        var items = '<li><a href="' + esc(row.view_url) + '"><i class="fa fa-eye fa-fw"></i> ' + esc(tableI18n.see) + '</a></li>'
+          + '<li><a href="' + esc(row.edit_url) + '"><i class="fa fa-pencil-alt fa-fw"></i> ' + esc(tableI18n.edit) + '</a></li>';
+        if (row.version && row.version.update_url) {
+          items += '<li><a href="' + esc(row.version.update_url) + '"><i class="fas fa-sync-alt fa-fw"></i> '
+            + esc(i18n.i18nUpdateTo) + ' ' + esc(row.version.source_version) + '</a></li>';
+        }
+        if (row.admin) {
+          items += '<li><a href="#" class="admin-action-btn" data-admin-action="' + (row.admin.present ? 'remove' : 'add') + '"'
+            + ' data-admin-wiki="' + esc(row.admin.folder) + '">'
+            + '<i class="fas fa-user-' + (row.admin.present ? 'minus' : 'plus') + ' fa-fw"></i> '
+            + esc(row.admin.present ? i18n.i18nAdminRemove : i18n.i18nAdminAdd) + '</a></li>';
+        }
+        return '<div class="btn-group">'
+          + '<button type="button" class="btn btn-default btn-xs ferme-detail-toggle" title="' + esc(i18n.i18nDetail) + '">'
+          + '<i class="fas fa-chevron-down"></i></button>'
+          + '<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown">'
+          + '<i class="fas fa-ellipsis-h"></i></button>'
+          + '<ul class="dropdown-menu dropdown-menu-right">' + items + '</ul>'
+          + '</div>';
       }
     }
   ];
@@ -112,8 +177,15 @@ $(document).ready(function() {
     pageLength: 100,
     ajax: {
       url: apiUrl,
-      type: 'POST'
+      type: 'POST',
+      data: function(data) {
+        var sort = String($('#ferme-sort').val() || 'title|asc').split('|');
+        data.sort = sort[0];
+        data.direction = sort[1] || 'asc';
+        data.filter = activeFilter;
+      }
     },
+    ordering: false,
     columns: columns,
     dom: (dtBase.dom ? dtBase.dom : "<'row'<'col-sm-6'l><'col-sm-6'f>><'row'<'col-sm-12'tr>><'row'<'col-sm-6'i><'col-sm-6'<'pull-right'B>>>")
       + "<'row'<'col-sm-12'p>>"
@@ -128,6 +200,103 @@ $(document).ready(function() {
     var left = offset.left - $(window).scrollLeft() + $container.outerWidth() / 2;
     $('#wikis-table_processing').css({ top: top, left: left });
   });
+
+  wikisTable.on('xhr', function(e, settings, json) {
+    if (json) { renderSummary(json.totals || {}, json.counts || {}); }
+  });
+
+  function renderSummary(totals, counts) {
+    var $totals = $('#ferme-totals').empty();
+    [
+      ['wikis', i18n.totalWikis],
+      ['entries', i18n.totalEntries],
+      ['pages', i18n.totalPages],
+      ['users', i18n.totalUsers],
+      ['disk', i18n.totalDisk]
+    ].forEach(function(pair) {
+      if (totals[pair[0]] === undefined) { return; }
+      $totals.append($('<div class="ferme-total">')
+        .append($('<strong>').text(totals[pair[0]]))
+        .append($('<span>').text(pair[1])));
+    });
+
+    var $chips = $('#ferme-chips').empty();
+    chips.forEach(function(chip) {
+      var count = counts[chip.key] || 0;
+      if (count === 0 && activeFilter !== chip.key) { return; }
+      $chips.append($('<button type="button">')
+        .addClass('btn btn-xs btn-' + chip.kind + ' ferme-chip')
+        .toggleClass('active', activeFilter === chip.key)
+        .attr('data-filter', chip.key)
+        .html('<i class="fas fa-' + chip.icon + '"></i> ' + esc(i18n[chip.label]) + ' <span class="badge">' + count + '</span>'));
+    });
+  }
+
+  $(document).on('click', '.ferme-chip', function() {
+    var wanted = $(this).data('filter');
+    activeFilter = activeFilter === wanted ? '' : wanted;
+    wikisTable.ajax.reload();
+  });
+
+  $('#ferme-sort').on('change', function() {
+    wikisTable.ajax.reload();
+  });
+
+  $(document).on('click', '.ferme-detail-toggle', function() {
+    var row = wikisTable.row($(this).closest('tr'));
+    var $icon = $(this).find('i');
+    if (row.child.isShown()) {
+      row.child.hide();
+      $icon.attr('class', 'fas fa-chevron-down');
+      return;
+    }
+    var $detail = $(detail(row.data()));
+    row.child($detail).show();
+    $icon.attr('class', 'fas fa-chevron-up');
+    loadCalendar($detail);
+  });
+
+  function loadCalendar($detail) {
+    var $slot = $detail.find('.ferme-calendar-slot').addBack('.ferme-calendar-slot');
+    if (!$slot.length || !activityUrl || $slot.data('loaded')) { return; }
+    $slot.data('loaded', true);
+
+    $.ajax({
+      url: activityUrl,
+      method: 'POST',
+      data: { folder: $slot.data('folder'), 'csrf-token': csrfToken },
+      dataType: 'json',
+      success: function(response) {
+        $slot.html(response && response.success ? response.calendar : esc((response && response.error) || ''));
+      },
+      error: function(xhr, status, error) {
+        $slot.text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
+      }
+    });
+  }
+
+  function detail(row) {
+    if (!row.stats) {
+      return '<div class="ferme-detail">' + esc(i18n.i18nNeverMeasured) + '</div>';
+    }
+    var lines = [
+      [i18n.totalEntries, row.stats.entries],
+      [i18n.totalPages, row.stats.pages],
+      [i18n.totalForms, row.stats.forms],
+      [i18n.totalUsers, row.stats.users],
+      [i18n.i18nFiles, row.stats.files + ' · ' + row.stats.disk_detail],
+      [i18n.i18nMeasuredAt, row.stats.computed_at + ' (' + row.stats.computed_age + ')']
+    ];
+    var html = '<div class="ferme-detail"><dl class="dl-horizontal">';
+    lines.forEach(function(line) {
+      html += '<dt>' + esc(line[0]) + '</dt><dd>' + esc(String(line[1])) + '</dd>';
+    });
+    if (row.stats.failed && row.stats.error) {
+      html += '<dt>' + esc(i18n.chipFailed) + '</dt><dd><code>' + esc(row.stats.error) + '</code></dd>';
+    }
+    return html + '</dl><div class="ferme-calendar-slot text-muted" data-folder="' + esc(row.folder) + '">'
+      + esc(i18n.i18nLoading) + '</div></div>';
+  }
 
   // After each draw, restore checkbox state for visible rows and sync select-all
   wikisTable.on('draw', function() {
@@ -205,7 +374,8 @@ $(document).ready(function() {
   runModes = {
     core: { url: upgradeUrl, icon: 'fas fa-sync-alt', title: i18n.upgradeTitle, intro: i18n.upgradeIntro },
     extensions: { url: upgradeExtensionsUrl, icon: 'fas fa-puzzle-piece', title: i18n.upgradeExtTitle, intro: i18n.upgradeExtIntro },
-    recover: { url: recoverCustomUrl, icon: 'fas fa-undo', title: i18n.recoverTitle, intro: i18n.recoverIntro }
+    recover: { url: recoverCustomUrl, icon: 'fas fa-undo', title: i18n.recoverTitle, intro: i18n.recoverIntro },
+    stats: { url: refreshStatsUrl, icon: 'fas fa-chart-column', title: i18n.refreshTitle, intro: i18n.refreshIntro }
   };
   runMode = runModes.core;
 
@@ -217,6 +387,11 @@ $(document).ready(function() {
   $('#btn-upgrade-extensions-selected').on('click', function(event) {
     event.preventDefault();
     openUpgradeModal('extensions');
+  });
+
+  $('#btn-refresh-stats-selected').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('stats');
   });
 
   $('#btn-recover-custom-selected').on('click', function(event) {

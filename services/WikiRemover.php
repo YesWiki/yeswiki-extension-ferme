@@ -11,17 +11,20 @@ class WikiRemover
     protected $config;
     protected $files;
     protected $entryManager;
+    protected $stats;
 
     public function __construct(
         Wiki $wiki,
         FarmConfig $config,
         FileSystem $files,
-        EntryManager $entryManager
+        EntryManager $entryManager,
+        WikiStatsStore $stats
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->files = $files;
         $this->entryManager = $entryManager;
+        $this->stats = $stats;
     }
 
     public function deleteForApi(string $idFiche): array
@@ -75,6 +78,8 @@ class WikiRemover
 
     private function deleteWikiData(string $folder): void
     {
+        $this->stats->forget($folder);
+
         $dir = $this->config->wikiDir($folder);
         if (!is_dir($dir)) {
             return;

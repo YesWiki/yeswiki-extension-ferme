@@ -61,6 +61,14 @@ abstract class AbstractFarmCommand extends Command
         return $this->finder->find($path === '' ? null : $path, max(0, (int)$input->getOption('depth')));
     }
 
+    protected function elapsed(float $started): string
+    {
+        $seconds = (int)round(microtime(true) - $started);
+        $minutes = intdiv($seconds, 60);
+
+        return ($minutes > 0 ? $minutes . 'm ' : '') . ($seconds % 60) . 's';
+    }
+
     protected function label(array $wiki): string
     {
         return ($wiki['URL'] ?? 'KO') !== 'KO' ? $wiki['URL'] : $wiki['PATH'];

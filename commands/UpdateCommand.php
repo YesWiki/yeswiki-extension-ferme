@@ -424,12 +424,4 @@ class UpdateCommand extends AbstractFarmCommand
 
         return $command;
     }
-
-    private function elapsed(float $started): string
-    {
-        $seconds = (int)round(microtime(true) - $started);
-        $minutes = intdiv($seconds, 60);
-
-        return ($minutes > 0 ? $minutes . 'm ' : '') . ($seconds % 60) . 's';
-    }
 }

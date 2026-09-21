@@ -22,6 +22,8 @@ class WikiRepository
     protected $finder;
     protected $configEditor;
     protected $database;
+    protected $statsStore;
+    protected $dashboard;
 
     public function __construct(
         Wiki $wiki,
@@ -32,7 +34,9 @@ class WikiRepository
         TripleStore $tripleStore,
         WikiFinder $finder,
         WikiConfigEditor $configEditor,
-        WikiDatabase $database
+        WikiDatabase $database,
+        WikiStatsStore $statsStore,
+        FarmDashboard $dashboard
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -43,6 +47,8 @@ class WikiRepository
         $this->finder = $finder;
         $this->configEditor = $configEditor;
         $this->database = $database;
+        $this->statsStore = $statsStore;
+        $this->dashboard = $dashboard;
     }
 
     public function getAll(): array
@@ -59,36 +65,40 @@ class WikiRepository
         return $fiches;
     }
 
-    public function getPaginated(int $start, int $length, string $search, int $orderCol, string $orderDir): array
-    {
-        $fiches = $this->getAllWikiFiches();
-        $total = count($fiches);
+    /**
+     * One page of the admin table: the wikis a chip and a search leave, in the
+     * order asked for, with the summary the page shows above them.
+     *
+     * @return array{total:int,filtered:int,fiches:array,counts:array<string,int>,totals:array<string,int>}
+     */
+    public function getPaginated(
+        int $start,
+        int $length,
+        string $search,
+        string $sort,
+        string $direction,
+        string $filter = ''
+    ): array {
+        $page = $this->dashboard->select(
+            $this->getAllWikiFiches(),
+            $this->statsStore->readAll(),
+            [
+                'version' => (string)$this->wiki->config['yeswiki_version'],
+                'release' => (string)$this->wiki->config['yeswiki_release'],
+            ],
+            $search,
+            $filter,
+            $sort,
+            $direction,
+            $start,
+            $length
+        );
 
-        if ($search !== '') {
-            $needle = mb_strtolower($search);
-            $fiches = array_values(array_filter($fiches, function ($f) use ($needle) {
-                return strpos(mb_strtolower($f['bf_titre'] ?? ''), $needle) !== false
-                    || strpos(mb_strtolower($f['bf_referent'] ?? ''), $needle) !== false
-                    || strpos(mb_strtolower($f['bf_mail'] ?? ''), $needle) !== false
-                    || strpos(mb_strtolower($f['bf_dossier-wiki'] ?? ''), $needle) !== false;
-            }));
+        foreach ($page['fiches'] as $index => $fiche) {
+            $page['fiches'][$index] = $this->processWikiEntry($fiche);
         }
-        $filtered = count($fiches);
 
-        $sortFields = [1 => 'bf_titre', 2 => 'bf_referent', 3 => 'date_maj_fiche'];
-        $sortField = $sortFields[$orderCol] ?? 'bf_titre';
-        usort($fiches, function ($a, $b) use ($sortField, $orderDir) {
-            $cmp = strcasecmp($a[$sortField] ?? '', $b[$sortField] ?? '');
-
-            return $orderDir === 'desc' ? -$cmp : $cmp;
-        });
-
-        $fiches = array_slice($fiches, $start, $length);
-        foreach ($fiches as $i => $fiche) {
-            $fiches[$i] = $this->processWikiEntry($fiche);
-        }
-
-        return ['total' => $total, 'filtered' => $filtered, 'fiches' => $fiches];
+        return $page;
     }
 
     /** @param array<int,array> $wikis as WikiFinder describes them */
