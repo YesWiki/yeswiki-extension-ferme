@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\CoversMethod;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FileSystem;
 use YesWiki\Ferme\Service\FolderLock;
+use YesWiki\Ferme\Service\WikiHibernator;
 use YesWiki\Ferme\Service\WikiSymlinker;
 use YesWiki\Test\Core\YesWikiTestCase;
 
@@ -188,7 +189,7 @@ class WikiSymlinkerTest extends YesWikiTestCase
         $lock = new FolderLock();
         $lock->useDirectory($this->tmp . '/locks');
 
-        return new WikiSymlinker($this->wikiApp, $this->createStub(FarmConfig::class), new FileSystem(), $lock);
+        return new WikiSymlinker($this->wikiApp, $this->createStub(FarmConfig::class), new FileSystem(), $lock, $this->createStub(WikiHibernator::class));
     }
 
     /**

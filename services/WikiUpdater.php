@@ -28,6 +28,7 @@ class WikiUpdater
     protected $aside;
     protected $extensions;
     protected $lock;
+    protected $hibernator;
 
     public function __construct(
         Wiki $wiki,
@@ -37,7 +38,8 @@ class WikiUpdater
         WikiDatabase $database,
         CustomAside $aside,
         ExtensionVersions $extensions,
-        FolderLock $lock
+        FolderLock $lock,
+        WikiHibernator $hibernator
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -47,6 +49,7 @@ class WikiUpdater
         $this->aside = $aside;
         $this->extensions = $extensions;
         $this->lock = $lock;
+        $this->hibernator = $hibernator;
     }
 
     /**
@@ -63,6 +66,10 @@ class WikiUpdater
 
         if ($wikiDir === rtrim((string)realpath(getcwd()), DIRECTORY_SEPARATOR)) {
             throw new \RuntimeException(_t('FERME_CLI_MASTER_EXCLUDED'));
+        }
+
+        if (!$dryRun) {
+            $this->hibernator->refuseIfAsleepIn($wikiDir);
         }
 
         return $this->lock->during($wikiDir, _t('FERME_LOCK_UPDATE'), function () use ($wikiDir, $sourceDir, $backup, $dryRun, $options) {

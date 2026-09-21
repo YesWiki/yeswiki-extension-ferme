@@ -322,6 +322,23 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(['archive', 'dormeur'], array_column($asleep['fiches'], 'bf_dossier-wiki'));
     }
 
+    public function testTheSummarySaysHowManyAreInServiceAndHowManyAsleep()
+    {
+        $page = $this->select(
+            [
+                $this->fiche('dormeur', null, 'hibernate'),
+                $this->fiche('archive', null, 'archiving'),
+                $this->fiche('actif'),
+                $this->fiche('actifaussi', null, 'running'),
+            ],
+            []
+        );
+
+        $this->assertSame(4, $page['totals']['wikis']);
+        $this->assertSame(2, $page['totals']['running']);
+        $this->assertSame(2, $page['totals']['hibernating']);
+    }
+
     public function testASleepingWikiIsStillCountedAmongTheBrokenOrTheUnmeasured()
     {
         $page = $this->select(

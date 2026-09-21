@@ -165,10 +165,16 @@ class FarmDashboard
      */
     private function totals(array $fiches): array
     {
-        $totals = array_fill_keys(['wikis', 'measured', 'users', 'forms', 'entries', 'pages', 'files', 'diskBytes'], 0);
+        $totals = array_fill_keys(['wikis', 'running', 'hibernating', 'measured', 'users', 'forms', 'entries', 'pages', 'files', 'diskBytes'], 0);
         $totals['wikis'] = count($fiches);
 
         foreach ($fiches as $fiche) {
+            if ($this->isAsleep($fiche)) {
+                $totals['hibernating']++;
+            } else {
+                $totals['running']++;
+            }
+
             $stats = $fiche['stats'] ?? null;
             if ($stats === null) {
                 continue;

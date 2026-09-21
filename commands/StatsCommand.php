@@ -9,6 +9,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
 use YesWiki\Ferme\Service\FolderLock;
 use YesWiki\Ferme\Service\StatsRefresher;
+use YesWiki\Ferme\Service\WikiArchiver;
 use YesWiki\Ferme\Service\WikiStatsStore;
 use YesWiki\Wiki;
 
@@ -19,6 +20,7 @@ class StatsCommand extends AbstractFarmCommand
     protected $store;
     protected $refresher;
     protected $folderLock;
+    protected $archiver;
 
     public function __construct(Wiki &$wiki)
     {
@@ -26,6 +28,7 @@ class StatsCommand extends AbstractFarmCommand
         $this->store = $wiki->services->get(WikiStatsStore::class);
         $this->refresher = $wiki->services->get(StatsRefresher::class);
         $this->folderLock = $wiki->services->get(FolderLock::class);
+        $this->archiver = $wiki->services->get(WikiArchiver::class);
     }
 
     protected function configure()
@@ -70,6 +73,7 @@ class StatsCommand extends AbstractFarmCommand
             $orphans = $this->sweepOrphans($input, $output, $wikis);
             $counters = $this->refresh($input, $output, $wikis);
             $staleLocks = $dryRun ? 0 : $this->folderLock->prune();
+            $tidied = $dryRun ? ['private' => 0, 'archives' => 0] : $this->tidy($wikis);
         } finally {
             if (is_resource($lock)) {
                 flock($lock, LOCK_UN);
@@ -88,6 +92,8 @@ class StatsCommand extends AbstractFarmCommand
                 _t('FERME_CLI_STATS_UNCHANGED') => $counters['unchanged'],
                 _t('FERME_CLI_STATS_ORPHANS') => count($orphans),
                 _t('FERME_CLI_STATS_STALE_LOCKS') => $staleLocks,
+                _t('FERME_CLI_STATS_PRIVATE_MADE') => $tidied['private'],
+                _t('FERME_CLI_STATS_ARCHIVES_SWEPT') => $tidied['archives'],
                 _t('FERME_CLI_FAILED') => count($counters['failed']),
                 _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
             ],
@@ -270,5 +276,34 @@ class StatsCommand extends AbstractFarmCommand
         }
 
         return $handle;
+    }
+
+    /**
+     * Each wiki gets the private folder it should have, and loses the archives
+     * nobody came to fetch.
+     *
+     * @param array<int,array<string,mixed>> $wikis
+     *
+     * @return array{private:int,archives:int}
+     */
+    private function tidy(array $wikis): array
+    {
+        $keep = (int)($this->wiki->config['yeswiki-farm-archive-keep'] ?? WikiArchiver::KEEP_ARCHIVES);
+        $made = 0;
+        $swept = 0;
+
+        foreach ($wikis as $wiki) {
+            try {
+                $done = $keep > 0
+                    ? $this->archiver->tidy($wiki['FOLDER'], $keep)
+                    : ['created' => $this->archiver->ensurePrivate($wiki['FOLDER']), 'removed' => 0, 'bytes' => 0];
+            } catch (\Throwable $throwable) {
+                continue;
+            }
+            $made += $done['created'] ? 1 : 0;
+            $swept += $done['removed'];
+        }
+
+        return ['private' => $made, 'archives' => $swept];
     }
 }

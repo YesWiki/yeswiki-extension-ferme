@@ -28,13 +28,15 @@ class WikiSymlinker
     private $config;
     private $files;
     private $lock;
+    private $hibernator;
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, FileSystem $files, FolderLock $lock)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, FileSystem $files, FolderLock $lock, WikiHibernator $hibernator)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->files = $files;
         $this->lock = $lock;
+        $this->hibernator = $hibernator;
     }
 
     /**
@@ -95,6 +97,10 @@ class WikiSymlinker
 
         if ($wikiDir === $source) {
             throw new \RuntimeException(_t('FERME_CLI_MASTER_EXCLUDED'));
+        }
+
+        if (!$dryRun) {
+            $this->hibernator->refuseIfAsleepIn($wikiDir);
         }
 
         return $this->lock->during($wikiDir, _t('FERME_LOCK_SYMLINK'), function () use ($source, $wikiDir, $dryRun, $way) {

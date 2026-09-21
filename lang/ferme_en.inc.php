@@ -543,5 +543,17 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_OPT_CLEAN_REPAIR' => 'Give a page with no current revision its own back',
         'FERME_CLI_CLEAN_REPAIR_SUMMARY' => 'Repairing pages with no current revision',
         'FERME_CLI_CLEAN_REPAIRED' => 'Pages repaired',
+        'FERME_WIKI_ASLEEP' => 'This wiki is hibernating: nothing is done to it but waking it up.',
+        'FERME_ARCHIVE_SELECTED' => 'Back up the selected wikis',
+        'FERME_ARCHIVE_INTRO' => 'Each wiki makes its own archive, hibernating or not — the archive itself comes back in service. A download link appears for each; the archive leaves the wiki once downloaded.',
+        'FERME_ARCHIVE_DOWNLOAD' => 'Download',
+        'FERME_ARCHIVE_MADE' => 'Archive ready,',
+        'FERME_ARCHIVE_REPLACED' => 'older archives removed:',
+        'FERME_ARCHIVE_NOT_FOUND' => 'Archive not found.',
+        'FERME_ARCHIVE_NO_CONSOLE' => 'This wiki has no console, it cannot back itself up.',
+        'FERME_LOCK_ARCHIVE' => 'backing the wiki up',
+        'FERME_CLI_STATS_PRIVATE_MADE' => 'Private folders created',
+        'FERME_CLI_STATS_ARCHIVES_SWEPT' => 'Stale archives removed',
+        'EDIT_CONFIG_HINT_yeswiki-farm-archive-keep' => 'How many seconds an undownloaded archive stays in its wiki (604800 = one week, 0 = for ever)',
     ]
 );

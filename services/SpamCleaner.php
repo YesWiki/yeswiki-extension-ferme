@@ -31,13 +31,15 @@ class SpamCleaner
     private $config;
     private $database;
     private $lock;
+    private $hibernator;
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, FolderLock $lock)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, FolderLock $lock, WikiHibernator $hibernator)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->database = $database;
         $this->lock = $lock;
+        $this->hibernator = $hibernator;
     }
 
     /**
@@ -75,6 +77,9 @@ class SpamCleaner
      */
     public function clean(string $folder, bool $dryRun = true): array
     {
+        if (!$dryRun) {
+            $this->hibernator->refuseIfAsleep($folder);
+        }
         $wakkaConfig = $this->config->readWikiConfig($folder);
         if (empty($wakkaConfig['table_prefix'])) {
             throw new WikiStatsException($folder, _t('FERME_CLI_NO_CONFIG_FILE'));
@@ -126,6 +131,9 @@ class SpamCleaner
      */
     public function repair(string $folder, bool $dryRun = true): array
     {
+        if (!$dryRun) {
+            $this->hibernator->refuseIfAsleep($folder);
+        }
         $wakkaConfig = $this->config->readWikiConfig($folder);
         if (empty($wakkaConfig['table_prefix'])) {
             throw new WikiStatsException($folder, _t('FERME_CLI_NO_CONFIG_FILE'));

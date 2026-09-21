@@ -2,6 +2,8 @@
 
 namespace YesWiki\Ferme\Service;
 
+use YesWiki\Ferme\Exception\WikiAsleepException;
+
 /**
  * Puts a wiki to sleep, or wakes it up, by the `wiki_status` its own configuration
  * carries. A sleeping wiki still reads, but refuses every write, which is what a
@@ -43,6 +45,36 @@ class WikiHibernator
         return $status === self::HIBERNATE
             ? _t('FERME_STATUS_HIBERNATE')
             : _t('FERME_STATUS_BUSY') . ' (' . $status . ')';
+    }
+
+    /**
+     * Anything but waking a hibernating wiki is refused: that is what hibernation
+     * is for. The check reads the wiki's own configuration, so it holds whoever
+     * asks — the page, the command line or another wiki of the farm.
+     */
+    public function refuseIfAsleep(string $folder): void
+    {
+        $status = trim((string)($this->config->readWikiConfig($folder)['wiki_status'] ?? ''));
+        if (self::isAsleep($status)) {
+            throw new WikiAsleepException($folder);
+        }
+    }
+
+    /**
+     * The same refusal for whoever holds a path rather than a folder name.
+     */
+    public function refuseIfAsleepIn(string $wikiDir): void
+    {
+        $wikiDir = rtrim($wikiDir, DIRECTORY_SEPARATOR);
+        $path = $wikiDir . DIRECTORY_SEPARATOR . 'wakka.config.php';
+        $wakkaConfig = [];
+        if (is_file($path)) {
+            include $path;
+        }
+
+        if (self::isAsleep(trim((string)($wakkaConfig['wiki_status'] ?? '')))) {
+            throw new WikiAsleepException(basename($wikiDir));
+        }
     }
 
     /**

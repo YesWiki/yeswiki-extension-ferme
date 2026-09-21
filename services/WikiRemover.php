@@ -19,6 +19,7 @@ class WikiRemover
     protected $mattermost;
     protected $lock;
     protected $plan;
+    protected $hibernator;
     protected $timings = [];
 
     public function __construct(
@@ -28,7 +29,8 @@ class WikiRemover
         EntryManager $entryManager,
         WikiStatsStore $stats,
         MattermostNotifier $mattermost,
-        FolderLock $lock
+        FolderLock $lock,
+        WikiHibernator $hibernator
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -37,6 +39,7 @@ class WikiRemover
         $this->stats = $stats;
         $this->mattermost = $mattermost;
         $this->lock = $lock;
+        $this->hibernator = $hibernator;
     }
 
     public function deleteForApi(string $idFiche): array
@@ -174,6 +177,15 @@ class WikiRemover
 
             return [];
         });
+    }
+
+    /**
+     * A wiki put to sleep can still be deleted: hibernation keeps a wiki from being
+     * changed, and disposing of it is the other thing one wants to do with it.
+     */
+    public function isAsleep(string $folder): bool
+    {
+        return WikiHibernator::isAsleep(trim((string)($this->config->readWikiConfig($folder)['wiki_status'] ?? '')));
     }
 
     /**

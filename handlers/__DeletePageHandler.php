@@ -48,7 +48,7 @@ class __DeletePageHandler extends YesWikiHandler
             } catch (FolderBusyException $busy) {
                 return '<div class="alert alert-warning">' . htmlspecialchars($busy->getMessage()) . '</div>';
             } catch (\Throwable $th) {
-                exit('No CSRF token'); // do nothing
+                return '<div class="alert alert-danger">' . htmlspecialchars($th->getMessage()) . '</div>';
             }
 
             return '';
@@ -87,6 +87,7 @@ class __DeletePageHandler extends YesWikiHandler
             'disk' => $presenter->size($disk),
             'lastActivity' => $stats === null ? '' : $presenter->age($stats['lastActivity'] ?? null),
             'alsoClaimedBy' => $farm->entriesClaiming($folder, $tag),
+            'asleep' => $farm->wikiIsAsleep($folder),
         ]);
     }
 

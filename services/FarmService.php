@@ -162,6 +162,11 @@ class FarmService
         return $this->remover->deleteMany($idFiches);
     }
 
+    public function wikiIsAsleep(string $folder): bool
+    {
+        return $this->remover->isAsleep($folder);
+    }
+
     /**
      * @return array{changed:bool,status:string,before:string}
      */

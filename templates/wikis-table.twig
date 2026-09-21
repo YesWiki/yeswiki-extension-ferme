@@ -216,6 +216,10 @@
             </li>
             <li role="separator" class="divider"></li>
             <li>
+                <a href="#" id="btn-archive-selected"><i class="fas fa-file-archive fa-fw"></i> {{ _t("FERME_ARCHIVE_SELECTED") }}</a>
+            </li>
+            <li role="separator" class="divider"></li>
+            <li>
                 <a href="#" id="btn-clean-spam-dry"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_DRY_SELECTED") }}</a>
             </li>
             <li>
@@ -258,6 +262,7 @@
      data-import-url="{{ import_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
+     data-archive-url="{{ archive_api_url }}"
      data-select-url="{{ select_api_url }}"
      data-clean-spam-url="{{ clean_spam_api_url }}"
      data-hibernate-url="{{ hibernate_api_url }}"
@@ -295,6 +300,8 @@
      data-upgrade-ext-intro="{{ _t("FERME_UPGRADE_EXTENSIONS_INTRO") }}"
      data-recover-title="{{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}"
      data-total-wikis="{{ _t("FERME_TOTAL_WIKIS") }}"
+     data-i18n-total-running="{{ _t("FERME_STATUS_RUNNING") }}"
+     data-i18n-total-hibernating="{{ _t("FERME_STATUS_HIBERNATE") }}"
      data-total-users="{{ _t("FERME_SORT_USERS") }}"
      data-total-entries="{{ _t("FERME_SORT_ENTRIES") }}"
      data-total-pages="{{ _t("FERME_SORT_PAGES") }}"
@@ -310,6 +317,9 @@
      data-chip-spammed="{{ _t("FERME_CHIP_SPAMMED") }}"
      data-i18n-spam-words="{{ _t("FERME_STATS_SPAM_WORDS") }}"
      data-i18n-spam-links="{{ _t("FERME_STATS_SPAM_LINKS") }}"
+     data-archive-title="{{ _t("FERME_ARCHIVE_SELECTED") }}"
+     data-archive-intro="{{ _t("FERME_ARCHIVE_INTRO") }}"
+     data-i18n-download="{{ _t("FERME_ARCHIVE_DOWNLOAD") }}"
      data-clean-title="{{ _t("FERME_CLEAN_SELECTED") }}"
      data-clean-intro="{{ _t("FERME_CLEAN_INTRO") }}"
      data-clean-dry-title="{{ _t("FERME_CLEAN_DRY_SELECTED") }}"

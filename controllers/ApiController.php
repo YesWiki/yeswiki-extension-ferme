@@ -2,8 +2,10 @@
 
 namespace YesWiki\Ferme\Controller;
 
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use YesWiki\Core\ApiResponse;
@@ -13,6 +15,7 @@ use YesWiki\Ferme\Service\FarmMailer;
 use YesWiki\Ferme\Service\FarmService;
 use YesWiki\Ferme\Service\SpamCleaner;
 use YesWiki\Ferme\Service\StatsPresenter;
+use YesWiki\Ferme\Service\WikiArchiver;
 use YesWiki\Ferme\Service\WikiHibernator;
 
 class ApiController extends YesWikiController
@@ -398,6 +401,72 @@ class ApiController extends YesWikiController
     }
 
     /**
+     * Make a wiki's own backup and say where to fetch it.
+     *
+     * @Route("/api/ferme/wikis/archive", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function archiveWiki(Request $request)
+    {
+        $folder = trim($request->request->get('folder', ''));
+        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+        }
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        try {
+            $made = $this->getService(WikiArchiver::class)->create($folder);
+        } catch (\Throwable $throwable) {
+            return new ApiResponse(['success' => false, 'error' => $throwable->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        $presenter = $this->getService(StatsPresenter::class);
+
+        return new ApiResponse([
+            'success' => true,
+            'file' => $made['file'],
+            'size' => $presenter->size($made['bytes']),
+            'download_url' => $this->wiki->href('', 'api/ferme/wikis/archive/download', [
+                'folder' => $folder,
+                'file' => $made['file'],
+            ], false),
+            'output' => _t('FERME_ARCHIVE_MADE') . ' ' . $presenter->size($made['bytes'])
+                . ($made['replaced'] > 0 ? ' · ' . _t('FERME_ARCHIVE_REPLACED') . ' ' . $made['replaced'] : ''),
+        ]);
+    }
+
+    /**
+     * Hand an archive over, and take it out of the wiki once it is handed over:
+     * a farm has no business keeping everybody's backups.
+     *
+     * @Route("/api/ferme/wikis/archive/download", methods={"GET"}, options={"acl":{"@admins"}})
+     */
+    public function downloadWikiArchive(Request $request)
+    {
+        $folder = trim((string)$request->query->get('folder', ''));
+        $file = trim((string)$request->query->get('file', ''));
+        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $path = $this->getService(WikiArchiver::class)->pathOf($folder, $file);
+        if ($path === null) {
+            return new ApiResponse(['success' => false, 'error' => _t('FERME_ARCHIVE_NOT_FOUND')], Response::HTTP_NOT_FOUND);
+        }
+
+        $response = new BinaryFileResponse($path);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $folder . '-' . basename($path));
+        $response->deleteFileAfterSend(true);
+
+        return $response;
+    }
+
+    /**
      * Take the robots' pages out of one wiki.
      *
      * @Route("/api/ferme/wikis/clean-spam", methods={"POST"}, options={"acl":{"@admins"}})
@@ -495,9 +564,20 @@ class ApiController extends YesWikiController
 
     private function runStatusAction(Request $request, bool $asleep): ApiResponse
     {
-        $folder = trim($request->request->get('folder', ''));
+        $asked = $request->request->all('folders');
+        $folders = is_array($asked) ? array_values(array_filter(array_map('trim', $asked))) : [];
+        $batch = $folders !== [];
+        if (!$batch) {
+            $single = trim($request->request->get('folder', ''));
+            $folders = $single === '' ? [] : [$single];
+        }
 
-        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+        foreach ($folders as $folder) {
+            if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+                return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+            }
+        }
+        if ($folders === [] || count($folders) > self::MAX_PER_BATCH) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -505,21 +585,35 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
-        $farm = $this->getService(FarmService::class);
-
-        try {
-            $result = $asleep ? $farm->hibernateWiki($folder) : $farm->wakeWiki($folder);
-        } catch (\Throwable $throwable) {
-            return new ApiResponse(['success' => false, 'error' => $throwable->getMessage()], Response::HTTP_BAD_REQUEST);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
 
-        return new ApiResponse([
-            'success' => true,
-            'status' => $result['status'],
-            'output' => $result['changed']
-                ? WikiHibernator::label($result['before']) . ' → ' . WikiHibernator::label($result['status'])
-                : _t('FERME_STATUS_UNCHANGED') . ' ' . WikiHibernator::label($result['status']),
-        ]);
+        $farm = $this->getService(FarmService::class);
+        $results = [];
+        foreach ($folders as $folder) {
+            try {
+                $result = $asleep ? $farm->hibernateWiki($folder) : $farm->wakeWiki($folder);
+                $results[] = [
+                    'folder' => $folder,
+                    'success' => true,
+                    'status' => $result['status'],
+                    'output' => $result['changed']
+                        ? WikiHibernator::label($result['before']) . ' → ' . WikiHibernator::label($result['status'])
+                        : _t('FERME_STATUS_UNCHANGED') . ' ' . WikiHibernator::label($result['status']),
+                ];
+            } catch (\Throwable $throwable) {
+                $results[] = ['folder' => $folder, 'success' => false, 'error' => $throwable->getMessage()];
+            }
+        }
+
+        if (!$batch) {
+            return $results[0]['success']
+                ? new ApiResponse($results[0])
+                : new ApiResponse($results[0], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new ApiResponse(['success' => true, 'results' => $results]);
     }
 
     private function runFarmAdminAction(Request $request, bool $add): ApiResponse

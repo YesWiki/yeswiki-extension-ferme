@@ -28,6 +28,14 @@ Une copie qui n'a pas tout apporté est une copie ratée : une création incompl
 échoue et efface le dossier commencé, une mise à jour s'arrête avant d'estampiller
 la version.
 
+### Le ménage de la passe statistique
+
+`ferme:stats`, qui tourne de toute façon, en profite pour donner à chaque wiki le
+dossier `private` (et `private/backups`) qu'il devrait avoir, et pour jeter les
+archives que personne n'est venu chercher — une semaine par défaut,
+`yeswiki-farm-archive-keep` en décide, 0 les garde pour toujours. Sur une ferme de
+3 149 wikis, ce parcours coûte un dixième de seconde.
+
 ### Création de comptes admins temporaires pour administrer des wikis hébergés
 
 - ajouter un super administrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ;

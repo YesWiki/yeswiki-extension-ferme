@@ -16,13 +16,15 @@ class FarmAdminAccount
     protected $config;
     protected $editor;
     protected $database;
+    protected $hibernator;
 
-    public function __construct(Wiki $wiki, FarmConfig $config, WikiConfigEditor $editor, WikiDatabase $database)
+    public function __construct(Wiki $wiki, FarmConfig $config, WikiConfigEditor $editor, WikiDatabase $database, WikiHibernator $hibernator)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->editor = $editor;
         $this->database = $database;
+        $this->hibernator = $hibernator;
     }
 
     /**
@@ -30,6 +32,8 @@ class FarmAdminAccount
      */
     public function add(string $folder): array
     {
+        $this->hibernator->refuseIfAsleep($folder);
+
         $name = (string)($this->wiki->config['yeswiki-farm-admin-name'] ?? '');
         $password = (string)($this->wiki->config['yeswiki-farm-admin-pass'] ?? '');
         if ($name === '' || $password === '') {
@@ -50,6 +54,8 @@ class FarmAdminAccount
      */
     public function remove(string $folder): array
     {
+        $this->hibernator->refuseIfAsleep($folder);
+
         $name = (string)($this->wiki->config['yeswiki-farm-admin-name'] ?? '');
         if ($name === '') {
             return ['errors' => [_t('FERME_NO_FARM_ADMIN_CONFIGURED')]];

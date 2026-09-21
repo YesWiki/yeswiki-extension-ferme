@@ -47,6 +47,7 @@ class AdminWikisAction extends YesWikiAction
                     'import_api_url' => $this->wiki->href('', 'api/ferme/wikis/import'),
                     'delete_api_url' => $this->wiki->href('', 'api/ferme/wikis/delete'),
                     'search_api_url' => $this->wiki->href('', 'api/ferme/wikis/search'),
+                    'archive_api_url' => $this->wiki->href('', 'api/ferme/wikis/archive'),
                     'select_api_url' => $this->wiki->href('', 'api/ferme/wikis/select'),
                     'clean_spam_api_url' => $this->wiki->href('', 'api/ferme/wikis/clean-spam'),
                     'hibernate_api_url' => $this->wiki->href('', 'api/ferme/wikis/hibernate'),

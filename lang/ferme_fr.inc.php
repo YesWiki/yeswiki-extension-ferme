@@ -520,5 +520,17 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_OPT_CLEAN_REPAIR' => 'Rendre sa révision courante à une page qui n\'en a plus',
         'FERME_CLI_CLEAN_REPAIR_SUMMARY' => 'Réparation des pages sans révision courante',
         'FERME_CLI_CLEAN_REPAIRED' => 'Pages réparées',
+        'FERME_WIKI_ASLEEP' => 'Ce wiki est en hibernation : rien d\'autre ne lui est fait que de l\'en sortir.',
+        'FERME_ARCHIVE_SELECTED' => 'Sauvegarder les wikis sélectionnés',
+        'FERME_ARCHIVE_INTRO' => 'Chaque wiki fabrique sa propre archive, y compris s\'il est en hibernation — l\'archive, elle, revient en service. Un lien de téléchargement apparaît par wiki ; l\'archive est retirée du wiki une fois téléchargée.',
+        'FERME_ARCHIVE_DOWNLOAD' => 'Télécharger',
+        'FERME_ARCHIVE_MADE' => 'Archive prête,',
+        'FERME_ARCHIVE_REPLACED' => 'anciennes archives retirées :',
+        'FERME_ARCHIVE_NOT_FOUND' => 'Archive introuvable.',
+        'FERME_ARCHIVE_NO_CONSOLE' => 'Ce wiki n\'a pas de console, il ne peut pas se sauvegarder.',
+        'FERME_LOCK_ARCHIVE' => 'sauvegarde du wiki',
+        'FERME_CLI_STATS_PRIVATE_MADE' => 'Dossiers private créés',
+        'FERME_CLI_STATS_ARCHIVES_SWEPT' => 'Archives périmées retirées',
+        'EDIT_CONFIG_HINT_yeswiki-farm-archive-keep' => 'Combien de secondes une archive non téléchargée reste dans son wiki (604800 = une semaine, 0 = pour toujours)',
     ]
 );

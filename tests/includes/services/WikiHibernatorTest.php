@@ -5,6 +5,7 @@ namespace YesWiki\Test\Ferme\Service;
 use PHPUnit\Framework\Attributes\CoversMethod;
 use YesWiki\Core\Service\ConfigurationService;
 use YesWiki\Ferme\Exception\FolderBusyException;
+use YesWiki\Ferme\Exception\WikiAsleepException;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FileSystem;
 use YesWiki\Ferme\Service\FolderLock;
@@ -100,6 +101,39 @@ class WikiHibernatorTest extends YesWikiTestCase
         $this->hibernator()->hibernate('vide');
     }
 
+    public function testASleepingWikiIsLeftAloneByEverythingElse()
+    {
+        $hibernator = $this->hibernator();
+        $hibernator->hibernate('monwiki');
+
+        $this->expectException(WikiAsleepException::class);
+        $hibernator->refuseIfAsleep('monwiki');
+    }
+
+    public function testAWikiInServiceIsNotRefusedAnything()
+    {
+        $this->hibernator()->refuseIfAsleep('monwiki');
+        $this->hibernator()->refuseIfAsleepIn($this->tmp . '/monwiki');
+
+        $this->assertTrue(true, 'aucune exception');
+    }
+
+    public function testTheRefusalWorksFromAPathToo()
+    {
+        $this->hibernator()->hibernate('monwiki');
+
+        $this->expectException(WikiAsleepException::class);
+        $this->hibernator()->refuseIfAsleepIn($this->tmp . '/monwiki/');
+    }
+
+    public function testAWikiCoreIsBusyWithIsAlsoLeftAlone()
+    {
+        $this->write('monwiki', "<?php\n\$wakkaConfig = ['wiki_status' => 'archiving', 'table_prefix' => 'yw_'];\n");
+
+        $this->expectException(WikiAsleepException::class);
+        $this->hibernator()->refuseIfAsleep('monwiki');
+    }
+
     private function hibernator(): WikiHibernator
     {
         $config = $this->createStub(FarmConfig::class);
@@ -108,6 +142,15 @@ class WikiHibernatorTest extends YesWikiTestCase
         });
         $config->method('wikiConfigFile')->willReturnCallback(function (string $folder) {
             return $this->tmp . '/' . $folder . '/wakka.config.php';
+        });
+        $config->method('readWikiConfig')->willReturnCallback(function (string $folder) {
+            $wakkaConfig = [];
+            $path = $this->tmp . '/' . $folder . '/wakka.config.php';
+            if (is_file($path)) {
+                include $path;
+            }
+
+            return $wakkaConfig;
         });
 
         $editor = new WikiConfigEditor(

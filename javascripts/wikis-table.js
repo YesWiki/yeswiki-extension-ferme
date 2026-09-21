@@ -14,6 +14,7 @@ $(document).ready(function() {
   var importUrl = $config.data('import-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
+  var archiveUrl = $config.data('archive-url');
   var selectUrl = $config.data('select-url');
   var cleanSpamUrl = $config.data('clean-spam-url');
   var hibernateUrl = $config.data('hibernate-url');
@@ -330,6 +331,8 @@ $(document).ready(function() {
 
     [
       ['wikis', i18n.totalWikis, true],
+      ['running', i18n.i18nTotalRunning, true],
+      ['hibernating', i18n.i18nTotalHibernating, true],
       ['entries', i18n.totalEntries, false],
       ['pages', i18n.totalPages, false],
       ['users', i18n.totalUsers, false],
@@ -595,10 +598,11 @@ $(document).ready(function() {
     extensions: { url: upgradeExtensionsUrl, icon: 'fas fa-puzzle-piece', title: i18n.upgradeExtTitle, intro: i18n.upgradeExtIntro },
     recover: { url: recoverCustomUrl, icon: 'fas fa-undo', title: i18n.recoverTitle, intro: i18n.recoverIntro },
     stats: { url: refreshStatsUrl, icon: 'fas fa-chart-bar', title: i18n.refreshTitle, intro: i18n.refreshIntro },
+    archive: { url: archiveUrl, icon: 'fas fa-file-archive', title: i18n.archiveTitle, intro: i18n.archiveIntro },
     cleanDry: { url: cleanSpamUrl, icon: 'fas fa-broom', title: i18n.cleanDryTitle, intro: i18n.cleanDryIntro, data: { dry: '1' } },
     clean: { url: cleanSpamUrl, icon: 'fas fa-broom', title: i18n.cleanTitle, intro: i18n.cleanIntro },
-    hibernate: { url: hibernateUrl, icon: 'fas fa-moon', title: i18n.hibernateTitle, intro: i18n.hibernateIntro },
-    wake: { url: wakeUrl, icon: 'fas fa-sun', title: i18n.wakeTitle, intro: i18n.wakeIntro }
+    hibernate: { url: hibernateUrl, icon: 'fas fa-moon', title: i18n.hibernateTitle, intro: i18n.hibernateIntro, batch: 10 },
+    wake: { url: wakeUrl, icon: 'fas fa-sun', title: i18n.wakeTitle, intro: i18n.wakeIntro, batch: 10 }
   };
   runMode = runModes.core;
 
@@ -620,6 +624,11 @@ $(document).ready(function() {
   $('#btn-recover-custom-selected').on('click', function(event) {
     event.preventDefault();
     openUpgradeModal('recover');
+  });
+
+  $('#btn-archive-selected').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('archive');
   });
 
   $('#btn-clean-spam-dry').on('click', function(event) {
@@ -904,6 +913,59 @@ $(document).ready(function() {
     }
   }
 
+  /**
+   * Some of these are one line written in a wiki's configuration; sending them one
+   * request at a time costs far more than doing them. Those modes go by the handful.
+   */
+  function upgradeBatch(wikis, index, done) {
+    var chunk = wikis.slice(index, index + runMode.batch);
+    var byFolder = {};
+
+    chunk.forEach(function(wiki) {
+      byFolder[wiki.folder] = wiki;
+      var $item = $('#upgrade-item-' + wiki.folder);
+      $item.find('.upgrade-icon').attr('class', 'fas fa-spinner fa-spin upgrade-icon text-info');
+      $item.find('.upgrade-badge').text(i18n.inProgress).css('background-color', '#5bc0de');
+    });
+    follow('#upgrade-selected-modal', '#upgrade-wikis-list', $('#upgrade-item-' + chunk[0].folder), index, wikis.length);
+
+    postWithToken(runMode.url, {
+      folders: chunk.map(function(wiki) { return wiki.folder; })
+    }).done(function(response) {
+      var seen = {};
+      (response.results || []).forEach(function(result) {
+        if (!byFolder[result.folder]) { return; }
+        seen[result.folder] = true;
+        showRun(byFolder[result.folder], result, done);
+      });
+      chunk.forEach(function(wiki) {
+        if (!seen[wiki.folder]) {
+          showRun(wiki, { success: false, error: (response && response.error) || i18n.error }, done);
+        }
+      });
+
+      upgradeSequential(wikis, index + chunk.length, done);
+    });
+  }
+
+  function showRun(wiki, result, done) {
+    var $item = $('#upgrade-item-' + wiki.folder);
+    var text = [result.output, result.success ? '' : result.error].filter(Boolean).join('\n\n');
+    if (text) {
+      $item.find('.upgrade-output pre').text(text);
+      $item.find('.upgrade-output').show();
+    }
+    if (result.success) {
+      done.ok++;
+      $item.find('.upgrade-icon').attr('class', 'fas fa-check upgrade-icon text-success');
+      $item.find('.upgrade-badge').text(i18n.success).css('background-color', '#5cb85c');
+    } else {
+      done.failed++;
+      $item.find('.upgrade-icon').attr('class', 'fas fa-times upgrade-icon text-danger');
+      $item.find('.upgrade-badge').text(i18n.error).css('background-color', '#d9534f');
+    }
+  }
+
   function adminAjax(folder, action) {
     return postWithToken(action === 'remove' ? adminRemoveUrl : adminAddUrl, { folder: folder });
   }
@@ -1099,6 +1161,11 @@ $(document).ready(function() {
   function upgradeSequential(wikis, index, done) {
     done = done || { ok: 0, failed: 0 };
 
+    if (runMode.batch && index < wikis.length) {
+      upgradeBatch(wikis, index, done);
+      return;
+    }
+
     if (index >= wikis.length) {
       summarise($('#upgrade-wikis-list'), done.ok, done.failed);
       $('#upgrade-selected-modal').find('.ferme-progress').text('');
@@ -1119,6 +1186,13 @@ $(document).ready(function() {
       if (text) {
         $item.find('.upgrade-output pre').text(text);
         $item.find('.upgrade-output').show();
+      }
+      if (response.download_url) {
+        $item.find('.upgrade-output').append(
+          $('<a class="btn btn-default btn-xs" style="margin-top:6px;">')
+            .attr('href', response.download_url)
+            .html('<i class="fas fa-download"></i> ' + esc(i18n.i18nDownload) + ' — ' + esc(response.size || ''))
+        ).show();
       }
       if (response.success) {
         done.ok++;

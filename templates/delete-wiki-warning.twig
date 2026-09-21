@@ -23,6 +23,10 @@
             <dt>{{ _t("FERME_WIKI_OWNER") }}</dt>
             <dd>{{ referent }}{% if mail %} · {{ mail }}{% endif %}</dd>
         {% endif %}
+        {% if asleep %}
+            <dt>{{ _t("FERME_STATUS") }}</dt>
+            <dd><i class="fas fa-moon"></i> {{ _t("FERME_STATUS_HIBERNATE") }}</dd>
+        {% endif %}
         {% if stats %}
             <dt>{{ _t("FERME_STATS_CONTENT") }}</dt>
             <dd>
