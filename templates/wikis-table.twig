@@ -210,6 +210,13 @@
             </li>
             <li role="separator" class="divider"></li>
             <li>
+                <a href="#" id="btn-hibernate-selected"><i class="fas fa-moon fa-fw"></i> {{ _t("FERME_HIBERNATE_SELECTED") }}</a>
+            </li>
+            <li>
+                <a href="#" id="btn-wake-selected"><i class="fas fa-sun fa-fw"></i> {{ _t("FERME_WAKE_SELECTED") }}</a>
+            </li>
+            <li role="separator" class="divider"></li>
+            <li>
                 <a href="#" id="btn-mail-selected"><i class="fas fa-envelope fa-fw"></i> {{ _t("FERME_MAIL_SELECTED") }}</a>
             </li>
             <li role="separator" class="divider"></li>
@@ -238,6 +245,8 @@
      data-import-url="{{ import_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
+     data-hibernate-url="{{ hibernate_api_url }}"
+     data-wake-url="{{ wake_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
      data-admin-remove-url="{{ admin_remove_api_url }}"
      data-csrf-token="{{ csrfToken({"id": "main", "refresh": false}) }}"
@@ -282,6 +291,12 @@
      data-chip-suspect="{{ _t("FERME_CHIP_SUSPECT") }}"
      data-chip-failed="{{ _t("FERME_CHIP_FAILED") }}"
      data-chip-unmeasured="{{ _t("FERME_CHIP_UNMEASURED") }}"
+     data-chip-hibernating="{{ _t("FERME_CHIP_HIBERNATING") }}"
+     data-hibernate-title="{{ _t("FERME_HIBERNATE_SELECTED") }}"
+     data-hibernate-intro="{{ _t("FERME_HIBERNATE_INTRO") }}"
+     data-wake-title="{{ _t("FERME_WAKE_SELECTED") }}"
+     data-wake-intro="{{ _t("FERME_WAKE_INTRO") }}"
+     data-i18n-status="{{ _t("FERME_STATUS") }}"
      data-i18n-never-measured="{{ _t("FERME_STATS_NEVER_MEASURED") }}"
      data-i18n-measured-at="{{ _t("FERME_STATS_MEASURED_AT") }}"
      data-i18n-admin-present="{{ _t("FERME_ADMIN_PRESENT") }}"

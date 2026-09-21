@@ -34,10 +34,10 @@ Quand vous installez la ferme, à partir de "Gestion ferme à wikis" dans molett
 {{attach file="Accueil.png" desc="image tousleswiki.png (0.2MB)" size="large" class="center"}}
  - c'est dans cette page que vous retrouverez tous les wiki créés
 
-En haut de la page, un bandeau donne les totaux de la ferme et des étiquettes qui filtrent la liste d'un clic : à mettre à jour, dormants, archives lourdes, suspects, en erreur, jamais mesurés. Un menu "Trier par" range les wiki par titre, personne référente, dernière activité, activité totale, fiches, pages, comptes, formulaires ou espace disque.
+En haut de la page, un bandeau donne les totaux de la ferme et des étiquettes qui filtrent la liste d'un clic : à mettre à jour, dormants, archives lourdes, suspects, en erreur, jamais mesurés, en hibernation. Un menu "Trier par" range les wiki par titre, personne référente, dernière activité, activité totale, fiches, pages, comptes, formulaires ou espace disque.
 
 Le tableau tient en cinq colonnes :
- -  **Nom du wiki** : son titre, une flèche pour l'ouvrir dans un nouvel onglet, la personne référente et son mail, sa version et son compte super admin s'il en a un. S'y ajoutent, quand il y a lieu, une étiquette "custom mis de côté" laissée par une mise à jour interrompue, "suspect" quand le nom sent le spam, ou l'erreur rencontrée à la dernière mesure
+ -  **Nom du wiki** : son titre, une flèche pour l'ouvrir dans un nouvel onglet, la personne référente et son mail, sa version et son compte super admin s'il en a un. S'y ajoutent, quand il y a lieu, une étiquette "custom mis de côté" laissée par une mise à jour interrompue, "suspect" quand le nom sent le spam, "en hibernation" quand le wiki n'accepte plus d'écriture, ou l'erreur rencontrée à la dernière mesure. Le détail dépliable dit toujours le statut, même pour un wiki jamais mesuré
  -  **Contenu** : ce que le wiki contient — fiches, pages, formulaires, comptes. Un point d'interrogation tant qu'il n'a jamais été mesuré
  -  **Dernière activité** : un petit graphe des douze derniers mois, et "il y a 5 j" en dessous — la date elle-même au-delà de trois mois
  -  **Disque** : la place prise par ses fichiers, et leur nombre
@@ -52,6 +52,8 @@ En bas de cette page
    -  **Mettre à jour seulement les extensions** : les extensions propres au wiki passent à la version publiée pour la version de YesWiki qu'il fait tourner, puis leurs migrations sont lancées. Le cœur n'est pas touché
    -  **Recalculer les statistiques** : remesure les wikis cochés tout de suite, sans attendre la prochaine passe
    -  **Rétablir les dossiers custom** : une mise à jour interrompue peut laisser un wiki sans son dossier custom, mis de côté sous le nom custom.temp. Les wikis dans ce cas portent l'étiquette "custom mis de côté" sous leur titre, et cette entrée les remet en place
+   -  **Mettre en hibernation** : les wikis choisis continuent de se lire mais refusent toute écriture — pages, fiches, comptes, commentaires. C'est ce qu'on fait d'un wiki que plus personne ne maintient, plutôt que de le supprimer
+   -  **Sortir d'hibernation** : ils redeviennent modifiables
    -  **Envoyer un mail** : un message aux personnes référentes des wikis cochés, dont le modèle peut nommer le wiki, son adresse, sa dernière activité
    -  **Ajouter** ou **Retirer le compte admin** sur les wikis sélectionnés
    -  **Supprimer les wikis sélectionnés**, après confirmation. Supprimer une fiche depuis bazar efface aussi le wiki : la page de suppression le dit en rouge et rappelle ce que le wiki contient avant que vous confirmiez

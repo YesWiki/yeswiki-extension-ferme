@@ -14,6 +14,8 @@ $(document).ready(function() {
   var importUrl = $config.data('import-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
+  var hibernateUrl = $config.data('hibernate-url');
+  var wakeUrl = $config.data('wake-url');
   var adminAddUrl = $config.data('admin-add-url');
   var adminRemoveUrl = $config.data('admin-remove-url');
   var csrfToken = $config.data('csrf-token');
@@ -37,7 +39,8 @@ $(document).ready(function() {
     { key: 'heavyArchives', label: 'chipHeavyArchives', kind: 'warning', icon: 'archive' },
     { key: 'suspect', label: 'chipSuspect', kind: 'danger', icon: 'ban' },
     { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'exclamation-triangle' },
-    { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' }
+    { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' },
+    { key: 'hibernating', label: 'chipHibernating', kind: 'default', icon: 'moon' }
   ];
 
   function esc(str) {
@@ -143,6 +146,12 @@ $(document).ready(function() {
       : badge('warning', i18n.i18nAdminNone, row.admin.name + ' ' + i18n.i18nAdminAbsent);
   }
 
+  function statusBadge(row) {
+    if (!row.status || !row.status.asleep) { return ''; }
+    return '<span class="label label-default" title="' + esc(row.status.value) + '">'
+      + '<i class="fas fa-moon"></i> ' + esc(row.status.label) + '</span>';
+  }
+
   var columns = [
     {
       data: null,
@@ -174,7 +183,7 @@ $(document).ready(function() {
           + '<small>' + esc(row.referent || '')
           + (row.mail ? ' · <a href="mailto:' + esc(row.mail) + '">' + esc(row.mail) + '</a>' : '')
           + '</small>'
-          + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + '</small>'
+          + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + ' ' + statusBadge(row) + '</small>'
           + '</div>';
         if (row.stats && row.stats.suspect) {
           html += '<div><span class="label label-danger" title="' + esc((row.stats.suspect_why || []).join(', ')) + '">'
@@ -399,9 +408,24 @@ $(document).ready(function() {
     });
   }
 
+  function statusFigure(row) {
+    return [
+      row.status && row.status.asleep ? 'moon' : 'circle-notch',
+      i18n.i18nStatus,
+      (row.status && row.status.label) || ''
+    ];
+  }
+
   function detail(row) {
     if (!row.stats) {
-      return $('<div class="ferme-detail">').text(i18n.i18nNeverMeasured);
+      return $('<div class="ferme-detail">')
+        .append(
+          $('<div class="ferme-detail-cell">')
+            .append($('<span class="ferme-muted">').text(i18n.i18nStatus))
+            .append(' ')
+            .append($('<strong>').text((row.status && row.status.label) || ''))
+        )
+        .append($('<div class="ferme-muted ferme-detail-note">').text(i18n.i18nNeverMeasured));
     }
 
     var figures = [
@@ -410,7 +434,8 @@ $(document).ready(function() {
       ['clipboard-list', i18n.totalForms, row.stats.forms],
       ['user', i18n.totalUsers, row.stats.users],
       ['paperclip', i18n.i18nFiles, row.stats.files + ' · ' + row.stats.disk],
-      ['clock', i18n.i18nMeasuredAt, row.stats.computed_age]
+      ['clock', i18n.i18nMeasuredAt, row.stats.computed_age],
+      statusFigure(row)
     ];
 
     var html = '<div class="ferme-detail"><div class="ferme-detail-grid">';
@@ -510,7 +535,9 @@ $(document).ready(function() {
     core: { url: upgradeUrl, icon: 'fas fa-sync-alt', title: i18n.upgradeTitle, intro: i18n.upgradeIntro },
     extensions: { url: upgradeExtensionsUrl, icon: 'fas fa-puzzle-piece', title: i18n.upgradeExtTitle, intro: i18n.upgradeExtIntro },
     recover: { url: recoverCustomUrl, icon: 'fas fa-undo', title: i18n.recoverTitle, intro: i18n.recoverIntro },
-    stats: { url: refreshStatsUrl, icon: 'fas fa-chart-bar', title: i18n.refreshTitle, intro: i18n.refreshIntro }
+    stats: { url: refreshStatsUrl, icon: 'fas fa-chart-bar', title: i18n.refreshTitle, intro: i18n.refreshIntro },
+    hibernate: { url: hibernateUrl, icon: 'fas fa-moon', title: i18n.hibernateTitle, intro: i18n.hibernateIntro },
+    wake: { url: wakeUrl, icon: 'fas fa-sun', title: i18n.wakeTitle, intro: i18n.wakeIntro }
   };
   runMode = runModes.core;
 
@@ -532,6 +559,16 @@ $(document).ready(function() {
   $('#btn-recover-custom-selected').on('click', function(event) {
     event.preventDefault();
     openUpgradeModal('recover');
+  });
+
+  $('#btn-hibernate-selected').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('hibernate');
+  });
+
+  $('#btn-wake-selected').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('wake');
   });
 
   function openUpgradeModal(mode) {

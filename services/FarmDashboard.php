@@ -12,7 +12,7 @@ class FarmDashboard
     public const DORMANT_AFTER = '-6 months';
     public const HEAVY_ARCHIVES = 1073741824;
 
-    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'failed', 'unmeasured'];
+    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'failed', 'unmeasured', 'hibernating'];
     public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
     public const SORTS = ['title', 'referent', 'lastActivity', 'activity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
@@ -129,6 +129,9 @@ class FarmDashboard
     {
         $counts = array_fill_keys(self::FILTERS, 0);
         foreach ($fiches as $fiche) {
+            if ($this->isAsleep($fiche)) {
+                $counts['hibernating']++;
+            }
             if ($this->hasProblem($fiche)) {
                 $counts['failed']++;
                 continue;
@@ -186,6 +189,14 @@ class FarmDashboard
      *
      * @param array<string,mixed> $fiche
      */
+    /**
+     * @param array<string,mixed> $fiche
+     */
+    private function isAsleep(array $fiche): bool
+    {
+        return WikiHibernator::isAsleep((string)($fiche['status'] ?? ''));
+    }
+
     private function hasProblem(array $fiche): bool
     {
         foreach ($fiche['problems'] ?? [] as $problem) {
@@ -209,7 +220,10 @@ class FarmDashboard
             if ($filter === 'unmeasured' && ($fiche['stats'] !== null || $this->hasProblem($fiche))) {
                 return false;
             }
-            if ($filter !== '' && !in_array($filter, ['failed', 'unmeasured'], true) && empty($fiche['stats'][$filter])) {
+            if ($filter === 'hibernating' && !$this->isAsleep($fiche)) {
+                return false;
+            }
+            if ($filter !== '' && !in_array($filter, ['failed', 'unmeasured', 'hibernating'], true) && empty($fiche['stats'][$filter])) {
                 return false;
             }
             if ($needle === '') {

@@ -63,6 +63,15 @@ class YesWikiField extends BazarField
         ]);
     }
 
+    /**
+     * The wiki is made once the entry has its tag, so what is told about it — a
+     * Mattermost message, for one — can link back to the entry that owns it.
+     */
+    public function requireIDFiche()
+    {
+        return true;
+    }
+
     public function formatValuesBeforeSave($entry)
     {
         $value = $this->getValue($entry);

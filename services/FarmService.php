@@ -15,6 +15,7 @@ class FarmService
     protected $aside;
     protected $statsService;
     protected $statsStore;
+    protected $hibernator;
 
     public function __construct(
         FarmConfig $config,
@@ -27,7 +28,8 @@ class FarmService
         ModelAssets $modelAssets,
         CustomAside $aside,
         WikiStats $statsService,
-        WikiStatsStore $statsStore
+        WikiStatsStore $statsStore,
+        WikiHibernator $hibernator
     ) {
         $this->config = $config;
         $this->files = $files;
@@ -40,6 +42,7 @@ class FarmService
         $this->aside = $aside;
         $this->statsService = $statsService;
         $this->statsStore = $statsStore;
+        $this->hibernator = $hibernator;
     }
 
     public function initFarmConfig()
@@ -157,6 +160,22 @@ class FarmService
     public function deleteWikisForApi(array $idFiches): array
     {
         return $this->remover->deleteMany($idFiches);
+    }
+
+    /**
+     * @return array{changed:bool,status:string,before:string}
+     */
+    public function hibernateWiki(string $folder): array
+    {
+        return $this->hibernator->hibernate($folder);
+    }
+
+    /**
+     * @return array{changed:bool,status:string,before:string}
+     */
+    public function wakeWiki(string $folder): array
+    {
+        return $this->hibernator->wake($folder);
     }
 
     /**

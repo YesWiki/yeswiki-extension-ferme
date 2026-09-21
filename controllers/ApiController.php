@@ -12,6 +12,7 @@ use YesWiki\Core\YesWikiController;
 use YesWiki\Ferme\Service\FarmMailer;
 use YesWiki\Ferme\Service\FarmService;
 use YesWiki\Ferme\Service\StatsPresenter;
+use YesWiki\Ferme\Service\WikiHibernator;
 
 class ApiController extends YesWikiController
 {
@@ -377,6 +378,26 @@ class ApiController extends YesWikiController
     }
 
     /**
+     * Put a wiki to sleep: it goes on reading, and refuses every write.
+     *
+     * @Route("/api/ferme/wikis/hibernate", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function hibernateWiki(Request $request)
+    {
+        return $this->runStatusAction($request, true);
+    }
+
+    /**
+     * Wake a sleeping wiki.
+     *
+     * @Route("/api/ferme/wikis/wake", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function wakeWiki(Request $request)
+    {
+        return $this->runStatusAction($request, false);
+    }
+
+    /**
      * Add the farm super-admin account to a single wiki.
      *
      * @Route("/api/ferme/wikis/admin-add", methods={"POST"}, options={"acl":{"@admins"}})
@@ -394,6 +415,35 @@ class ApiController extends YesWikiController
     public function removeFarmAdmin(Request $request)
     {
         return $this->runFarmAdminAction($request, false);
+    }
+
+    private function runStatusAction(Request $request, bool $asleep): ApiResponse
+    {
+        $folder = trim($request->request->get('folder', ''));
+
+        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $farm = $this->getService(FarmService::class);
+
+        try {
+            $result = $asleep ? $farm->hibernateWiki($folder) : $farm->wakeWiki($folder);
+        } catch (\Throwable $throwable) {
+            return new ApiResponse(['success' => false, 'error' => $throwable->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new ApiResponse([
+            'success' => true,
+            'status' => $result['status'],
+            'output' => $result['changed']
+                ? WikiHibernator::label($result['before']) . ' → ' . WikiHibernator::label($result['status'])
+                : _t('FERME_STATUS_UNCHANGED') . ' ' . WikiHibernator::label($result['status']),
+        ]);
     }
 
     private function runFarmAdminAction(Request $request, bool $add): ApiResponse
@@ -541,6 +591,11 @@ class ApiController extends YesWikiController
                 ? null
                 : '<div><span class="label label-warning"><i class="fas fa-exclamation-triangle"></i> '
                     . htmlspecialchars(_t('FERME_CUSTOM_BROKEN')) . '</span></div>',
+            'status' => [
+                'value' => (string)($fiche['status'] ?? ''),
+                'label' => WikiHibernator::label((string)($fiche['status'] ?? '')),
+                'asleep' => WikiHibernator::isAsleep((string)($fiche['status'] ?? '')),
+            ],
             'stats' => $this->formatStats($fiche['stats'] ?? null),
             'problems' => $this->formatProblems($fiche['problems'] ?? []),
         ];

@@ -60,6 +60,30 @@ class MattermostNotifierTest extends YesWikiTestCase
         $this->assertStringContainsString('](', $texte, 'un lien markdown, pas un bouton');
     }
 
+    public function testTheCreationMessageEndsWithTheWayToDeleteTheWiki()
+    {
+        $notifier = $this->notifier();
+        $notifier->created($this->entry(), 'monwiki');
+
+        $texte = $notifier->envoyes[0]['text'];
+        $this->assertStringContainsString('https://ferme.exemple.org/monwiki/', $texte, 'on ouvre le wiki en un clic');
+        $this->assertStringContainsString('**[⛔ ', $texte, 'la suppression ressort du lot, en bas du message');
+        $this->assertStringEndsWith(')**', trim($texte), 'et elle vient en dernier');
+    }
+
+    public function testWithoutItsTagTheMessageStillOpensTheWiki()
+    {
+        $sansTag = $this->entry();
+        unset($sansTag['id_fiche']);
+
+        $notifier = $this->notifier();
+        $notifier->created($sansTag, 'monwiki');
+
+        $texte = $notifier->envoyes[0]['text'];
+        $this->assertStringContainsString('https://ferme.exemple.org/monwiki/', $texte);
+        $this->assertStringNotContainsString('deletepage', $texte, 'pas de lien de suppression sans fiche à viser');
+    }
+
     public function testAWikiThatLooksLikeSpamIsFlaggedRedAtBirth()
     {
         $entry = array_merge($this->entry(), [

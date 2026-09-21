@@ -54,7 +54,7 @@ class MattermostNotifier
                     }, $verdict['reasons'])),
                 ]] : []
             ),
-            'text' => $this->links((string)($entry['id_fiche'] ?? '')),
+            'text' => $this->links((string)($entry['id_fiche'] ?? ''), $folder),
         ]);
     }
 
@@ -96,14 +96,21 @@ class MattermostNotifier
         return $fields;
     }
 
-    private function links(string $idFiche): string
+    /**
+     * The line under the message: open the wiki, read its entry, and the one that
+     * matters to a moderator, the page that deletes it. It asks for a login and a
+     * confirmation like any other, so this stays a link and not a trigger.
+     */
+    private function links(string $idFiche, string $folder): string
     {
-        if ($idFiche === '') {
-            return '';
+        $links = ['[' . _t('FERME_HOOK_OPEN_WIKI') . '](' . $this->wikiUrl($folder) . ')'];
+
+        if ($idFiche !== '') {
+            $links[] = '[' . _t('BAZ_SEE_ENTRY') . '](' . $this->wiki->href('', $idFiche) . ')';
+            $links[] = '**[⛔ ' . _t('FERME_HOOK_DELETE') . '](' . $this->wiki->href('deletepage', $idFiche) . ')**';
         }
 
-        return '[' . _t('BAZ_SEE_ENTRY') . '](' . $this->wiki->href('', $idFiche) . ')'
-            . ' · [' . _t('FERME_HOOK_DELETE') . '](' . $this->wiki->href('deletepage', $idFiche) . ')';
+        return implode(' · ', $links);
     }
 
     private function wikiUrl(string $folder): string

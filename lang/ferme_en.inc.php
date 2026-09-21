@@ -482,5 +482,17 @@ $GLOBALS['translations'] = array_merge(
         'EDIT_CONFIG_HINT_contact_wikis[default_template]' => 'Template of the mail sent to the people in charge from the wiki admin page',
         'EDIT_CONFIG_HINT_yeswiki-farm-mattermost-webhook' => 'Address of a Mattermost incoming webhook told about every wiki created or deleted',
         'FERME_CLI_STATS_STALE_LOCKS' => 'Forgotten locks swept',
+        'FERME_STATUS' => 'Status',
+        'FERME_STATUS_RUNNING' => 'running',
+        'FERME_STATUS_HIBERNATE' => 'hibernating',
+        'FERME_STATUS_BUSY' => 'busy',
+        'FERME_STATUS_UNCHANGED' => 'already',
+        'FERME_CHIP_HIBERNATING' => 'hibernating',
+        'FERME_LOCK_STATUS' => 'changing the status',
+        'FERME_HIBERNATE_SELECTED' => 'Send to hibernation',
+        'FERME_HIBERNATE_INTRO' => 'The chosen wikis stay readable but refuse every write: pages, entries, accounts, comments.',
+        'FERME_WAKE_SELECTED' => 'Wake from hibernation',
+        'FERME_WAKE_INTRO' => 'The chosen wikis can be edited again.',
+        'FERME_HOOK_OPEN_WIKI' => 'Open the wiki',
     ]
 );

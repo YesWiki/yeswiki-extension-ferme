@@ -52,7 +52,7 @@ class FarmDashboardTest extends YesWikiTestCase
         );
 
         $this->assertSame(
-            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'failed' => 1, 'unmeasured' => 1],
+            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0],
             $page['counts']
         );
         $this->assertSame(5, $page['total']);
@@ -303,11 +303,37 @@ class FarmDashboardTest extends YesWikiTestCase
     /**
      * The dashboard's own signature groups its arguments; the tests keep reading
      * as a list of what varies.
-     *
-     * @param array<int,array<string,mixed>>    $fiches
-     * @param array<string,array<string,mixed>> $stats
-     * @param array<string,bool>                $onDisk
      */
+    public function testASleepingWikiIsCountedAndCanBeSingledOut()
+    {
+        $fiches = [
+            $this->fiche('dormeur', null, 'hibernate'),
+            $this->fiche('archive', null, 'archiving'),
+            $this->fiche('actif'),
+            $this->fiche('actifaussi', null, 'running'),
+        ];
+        $stats = ['dormeur' => $this->stats(), 'archive' => $this->stats(), 'actif' => $this->stats(), 'actifaussi' => $this->stats()];
+
+        $page = $this->select($fiches, $stats);
+        $this->assertSame(2, $page['counts']['hibernating'], 'archiving refuses writes just as hibernation does');
+
+        $asleep = $this->select($fiches, $stats, [], '', 'hibernating');
+        $this->assertSame(2, $asleep['filtered']);
+        $this->assertSame(['archive', 'dormeur'], array_column($asleep['fiches'], 'bf_dossier-wiki'));
+    }
+
+    public function testASleepingWikiIsStillCountedAmongTheBrokenOrTheUnmeasured()
+    {
+        $page = $this->select(
+            [$this->fiche('dormeurcasse', null, 'hibernate'), $this->fiche('dormeurjamaisvu', null, 'hibernate')],
+            ['dormeurcasse' => $this->stats(['status' => WikiStatsStore::STATUS_ERROR])]
+        );
+
+        $this->assertSame(2, $page['counts']['hibernating']);
+        $this->assertSame(1, $page['counts']['failed']);
+        $this->assertSame(1, $page['counts']['unmeasured']);
+    }
+
     private function select(
         array $fiches,
         array $stats,
@@ -327,7 +353,7 @@ class FarmDashboardTest extends YesWikiTestCase
         );
     }
 
-    private function fiche(string $folder, ?string $title = null): array
+    private function fiche(string $folder, ?string $title = null, string $status = ''): array
     {
         return [
             'id_fiche' => 'Fiche' . ucfirst($folder),
@@ -335,6 +361,7 @@ class FarmDashboardTest extends YesWikiTestCase
             'bf_titre' => $title ?? ucfirst($folder),
             'bf_referent' => 'Personne ' . $folder,
             'bf_mail' => $folder . '@exemple.org',
+            'status' => $status,
         ];
     }
 
