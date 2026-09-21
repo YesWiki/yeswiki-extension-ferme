@@ -176,6 +176,60 @@ class CustomAsideTest extends YesWikiTestCase
         $this->assertFileDoesNotExist($this->wikiDir . '/custom.temp');
     }
 
+    public function testAnAsideDroppedInsideCustomByHandIsFoundAndPutBack()
+    {
+        $aside = $this->aside();
+        $aside->hide($this->wikiDir);
+        mkdir($this->wikiDir . '/custom');
+        file_put_contents($this->wikiDir . '/custom/custom.css', 'recree par la mise a jour');
+        rename($this->wikiDir . '/custom.temp', $this->wikiDir . '/custom/custom.temp');
+
+        $this->assertTrue($aside->isAside($this->wikiDir));
+
+        $message = $aside->recover($this->wikiDir);
+
+        $this->assertNotNull($message);
+        $this->assertSame('body{}', file_get_contents($this->wikiDir . '/custom/custom.css'));
+        $this->assertFileDoesNotExist($this->wikiDir . '/custom/custom.temp');
+        $this->assertFalse($aside->isAside($this->wikiDir));
+
+        $kept = glob($this->tmp . '/backups/customs/*/custom.css');
+        $this->assertCount(1, $kept);
+        $this->assertSame('recree par la mise a jour', file_get_contents($kept[0]));
+    }
+
+    public function testAnUnmarkedAsideInsideCustomIsReportedAndLeftAlone()
+    {
+        mkdir($this->wikiDir . '/custom/custom.temp');
+        file_put_contents($this->wikiDir . '/custom/custom.temp/a-moi.css', 'pas a nous');
+
+        $aside = $this->aside();
+        $this->assertTrue($aside->isAside($this->wikiDir));
+
+        try {
+            $aside->recover($this->wikiDir);
+            $this->fail('an unmarked aside inside custom/ should be refused');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('custom.temp', $exception->getMessage());
+        }
+
+        $this->assertFileExists($this->wikiDir . '/custom/custom.temp/a-moi.css');
+        $this->assertSame('body{}', file_get_contents($this->wikiDir . '/custom/custom.css'));
+    }
+
+    public function testAnAsideInsideASymlinkedCustomBelongsToWhatTheLinkPointsAt()
+    {
+        (new FileSystem())->rrmdir($this->wikiDir . '/custom');
+        mkdir($this->tmp . '/shared/custom.temp', 0777, true);
+        symlink($this->tmp . '/shared', $this->wikiDir . '/custom');
+
+        $aside = $this->aside();
+
+        $this->assertFalse($aside->isAside($this->wikiDir));
+        $this->assertNull($aside->recover($this->wikiDir));
+        $this->assertDirectoryExists($this->tmp . '/shared/custom.temp');
+    }
+
     private function aside(): CustomAside
     {
         $config = $this->createStub(FarmConfig::class);

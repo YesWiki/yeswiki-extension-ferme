@@ -423,6 +423,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_CUSTOM_ASIDE_IN_THE_WAY' => 'Something is already sitting where custom/ goes aside:',
         'FERME_CLI_CANNOT_RESTORE_CUSTOM' => 'Cannot put custom/ back from:',
         'FERME_CLI_CUSTOM_ASIDE_FOREIGN' => 'This custom.temp was not left by the farm, it stays where it is:',
+        'FERME_CLI_CUSTOM_ASIDE_NESTED' => 'A custom.temp was moved into custom/ by hand and nothing says where it came from, it stays where it is:',
         'FERME_CLI_CUSTOM_CONFLICT_MOVED' => 'a custom/ folder found back in its place has been moved to',
         'FERME_CLI_WOULD_RECOVER_CUSTOM' => 'Would put back the custom.temp left by an interrupted run',
         'FERME_CLI_RECOVER_SUMMARY' => 'Recovery',

@@ -400,6 +400,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_CUSTOM_ASIDE_IN_THE_WAY' => 'Quelque chose occupe déjà la place où custom/ est mis de côté :',
         'FERME_CLI_CANNOT_RESTORE_CUSTOM' => 'Impossible de remettre custom/ en place depuis :',
         'FERME_CLI_CUSTOM_ASIDE_FOREIGN' => 'Ce custom.temp n\'a pas été laissé par la ferme, il reste où il est :',
+        'FERME_CLI_CUSTOM_ASIDE_NESTED' => 'Un custom.temp a été déplacé à la main dans custom/ et rien ne dit d\'où il vient, il reste où il est :',
         'FERME_CLI_CUSTOM_CONFLICT_MOVED' => 'un dossier custom/ retrouvé à sa place a été déplacé dans',
         'FERME_CLI_WOULD_RECOVER_CUSTOM' => 'Remettrait en place le custom.temp laissé par une exécution interrompue',
         'FERME_CLI_RECOVER_SUMMARY' => 'Récupération',

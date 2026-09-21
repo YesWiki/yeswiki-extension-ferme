@@ -87,6 +87,8 @@ class CustomAside
      */
     public function recover(string $wikiDir): ?string
     {
+        $this->unnest($wikiDir);
+
         if (!$this->isAside($wikiDir)) {
             return null;
         }
@@ -105,9 +107,37 @@ class CustomAside
 
     public function isAside(string $wikiDir): bool
     {
-        $aside = $this->asidePath($wikiDir);
+        foreach ([$this->asidePath($wikiDir), $this->nestedPath($wikiDir)] as $path) {
+            if ($path !== null && (file_exists($path) || is_link($path))) {
+                return true;
+            }
+        }
 
-        return file_exists($aside) || is_link($aside);
+        return false;
+    }
+
+    /**
+     * An aside put back by hand over a custom/ that already existed does not
+     * replace it: the shell drops it inside, where nothing ever looks again.
+     * Lift it out so the usual path can see it.
+     */
+    private function unnest(string $wikiDir): void
+    {
+        $nested = $this->nestedPath($wikiDir);
+        if ($nested === null || (!file_exists($nested) && !is_link($nested))) {
+            return;
+        }
+
+        $aside = $this->asidePath($wikiDir);
+        if (file_exists($aside) || is_link($aside)) {
+            throw new \RuntimeException(_t('FERME_CLI_CUSTOM_ASIDE_IN_THE_WAY') . ' ' . $aside);
+        }
+        if (!$this->isOurs($nested)) {
+            throw new \RuntimeException(_t('FERME_CLI_CUSTOM_ASIDE_NESTED') . ' ' . $nested);
+        }
+        if (!rename($nested, $aside)) {
+            throw new \RuntimeException(_t('FERME_CLI_CANNOT_MOVE') . ' ' . $nested);
+        }
     }
 
     private function isOurs(string $aside): bool
@@ -195,6 +225,20 @@ class CustomAside
     private function asidePath(string $wikiDir): string
     {
         return $this->key($wikiDir) . DIRECTORY_SEPARATOR . self::ASIDE;
+    }
+
+    /**
+     * @return string|null null when custom/ is a link or absent, as anything
+     *                     inside it then belongs to whatever it points at
+     */
+    private function nestedPath(string $wikiDir): ?string
+    {
+        $custom = $this->customPath($wikiDir);
+        if (is_link($custom) || !is_dir($custom)) {
+            return null;
+        }
+
+        return $custom . DIRECTORY_SEPARATOR . self::ASIDE;
     }
 
     private function key(string $wikiDir): string

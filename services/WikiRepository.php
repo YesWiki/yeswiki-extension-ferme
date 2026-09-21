@@ -25,6 +25,7 @@ class WikiRepository
     protected $statsStore;
     protected $dashboard;
     protected $spamScore;
+    protected $aside;
 
     public function __construct(
         Wiki $wiki,
@@ -38,7 +39,8 @@ class WikiRepository
         WikiDatabase $database,
         WikiStatsStore $statsStore,
         FarmDashboard $dashboard,
-        SpamScore $spamScore
+        SpamScore $spamScore,
+        CustomAside $aside
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -52,6 +54,7 @@ class WikiRepository
         $this->statsStore = $statsStore;
         $this->dashboard = $dashboard;
         $this->spamScore = $spamScore;
+        $this->aside = $aside;
     }
 
     public function getAll(): array
@@ -414,7 +417,7 @@ class WikiRepository
             return $fiche;
         }
 
-        $fiche['custom_aside'] = file_exists($this->config->wikiDir($folder) . CustomAside::ASIDE);
+        $fiche['custom_aside'] = $this->aside->isAside($this->config->wikiDir($folder));
         $fiche['status'] = trim((string)($wakkaConfig['wiki_status'] ?? ''));
         $fiche['url'] = $wakkaConfig['base_url'] . $wakkaConfig['root_page'];
         $fiche['version'] = $this->describeVersion($wakkaConfig, $folder);
