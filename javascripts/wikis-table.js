@@ -10,6 +10,7 @@ $(document).ready(function() {
   var recoverCustomUrl = $config.data('recover-custom-url');
   var refreshStatsUrl = $config.data('refresh-stats-url');
   var activityUrl = $config.data('activity-url');
+  var mailUrl = $config.data('mail-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
   var adminAddUrl = $config.data('admin-add-url');
@@ -116,14 +117,14 @@ $(document).ready(function() {
     if (row.version.status === 'different') {
       return badge('warning', label, i18n.i18nVersionDifferent);
     }
-    return badge('default', label);
+    return badge('success', label);
   }
 
   function adminBadge(row) {
     if (!row.admin) { return ''; }
     return row.admin.present
       ? badge('success', row.admin.name, i18n.i18nAdminPresent)
-      : badge('default', row.admin.name, i18n.i18nAdminAbsent);
+      : badge('warning', i18n.i18nAdminNone, row.admin.name + ' ' + i18n.i18nAdminAbsent);
   }
 
   var columns = [
@@ -137,7 +138,8 @@ $(document).ready(function() {
           + '<input type="checkbox" class="wiki-checkbox"'
           + ' value="' + esc(row.folder) + '"'
           + ' data-title="' + esc(row.title) + '"'
-          + ' data-id-fiche="' + esc(row.id_fiche) + '">'
+          + ' data-id-fiche="' + esc(row.id_fiche) + '"'
+          + ' data-mail="' + esc(row.mail) + '">'
           + '<span></span></label></div>';
       }
     },
@@ -165,9 +167,9 @@ $(document).ready(function() {
       render: function(data, type, row) {
         if (!row.stats) { return unknown(); }
         return '<div class="ferme-figures">'
-          + figure('folder-open', row.stats.entries, i18n.totalEntries)
+          + figure('address-card', row.stats.entries, i18n.totalEntries)
           + figure('file-alt', row.stats.pages, i18n.totalPages)
-          + figure('list-alt', row.stats.forms, i18n.totalForms)
+          + figure('clipboard-list', row.stats.forms, i18n.totalForms)
           + figure('user', row.stats.users, i18n.totalUsers)
           + '</div>';
       }
@@ -305,18 +307,36 @@ $(document).ready(function() {
     wikisTable.ajax.reload();
   });
 
-  $(document).on('click', '.ferme-detail-toggle', function() {
-    var row = wikisTable.row($(this).closest('tr'));
-    var $icon = $(this).find('i');
+  function toggleDetail($tr) {
+    var row = wikisTable.row($tr);
+    if (!row || !row.data()) { return; }
+
+    var $icon = $tr.find('.ferme-detail-toggle i');
     if (row.child.isShown()) {
       row.child.hide();
+      $tr.removeClass('ferme-open');
       $icon.attr('class', 'fas fa-chevron-down');
+
       return;
     }
-    var $detail = $(detail(row.data()));
-    row.child($detail).show();
+
+    var $detail = detail(row.data());
+    row.child($detail, 'ferme-child').show();
+    $tr.addClass('ferme-open');
     $icon.attr('class', 'fas fa-chevron-up');
     loadCalendar($detail);
+  }
+
+  // anywhere in the row opens it, except what is already something to click
+  $(document).on('click', '#wikis-table tbody tr', function(event) {
+    if ($(event.target).closest('a, button, input, label, .dropdown-menu, svg').length) { return; }
+    toggleDetail($(this));
+  });
+
+  $(document).on('click', '.ferme-detail-toggle', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleDetail($(this).closest('tr'));
   });
 
   function loadCalendar($detail) {
@@ -330,7 +350,14 @@ $(document).ready(function() {
       data: { folder: $slot.data('folder'), 'csrf-token': csrfToken },
       dataType: 'json',
       success: function(response) {
-        $slot.html(response && response.success ? response.calendar : esc((response && response.error) || ''));
+        if (!response || !response.success) {
+          $slot.text((response && response.error) || '');
+
+          return;
+        }
+        $slot.empty()
+          .append($('<div class="ferme-detail-title">').text(response.title || ''))
+          .append(response.calendar);
       },
       error: function(xhr, status, error) {
         $slot.text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
@@ -340,25 +367,35 @@ $(document).ready(function() {
 
   function detail(row) {
     if (!row.stats) {
-      return '<div class="ferme-detail">' + esc(i18n.i18nNeverMeasured) + '</div>';
+      return $('<div class="ferme-detail">').text(i18n.i18nNeverMeasured);
     }
-    var lines = [
-      [i18n.totalEntries, row.stats.entries],
-      [i18n.totalPages, row.stats.pages],
-      [i18n.totalForms, row.stats.forms],
-      [i18n.totalUsers, row.stats.users],
-      [i18n.i18nFiles, row.stats.files + ' · ' + row.stats.disk_detail],
-      [i18n.i18nMeasuredAt, row.stats.computed_at + ' (' + row.stats.computed_age + ')']
+
+    var figures = [
+      ['address-card', i18n.totalEntries, row.stats.entries],
+      ['file-alt', i18n.totalPages, row.stats.pages],
+      ['clipboard-list', i18n.totalForms, row.stats.forms],
+      ['user', i18n.totalUsers, row.stats.users],
+      ['paperclip', i18n.i18nFiles, row.stats.files + ' · ' + row.stats.disk],
+      ['clock', i18n.i18nMeasuredAt, row.stats.computed_age]
     ];
-    var html = '<div class="ferme-detail"><dl class="dl-horizontal">';
-    lines.forEach(function(line) {
-      html += '<dt>' + esc(line[0]) + '</dt><dd>' + esc(String(line[1])) + '</dd>';
+
+    var html = '<div class="ferme-detail"><div class="ferme-detail-grid">';
+    figures.forEach(function(item) {
+      html += '<div class="ferme-detail-cell"><i class="fas fa-' + item[0] + ' fa-fw"></i> '
+        + '<span class="ferme-muted">' + esc(item[1]) + '</span> <strong>' + esc(String(item[2])) + '</strong></div>';
     });
+    html += '</div>';
+    html += '<div class="ferme-muted ferme-detail-note">' + esc(row.stats.disk_detail)
+      + ' · ' + esc(i18n.i18nMeasuredAt) + ' ' + esc(row.stats.computed_at || '') + '</div>';
+
     if (row.stats.failed && row.stats.error) {
-      html += '<dt>' + esc(i18n.chipFailed) + '</dt><dd><code>' + esc(row.stats.error) + '</code></dd>';
+      html += '<div class="alert alert-danger" style="margin:8px 0 0;"><code>' + esc(row.stats.error) + '</code></div>';
     }
-    return html + '</dl><div class="ferme-calendar-slot text-muted" data-folder="' + esc(row.folder) + '">'
-      + esc(i18n.i18nLoading) + '</div></div>';
+
+    html += '<div class="ferme-calendar-slot" data-folder="' + esc(row.folder) + '">'
+      + '<span class="ferme-muted">' + esc(i18n.i18nLoading) + '</span></div>';
+
+    return $(html + '</div>');
   }
 
   // After each draw, restore checkbox state for visible rows and sync select-all
@@ -387,7 +424,8 @@ $(document).ready(function() {
       return {
         folder: folder,
         title: selectedWikis[folder].title,
-        idFiche: selectedWikis[folder].idFiche
+        idFiche: selectedWikis[folder].idFiche,
+        mail: selectedWikis[folder].mail
       };
     });
   }
@@ -412,7 +450,7 @@ $(document).ready(function() {
       var title = $(this).data('title');
       var idFiche = $(this).data('id-fiche');
       if (checked) {
-        selectedWikis[folder] = { title: title, idFiche: idFiche };
+        selectedWikis[folder] = { title: title, idFiche: idFiche, mail: $(this).data('mail') };
       } else {
         delete selectedWikis[folder];
       }
@@ -426,7 +464,7 @@ $(document).ready(function() {
     var title = $(this).data('title');
     var idFiche = $(this).data('id-fiche');
     if ($(this).is(':checked')) {
-      selectedWikis[folder] = { title: title, idFiche: idFiche };
+      selectedWikis[folder] = { title: title, idFiche: idFiche, mail: $(this).data('mail') };
     } else {
       delete selectedWikis[folder];
     }
@@ -492,6 +530,92 @@ $(document).ready(function() {
 
     upgradeSequential(wikis, 0);
   });
+
+  $('#btn-mail-selected').on('click', function(event) {
+    event.preventDefault();
+    if (selectionCount() === 0) { return; }
+
+    var wikis = selectedList();
+    var without = wikis.filter(function(wiki) { return !wiki.mail; }).length;
+
+    $('#mail-recipients').text(
+      wikis.length + ' ' + esc(i18n.totalWikis)
+      + (without > 0 ? ' · ' + without + ' ' + i18n.i18nMailNoAddress : '')
+    );
+    $('#mail-compose-stage').show();
+    $('#mail-progress-stage').hide();
+    $('#mail-footer-compose').show();
+    $('#mail-footer-progress').hide();
+    $('#btn-close-mail-modal').prop('disabled', true);
+    $('#mail-selected-modal').modal('show');
+  });
+
+  $('#btn-start-mail').on('click', function() {
+    var subject = $.trim($('#mail-subject').val());
+    var body = $.trim($('#mail-body').val());
+    if (!subject || !body) {
+      $('#mail-subject, #mail-body').closest('.form-group').addClass('has-error');
+
+      return;
+    }
+    $('#mail-subject, #mail-body').closest('.form-group').removeClass('has-error');
+
+    var wikis = selectedList();
+    var $list = $('#mail-wikis-list').empty();
+    wikis.forEach(function(wiki) {
+      var $item = $('<div class="list-group-item">').attr('id', 'mail-item-' + wiki.folder);
+      var $header = $('<div>').css('display', 'flex').css('align-items', 'center').css('gap', '8px');
+      $header.append($('<i class="fas fa-clock mail-icon text-muted">'));
+      $header.append($('<strong class="flex-grow-1">').text(wiki.title || wiki.folder));
+      $header.append($('<span class="badge mail-badge">').text(i18n.pending).css('margin-left', 'auto'));
+      $item.append($header);
+      $item.append(
+        $('<div class="mail-output" style="display:none; margin-top:8px;">')
+          .append($('<pre style="max-height:100px; overflow-y:auto; margin:0;">'))
+      );
+      $list.append($item);
+    });
+
+    $('#mail-compose-stage').hide();
+    $('#mail-footer-compose').hide();
+    $('#mail-progress-stage').show();
+    $('#mail-footer-progress').show();
+    mailSequential(wikis, 0, { subject: subject, body: body });
+  });
+
+  function mailSequential(wikis, index, letter, done) {
+    done = done || { ok: 0, failed: 0 };
+
+    if (index >= wikis.length) {
+      summarise($('#mail-wikis-list'), done.ok, done.failed);
+      $('#btn-close-mail-modal').prop('disabled', false);
+
+      return;
+    }
+
+    var wiki = wikis[index];
+    var $item = $('#mail-item-' + wiki.folder);
+    $item.find('.mail-icon').attr('class', 'fas fa-spinner fa-spin mail-icon text-info');
+    $item.find('.mail-badge').text(i18n.i18nMailSending).css('background-color', '#5bc0de');
+
+    postWithToken(mailUrl, { id_fiche: wiki.idFiche, subject: letter.subject, body: letter.body })
+      .done(function(response) {
+        if (response.success) {
+          done.ok++;
+          $item.find('.mail-icon').attr('class', 'fas fa-check mail-icon text-success');
+          $item.find('.mail-badge').text(i18n.i18nMailSent).css('background-color', '#5cb85c');
+        } else {
+          done.failed++;
+          $item.find('.mail-icon').attr('class', 'fas fa-times mail-icon text-danger');
+          $item.find('.mail-badge').text(i18n.error).css('background-color', '#d9534f');
+        }
+        if (response.output || response.error) {
+          $item.find('.mail-output pre').text(response.output || response.error);
+          $item.find('.mail-output').show();
+        }
+        mailSequential(wikis, index + 1, letter, done);
+      });
+  }
 
   $('#btn-delete-selected').on('click', function(event) {
     event.preventDefault();

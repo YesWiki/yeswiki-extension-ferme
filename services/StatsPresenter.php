@@ -57,8 +57,7 @@ class StatsPresenter
         $cell = 10;
         $gap = 2;
         $peak = empty($edits) ? 0 : max($edits);
-        $day = new \DateTimeImmutable('monday this week');
-        $day = $day->modify('-' . ($weeks - 1) . ' weeks');
+        $day = $this->calendarStart($weeks);
         $squares = '';
         $total = 0;
 
@@ -84,6 +83,24 @@ class StatsPresenter
         return '<svg class="ferme-calendar" role="img" aria-label="' . htmlspecialchars($label) . '"'
             . ' width="100%" viewBox="0 0 ' . $width . ' ' . $height . '" fill="currentColor">'
             . '<title>' . htmlspecialchars($label) . '</title>' . $squares . '</svg>';
+    }
+
+    /**
+     * What the calendar covers, said with dates rather than left to guess.
+     */
+    public function calendarTitle(int $weeks = 53): string
+    {
+        $format = _t('FERME_DATE_FORMAT');
+
+        return _t('FERME_STATS_CALENDAR_TITLE', [
+            'from' => $this->calendarStart($weeks)->format($format),
+            'to' => (new \DateTimeImmutable('today'))->format($format),
+        ]);
+    }
+
+    private function calendarStart(int $weeks): \DateTimeImmutable
+    {
+        return (new \DateTimeImmutable('monday this week'))->modify('-' . ($weeks - 1) . ' weeks');
     }
 
     private function shade(int $count, int $peak): string

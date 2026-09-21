@@ -67,12 +67,38 @@
 #wikis-table td {
     vertical-align: middle;
 }
-.ferme-detail dl {
-    margin: 0;
+.ferme-detail {
+    padding: 4px 2px;
 }
-.ferme-detail dt {
-    font-weight: normal;
-    opacity: 0.7;
+.ferme-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 4px 18px;
+}
+.ferme-detail-cell i {
+    opacity: 0.55;
+}
+.ferme-detail-note {
+    font-size: 0.9em;
+    margin-top: 6px;
+}
+.ferme-detail-title {
+    margin-top: 12px;
+    font-weight: bold;
+}
+.ferme-calendar {
+    margin-top: 4px;
+    max-width: 780px;
+}
+#wikis-table tbody tr {
+    cursor: pointer;
+}
+#wikis-table tbody tr.ferme-open > td,
+#wikis-table tbody tr.ferme-child > td {
+    background-color: rgba(127, 127, 127, 0.12);
+}
+#wikis-table tbody tr.ferme-open > td {
+    border-bottom: 0;
 }
 @media (max-width: 767px) {
     #wikis-table,
@@ -171,6 +197,10 @@
             </li>
             <li role="separator" class="divider"></li>
             <li>
+                <a href="#" id="btn-mail-selected"><i class="fas fa-envelope fa-fw"></i> {{ _t("FERME_MAIL_SELECTED") }}</a>
+            </li>
+            <li role="separator" class="divider"></li>
+            <li>
                 <a href="#" id="btn-admin-add-selected"><i class="fas fa-user-plus fa-fw"></i> {{ _t("FERME_ADMIN_ADD_SELECTED") }}</a>
             </li>
             <li>
@@ -191,6 +221,7 @@
      data-refresh-stats-url="{{ refresh_stats_api_url }}"
      data-activity-url="{{ activity_api_url }}"
      data-csrf-token-url="{{ csrf_token_api_url }}"
+     data-mail-url="{{ mail_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
@@ -241,6 +272,7 @@
      data-i18n-measured-at="{{ _t("FERME_STATS_MEASURED_AT") }}"
      data-i18n-admin-present="{{ _t("FERME_ADMIN_PRESENT") }}"
      data-i18n-admin-absent="{{ _t("FERME_ADMIN_ABSENT") }}"
+     data-i18n-admin-none="{{ _t("FERME_ADMIN_NONE") }}"
      data-i18n-admin-add="{{ _t("FERME_ADMIN_ADD_ACCOUNT") }}"
      data-i18n-admin-remove="{{ _t("FERME_ADMIN_REMOVE_ACCOUNT") }}"
      data-i18n-update-to="{{ _t("FERME_UPDATE_TO") }}"
@@ -253,7 +285,10 @@
      data-refresh-intro="{{ _t("FERME_REFRESH_STATS_INTRO") }}"
      data-i18n-loading="{{ _t("FERME_STATS_LOADING") }}"
      data-i18n-run-summary="{{ _t("FERME_RUN_SUMMARY") }}"
-     data-i18n-totals-partial="{{ _t("FERME_TOTALS_PARTIAL") }}"></div>
+     data-i18n-totals-partial="{{ _t("FERME_TOTALS_PARTIAL") }}"
+     data-i18n-mail-no-address="{{ _t("FERME_MAIL_NO_ADDRESS") }}"
+     data-i18n-mail-sending="{{ _t("FERME_MAIL_SENDING") }}"
+     data-i18n-mail-sent="{{ _t("FERME_MAIL_SENT") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
 {# Upgrade modal #}
 <div class="modal fade"
@@ -328,6 +363,60 @@
                 <div id="delete-footer-progress" style="display:none">
                     <button type="button"
                             id="btn-close-delete-modal"
+                            class="btn btn-default"
+                            data-dismiss="modal"
+                            disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{# Mail modal #}
+<div class="modal fade"
+     id="mail-selected-modal"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="mail-selected-modal-label"
+     data-backdrop="static"
+     data-keyboard="false">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="mail-selected-modal-label">
+                    <i class="fas fa-envelope"></i> {{ _t("FERME_MAIL_SELECTED") }}
+                </h4>
+            </div>
+            <div class="modal-body">
+                <div id="mail-compose-stage">
+                    <p class="text-muted">{{ _t("FERME_MAIL_INTRO") }}</p>
+                    <div class="form-group">
+                        <label for="mail-subject">{{ _t("FERME_MAIL_SUBJECT") }}</label>
+                        <input type="text" class="form-control" id="mail-subject" maxlength="200">
+                    </div>
+                    <div class="form-group">
+                        <label for="mail-body">{{ _t("FERME_MAIL_BODY") }}</label>
+                        <textarea class="form-control" id="mail-body" rows="9"></textarea>
+                        <span class="help-block">{{ _t("FERME_MAIL_PLACEHOLDERS") }} <code>{title}</code> <code>{url}</code> <code>{referent}</code> <code>{folder}</code> <code>{lastActivity}</code></span>
+                    </div>
+                    <div id="mail-recipients" class="help-block"></div>
+                </div>
+                <div id="mail-progress-stage" style="display:none">
+                    <div id="mail-wikis-list"
+                         class="list-group"
+                         style="max-height:400px;
+                                overflow-y:auto"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div id="mail-footer-compose">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">{{ _t("FERME_CANCEL") }}</button>
+                    <button type="button" id="btn-start-mail" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> {{ _t("FERME_MAIL_SEND") }}
+                    </button>
+                </div>
+                <div id="mail-footer-progress" style="display:none">
+                    <button type="button"
+                            id="btn-close-mail-modal"
                             class="btn btn-default"
                             data-dismiss="modal"
                             disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>

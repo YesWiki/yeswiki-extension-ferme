@@ -9,6 +9,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use YesWiki\Core\ApiResponse;
 use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiController;
+use YesWiki\Ferme\Service\FarmMailer;
 use YesWiki\Ferme\Service\FarmService;
 use YesWiki\Ferme\Service\StatsPresenter;
 
@@ -200,9 +201,12 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
         }
 
+        $presenter = $this->getService(StatsPresenter::class);
+
         return new ApiResponse([
             'success' => true,
-            'calendar' => $this->getService(StatsPresenter::class)->calendar($edits),
+            'title' => $presenter->calendarTitle(),
+            'calendar' => $presenter->calendar($edits),
         ]);
     }
 
@@ -227,6 +231,34 @@ class ApiController extends YesWikiController
         }
 
         return $wikiFolder;
+    }
+
+    /**
+     * Write to the person who runs one wiki of the farm.
+     *
+     * @Route("/api/ferme/wikis/mail", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function mailWikiReferent(Request $request)
+    {
+        $idFiche = trim($request->request->get('id_fiche', ''));
+        if (empty($idFiche)) {
+            return new ApiResponse(['success' => false, 'error' => 'Missing id_fiche'], Response::HTTP_BAD_REQUEST);
+        }
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $address = $this->getService(FarmMailer::class)->sendToReferent(
+                $idFiche,
+                (string)$request->request->get('subject', ''),
+                (string)$request->request->get('body', '')
+            );
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse(['success' => true, 'output' => _t('FERME_MAIL_SENT_TO') . ' ' . $address]);
     }
 
     /**
