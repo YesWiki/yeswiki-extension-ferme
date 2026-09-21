@@ -14,7 +14,7 @@ class FarmDashboard
 
     public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'failed', 'unmeasured'];
     public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
-    public const SORTS = ['title', 'referent', 'lastActivity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
+    public const SORTS = ['title', 'referent', 'lastActivity', 'activity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
     private const TEXT_SORTS = ['title', 'referent', 'lastActivity'];
 
@@ -278,7 +278,13 @@ class FarmDashboard
         if ($stats === null || !isset($stats[$sort])) {
             return null;
         }
+        if ($sort === 'lastActivity') {
+            return (string)$stats[$sort];
+        }
+        if ($sort === 'activity') {
+            return array_sum(array_map('intval', (array)$stats[$sort]));
+        }
 
-        return $sort === 'lastActivity' ? (string)$stats[$sort] : (int)$stats[$sort];
+        return (int)$stats[$sort];
     }
 }

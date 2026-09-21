@@ -11,6 +11,7 @@ $(document).ready(function() {
   var refreshStatsUrl = $config.data('refresh-stats-url');
   var activityUrl = $config.data('activity-url');
   var mailUrl = $config.data('mail-url');
+  var importUrl = $config.data('import-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
   var adminAddUrl = $config.data('admin-add-url');
@@ -33,8 +34,8 @@ $(document).ready(function() {
   var chips = [
     { key: 'toUpdate', label: 'chipToUpdate', kind: 'danger', icon: 'sync-alt' },
     { key: 'dormant', label: 'chipDormant', kind: 'default', icon: 'moon' },
-    { key: 'heavyArchives', label: 'chipHeavyArchives', kind: 'warning', icon: 'box-archive' },
-    { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'triangle-exclamation' },
+    { key: 'heavyArchives', label: 'chipHeavyArchives', kind: 'warning', icon: 'archive' },
+    { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'exclamation-triangle' },
     { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' }
   ];
 
@@ -149,14 +150,19 @@ $(document).ready(function() {
       orderable: false,
       render: function(data, type, row) {
         var html = '<div class="ferme-identity">'
-          + '<strong><a href="' + esc(row.url) + '">' + esc(row.title) + '</a></strong>'
+          + '<strong><a href="' + esc(row.url) + '">' + esc(row.title) + '</a>'
+          + (row.url
+            ? ' <a class="ferme-open-wiki" href="' + esc(row.url) + '" target="_blank" rel="noopener"'
+              + ' title="' + esc(i18n.i18nOpenWiki) + '"><i class="fas fa-external-link-alt"></i></a>'
+            : '')
+          + '</strong>'
           + '<small>' + esc(row.referent || '')
           + (row.mail ? ' · <a href="mailto:' + esc(row.mail) + '">' + esc(row.mail) + '</a>' : '')
           + '</small>'
           + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + '</small>'
           + '</div>';
         (row.problems || []).forEach(function(problem) {
-          html += '<div><span class="label label-danger"><i class="fas fa-triangle-exclamation"></i> '
+          html += '<div><span class="label label-danger"><i class="fas fa-exclamation-triangle"></i> '
             + esc(problem.label) + '</span></div>';
         });
         if (row.custom_warning) { html += row.custom_warning; }
@@ -480,7 +486,7 @@ $(document).ready(function() {
     core: { url: upgradeUrl, icon: 'fas fa-sync-alt', title: i18n.upgradeTitle, intro: i18n.upgradeIntro },
     extensions: { url: upgradeExtensionsUrl, icon: 'fas fa-puzzle-piece', title: i18n.upgradeExtTitle, intro: i18n.upgradeExtIntro },
     recover: { url: recoverCustomUrl, icon: 'fas fa-undo', title: i18n.recoverTitle, intro: i18n.recoverIntro },
-    stats: { url: refreshStatsUrl, icon: 'fas fa-chart-column', title: i18n.refreshTitle, intro: i18n.refreshIntro }
+    stats: { url: refreshStatsUrl, icon: 'fas fa-chart-bar', title: i18n.refreshTitle, intro: i18n.refreshIntro }
   };
   runMode = runModes.core;
 
@@ -683,6 +689,10 @@ $(document).ready(function() {
         done.ok++;
         $item.find('.delete-icon').attr('class', 'fas fa-check delete-icon text-success');
         $item.find('.delete-badge').text(i18n.deleteSuccess).css('background-color', '#5cb85c');
+        if (response.output) {
+          $item.find('.delete-output pre').text(response.output);
+          $item.find('.delete-output').show();
+        }
         delete selectedWikis[wiki.folder];
         updateBulkBtns();
       } else {
@@ -797,74 +807,84 @@ $(document).ready(function() {
   });
 
   $('#search-wikis-modal').on('shown.bs.modal', function() {
-    $.ajax({
-      url: searchUrl,
-      method: 'POST',
-      data: { 'csrf-token': csrfToken },
-      dataType: 'json',
-      success: function(response) {
-        var $list = $('#search-wikis-list').empty();
-        var $summary = $('#search-summary');
-        $summary
-          .removeClass('alert-danger alert-success alert-info')
-          .addClass(response.imported.length > 0 ? 'alert-success' : 'alert-info')
-          .text(
-            response.wikisOnServer + ' wiki(s) sur le serveur, ' +
-            response.wikisInBazar + ' dans la ferme, ' +
-            response.imported.length + ' importé(s).'
-          );
+    postWithToken(searchUrl, {}).done(function(response) {
+      $('#search-loading-stage').hide();
+      $('#search-results-stage').show();
+      $('#btn-close-search-modal').prop('disabled', false);
 
-        response.results.forEach(function(wiki) {
-          var $item = $('<div class="list-group-item">');
-          var $row = $('<div>').css({ display: 'flex', 'align-items': 'center', gap: '6px', 'flex-wrap': 'wrap' });
+      if (!response || response.success === false) {
+        $('#search-summary').removeClass('alert-info alert-success').addClass('alert-danger')
+          .text((response && response.error) || i18n.searchNetworkError);
 
-          var $name = $('<strong class="flex-grow-1">');
-          if (wiki.url) {
-            $name.append($('<a>').attr({ href: wiki.url, target: '_blank' }).text(wiki.folder));
-          } else {
-            $name.text(wiki.folder);
-          }
-          $row.append($name);
-
-          if (wiki.existsInBazar) {
-            $row.append($('<span class="badge">').text(i18n.searchAlreadyInBazar).css('background-color', '#5bc0de'));
-          } else {
-            $row.append($('<span class="badge">').text(i18n.searchImportedStatus).css('background-color', '#5cb85c'));
-          }
-
-          if (wiki.sqlOk) {
-            $row.append($('<span class="badge">').text(i18n.searchSqlOk).css('background-color', '#5cb85c'));
-            if (!wiki.tablesOk) {
-              $row.append(
-                $('<span class="badge">').css('background-color', '#f0ad4e')
-                  .text(i18n.searchTablesMissing + ': ' + wiki.missingTables.join(', '))
-              );
-            }
-          } else {
-            var $sqlBadge = $('<span class="badge">').text(i18n.searchSqlError).css('background-color', '#d9534f');
-            if (wiki.sqlError) { $sqlBadge.attr('title', wiki.sqlError); }
-            $row.append($sqlBadge);
-          }
-
-          $item.append($row);
-          $list.append($item);
-        });
-
-        $('#search-loading-stage').hide();
-        $('#search-results-stage').show();
-        $('#btn-close-search-modal').prop('disabled', false);
-
-        if (response.imported.length > 0) {
-          wikisTable.ajax.reload(null, false);
-        }
-      },
-      error: function(xhr, status, error) {
-        var message = (xhr.responseJSON && xhr.responseJSON.error) || error;
-        $('#search-loading-stage').html(
-          '<div class="alert alert-danger">' + esc(i18n.searchNetworkError) + ': ' + esc(message) + '</div>'
-        );
-        $('#btn-close-search-modal').prop('disabled', false);
+        return;
       }
+
+      $('#search-summary').removeClass('alert-danger alert-success').addClass('alert-info').text(
+        response.wikisOnServer + ' wiki(s) sur le serveur, '
+        + response.wikisInBazar + ' dans la ferme, '
+        + response.missing + ' sans fiche.'
+      );
+
+      var $list = $('#search-wikis-list').empty();
+      (response.results || []).forEach(function(wiki) {
+        var $item = $('<label class="list-group-item">').css({ display: 'flex', 'align-items': 'center', gap: '8px', 'font-weight': 'normal' });
+        $item.append($('<input type="checkbox" class="search-checkbox">').val(wiki.folder));
+
+        var $name = $('<span>').css('flex-grow', 1);
+        $name.append(wiki.url
+          ? $('<a>').attr({ href: wiki.url, target: '_blank' }).text(wiki.folder)
+          : $('<strong>').text(wiki.folder));
+        $item.append($name);
+
+        if (wiki.pages === null) {
+          $item.append($('<span class="ferme-muted">').text(i18n.i18nNeverEdited));
+        } else {
+          $item.append($('<span class="ferme-figures">').html(
+            figure('file-alt', wiki.pages, i18n.totalPages)
+            + figure('address-card', wiki.entries, i18n.totalEntries)
+            + figure('user', wiki.users, i18n.totalUsers)
+          ));
+          $item.append($('<small class="ferme-muted">').text(wiki.lastActivity ? wiki.lastActivity.slice(0, 10) : ''));
+        }
+        $list.append($item);
+      });
+
+      updateImportButton();
+    });
+  });
+
+  function updateImportButton() {
+    var picked = $('#search-wikis-list .search-checkbox:checked').length;
+    $('#btn-import-selected').prop('disabled', picked === 0);
+    $('#import-selected-label').text(picked === 0
+      ? i18n.i18nImportNone
+      : String(i18n.i18nImportSelected).replace('%{n}', picked));
+  }
+
+  $(document).on('change', '.search-checkbox', updateImportButton);
+
+  $('#search-select-all').on('change', function() {
+    $('#search-wikis-list .search-checkbox').prop('checked', $(this).is(':checked'));
+    updateImportButton();
+  });
+
+  $('#btn-import-selected').on('click', function() {
+    var folders = $('#search-wikis-list .search-checkbox:checked').map(function() { return this.value; }).get();
+    if (!folders.length) { return; }
+
+    var $button = $(this).prop('disabled', true);
+    $('#import-selected-label').text(i18n.inProgress);
+
+    postWithToken(importUrl, { folders: folders }).done(function(response) {
+      $('#search-summary')
+        .removeClass('alert-info alert-danger')
+        .addClass(response.success ? 'alert-success' : 'alert-danger')
+        .text(response.success ? response.output : (response.error || ''));
+      $('#search-wikis-list').empty();
+      $('#search-select-all').prop('checked', false);
+      $button.prop('disabled', true);
+      $('#import-selected-label').text(i18n.i18nImportNone);
+      wikisTable.ajax.reload(null, false);
     });
   });
 

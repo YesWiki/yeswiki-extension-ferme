@@ -44,6 +44,7 @@ class AdminWikisAction extends YesWikiAction
                     'activity_api_url' => $this->wiki->href('', 'api/ferme/wikis/activity'),
                     'csrf_token_api_url' => $this->wiki->href('', 'api/ferme/csrf-token'),
                     'mail_api_url' => $this->wiki->href('', 'api/ferme/wikis/mail'),
+                    'import_api_url' => $this->wiki->href('', 'api/ferme/wikis/import'),
                     'delete_api_url' => $this->wiki->href('', 'api/ferme/wikis/delete'),
                     'search_api_url' => $this->wiki->href('', 'api/ferme/wikis/search'),
                     'admin_add_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-add'),

@@ -158,17 +158,78 @@ class WikiRepository
     }
 
     /** What the AdminWikis search button calls: inspect the farm root, then import. */
-    public function searchOnServer(string $fallbackEmail = ''): array
+    /**
+     * The wikis sitting on the server that the farm does not list, with what they
+     * hold, so an operator can see what they would be importing.
+     *
+     * It opens no wiki database: on a farm of a few thousand, one connection per
+     * wiki is minutes of work inside a web request, which is what used to make this
+     * time out. The numbers come from the statistics already measured, and nothing
+     * is imported here: that is a separate, deliberate step.
+     *
+     * @return array{wikisInBazar:int,wikisOnServer:int,missing:int,unmeasured:int,results:array<int,array<string,mixed>>}
+     */
+    public function searchOnServer(): array
     {
         $wikis = $this->finder->find();
-        $inspected = $this->inspect($wikis);
+        $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
+        $stats = $this->statsStore->readMany(array_column($wikis, 'FOLDER'));
+
+        $results = [];
+        $unmeasured = 0;
+        foreach ($wikis as $wiki) {
+            if (in_array($wiki['FOLDER'], $known, true)) {
+                continue;
+            }
+            $measured = $stats[$wiki['FOLDER']] ?? null;
+            $unmeasured += $measured === null ? 1 : 0;
+            $results[] = [
+                'folder' => $wiki['FOLDER'],
+                'url' => $wiki['URL'] === 'KO' ? '' : $wiki['URL'],
+                'version' => trim($wiki['VERSION'] . ' ' . $wiki['RELEASE']),
+                'pages' => $measured === null ? null : (int)($measured['pages'] ?? 0),
+                'entries' => $measured === null ? null : (int)($measured['entries'] ?? 0),
+                'users' => $measured === null ? null : (int)($measured['users'] ?? 0),
+                'lastActivity' => $measured['lastActivity'] ?? null,
+            ];
+        }
+
+        usort($results, function (array $a, array $b) {
+            return strcmp((string)$b['lastActivity'], (string)$a['lastActivity']);
+        });
 
         return [
-            'wikisInBazar' => count($this->getAllWikiFiches()),
+            'wikisInBazar' => count($known),
             'wikisOnServer' => count($wikis),
-            'results' => $inspected,
-            'imported' => $this->import($inspected, $fallbackEmail),
+            'missing' => count($results),
+            'unmeasured' => $unmeasured,
+            'results' => $results,
         ];
+    }
+
+    /**
+     * Give a farm entry to the wikis an operator picked, and to nobody else.
+     *
+     * @param array<int,string> $folders
+     *
+     * @return array<int,string> the folders that got one
+     */
+    public function importFolders(array $folders, string $fallbackEmail = ''): array
+    {
+        $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
+        $wanted = array_values(array_unique(array_filter($folders, function ($folder) use ($known) {
+            return is_string($folder)
+                && FarmConfig::isSafeName($folder, true)
+                && !in_array($folder, $known, true)
+                && is_file($this->config->wikiConfigFile($folder));
+        })));
+        if (empty($wanted)) {
+            return [];
+        }
+
+        return $this->import($this->inspect(array_map(function (string $folder) {
+            return $this->finder->findOne($folder);
+        }, $wanted)), $fallbackEmail);
     }
 
     private function inspectWiki(array $wiki, bool $existsInBazar): array

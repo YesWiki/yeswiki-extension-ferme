@@ -60,6 +60,15 @@
 .ferme-identity strong {
     display: block;
 }
+.ferme-open-wiki {
+    margin-left: 6px;
+    font-size: 0.85em;
+    opacity: 0.55;
+}
+.ferme-open-wiki:hover,
+.ferme-open-wiki:focus {
+    opacity: 1;
+}
 .ferme-identity small {
     display: block;
     opacity: 0.75;
@@ -131,6 +140,7 @@
             <option value="title|asc">{{ _t("FERME_SORT_TITLE") }}</option>
             <option value="referent|asc">{{ _t("FERME_WIKI_OWNER") }}</option>
             <option value="lastActivity|desc">{{ _t("FERME_SORT_ACTIVITY") }}</option>
+            <option value="activity|desc">{{ _t("FERME_SORT_TOTAL_ACTIVITY") }}</option>
             <option value="entries|desc">{{ _t("FERME_SORT_ENTRIES") }}</option>
             <option value="pages|desc">{{ _t("FERME_SORT_PAGES") }}</option>
             <option value="users|desc">{{ _t("FERME_SORT_USERS") }}</option>
@@ -153,7 +163,7 @@
                 <th data-orderable="false" data-sortable="false"></th>
                 <th>{{ _t("FERME_WIKI_NAME") }}</th>
                 <th>{{ _t("FERME_STATS_CONTENT") }}</th>
-                <th>{{ _t("FERME_STATS_ACTIVITY") }}</th>
+                <th>{{ _t("FERME_SORT_ACTIVITY") }}</th>
                 <th>{{ _t("FERME_STATS_DISK") }}</th>
                 <th data-orderable="false" data-sortable="false">{{ _t("FERME_WIKI_ACTION") }}</th>
             </tr>
@@ -190,7 +200,7 @@
                 <a href="#" id="btn-upgrade-extensions-selected"><i class="fas fa-puzzle-piece fa-fw"></i> {{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}</a>
             </li>
             <li>
-                <a href="#" id="btn-refresh-stats-selected"><i class="fas fa-chart-column fa-fw"></i> {{ _t("FERME_REFRESH_STATS_SELECTED") }}</a>
+                <a href="#" id="btn-refresh-stats-selected"><i class="fas fa-chart-bar fa-fw"></i> {{ _t("FERME_REFRESH_STATS_SELECTED") }}</a>
             </li>
             <li>
                 <a href="#" id="btn-recover-custom-selected"><i class="fas fa-undo fa-fw"></i> {{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}</a>
@@ -222,6 +232,7 @@
      data-activity-url="{{ activity_api_url }}"
      data-csrf-token-url="{{ csrf_token_api_url }}"
      data-mail-url="{{ mail_api_url }}"
+     data-import-url="{{ import_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
@@ -239,12 +250,11 @@
      data-cancel="{{ _t("FERME_CANCEL") }}"
      data-close="{{ _t("FERME_UPGRADE_CLOSE") }}"
      data-search-scanning="{{ _t("FERME_SEARCH_SCANNING") }}"
-     data-search-already-in-bazar="{{ _t("FERME_SEARCH_ALREADY_IN_BAZAR") }}"
      data-search-imported-status="{{ _t("FERME_SEARCH_IMPORTED_STATUS") }}"
-     data-search-sql-ok="{{ _t("FERME_SEARCH_SQL_OK") }}"
-     data-search-sql-error="{{ _t("FERME_SEARCH_SQL_ERROR") }}"
-     data-search-tables-missing="{{ _t("FERME_SEARCH_TABLES_MISSING") }}"
      data-search-network-error="{{ _t("FERME_SEARCH_NETWORK_ERROR") }}"
+     data-i18n-never-edited="{{ _t("FERME_SEARCH_NEVER_EDITED") }}"
+     data-i18n-import-selected="{{ _t("FERME_SEARCH_IMPORT_SELECTED") }}"
+     data-i18n-import-none="{{ _t("FERME_SEARCH_IMPORT_NONE") }}"
      data-admin-add-selected="{{ _t("FERME_ADMIN_ADD_SELECTED") }}"
      data-admin-remove-selected="{{ _t("FERME_ADMIN_REMOVE_SELECTED") }}"
      data-admin-add-intro="{{ _t("FERME_ADMIN_ADD_SELECTED_INTRO") }}"
@@ -280,6 +290,7 @@
      data-i18n-files="{{ _t("FERME_STATS_FILES") }}"
      data-i18n-archives="{{ _t("FERME_STATS_ARCHIVES") }}"
      data-i18n-detail="{{ _t("FERME_STATS_DETAIL") }}"
+     data-i18n-open-wiki="{{ _t("FERME_OPEN_WIKI") }}"
      data-recover-intro="{{ _t("FERME_RECOVER_CUSTOM_INTRO") }}"
      data-refresh-title="{{ _t("FERME_REFRESH_STATS_SELECTED") }}"
      data-refresh-intro="{{ _t("FERME_REFRESH_STATS_INTRO") }}"
@@ -486,6 +497,13 @@
                 </div>
                 <div id="search-results-stage" style="display:none">
                     <div id="search-summary" class="alert"></div>
+                    <p class="text-muted">{{ _t("FERME_SEARCH_INTRO") }}</p>
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" id="search-select-all">
+                            <span>{{ _t("FERME_SELECT_ALL") }}</span>
+                        </label>
+                    </div>
                     <div id="search-wikis-list"
                          class="list-group"
                          style="max-height:400px;
@@ -493,6 +511,12 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button"
+                        id="btn-import-selected"
+                        class="btn btn-primary"
+                        disabled>
+                    <i class="fas fa-file-import"></i> <span id="import-selected-label">{{ _t("FERME_SEARCH_IMPORT_NONE") }}</span>
+                </button>
                 <button type="button"
                         id="btn-close-search-modal"
                         class="btn btn-default"

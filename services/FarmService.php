@@ -170,9 +170,19 @@ class FarmService
         return $this->repository->getPaginated($start, $length, $search, $sort, $direction, $filter);
     }
 
-    public function searchWikisOnServer(string $fallbackEmail = ''): array
+    public function searchWikisOnServer(): array
     {
-        return $this->repository->searchOnServer($fallbackEmail);
+        return $this->repository->searchOnServer();
+    }
+
+    /**
+     * @param array<int,string> $folders
+     *
+     * @return array<int,string>
+     */
+    public function importWikiFolders(array $folders, string $fallbackEmail = ''): array
+    {
+        return $this->repository->importFolders($folders, $fallbackEmail);
     }
 
     public function rrmdir($src)

@@ -87,7 +87,18 @@ class StatsPresenterTest extends YesWikiTestCase
         $this->assertSame('', $this->presenter->age(null));
         $this->assertSame(_t('FERME_AGE_TODAY'), $this->presenter->age(date('Y-m-d H:i:s')));
         $this->assertStringContainsString('3', $this->presenter->age(date('Y-m-d H:i:s', strtotime('-3 days'))));
-        $this->assertStringContainsString('7', $this->presenter->age(date('Y-m-d H:i:s', strtotime('-7 months'))));
-        $this->assertStringContainsString('3', $this->presenter->age(date('Y-m-d H:i:s', strtotime('-3 years'))));
+        $this->assertStringContainsString('2', $this->presenter->age(date('Y-m-d H:i:s', strtotime('-70 days'))));
+    }
+
+    public function testPastThreeMonthsTheDateItselfIsMoreUseThanTheAge()
+    {
+        foreach (['-4 months', '-13 months', '-3 years'] as $when) {
+            $moment = date('Y-m-d H:i:s', strtotime($when));
+            $this->assertSame(
+                date(_t('FERME_DATE_FORMAT'), strtotime($when)),
+                $this->presenter->age($moment),
+                'pour ' . $when
+            );
+        }
     }
 }

@@ -11,6 +11,7 @@ class StatsPresenter
     private const WIDTH = 4;
     private const GAP = 1;
     private const HEIGHT = 18;
+    private const AGE_LIMIT = 92;
 
     /**
      * Twelve bars of inline SVG in the current text colour, so it follows the theme
@@ -129,7 +130,8 @@ class StatsPresenter
     }
 
     /**
-     * How long ago, in the roughest unit that still says something.
+     * How long ago, while that still means something. Past three months "il y a
+     * sept mois" tells nobody anything useful, so the date itself is shown.
      */
     public function age(?string $date): string
     {
@@ -146,11 +148,10 @@ class StatsPresenter
         if ($days < 60) {
             return _t('FERME_AGE_DAYS', ['n' => $days]);
         }
+        if ($days < self::AGE_LIMIT) {
+            return _t('FERME_AGE_MONTHS', ['n' => (int)floor($days / 30)]);
+        }
 
-        $months = (int)floor($days / 30);
-
-        return $months < 24
-            ? _t('FERME_AGE_MONTHS', ['n' => $months])
-            : _t('FERME_AGE_YEARS', ['n' => (int)floor($days / 365)]);
+        return date(_t('FERME_DATE_FORMAT'), (int)strtotime($date));
     }
 }

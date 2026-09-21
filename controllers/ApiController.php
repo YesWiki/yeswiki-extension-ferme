@@ -287,10 +287,44 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
-        $adminMail = $this->wiki->GetUser()['email'] ?? '';
-        $result = $this->getService(FarmService::class)->searchWikisOnServer($adminMail);
+        set_time_limit(0);
 
-        return new ApiResponse($result);
+        return new ApiResponse($this->getService(FarmService::class)->searchWikisOnServer());
+    }
+
+    /**
+     * Give a farm entry to the wikis the operator picked in that list.
+     *
+     * @Route("/api/ferme/wikis/import", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function importWikis(Request $request)
+    {
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $folders = $request->request->all('folders');
+        if (empty($folders) || !is_array($folders)) {
+            return new ApiResponse(['success' => false, 'error' => 'No folder given'], Response::HTTP_BAD_REQUEST);
+        }
+
+        set_time_limit(0);
+        ignore_user_abort(true);
+
+        try {
+            $imported = $this->getService(FarmService::class)->importWikiFolders(
+                $folders,
+                $this->wiki->GetUser()['email'] ?? ''
+            );
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse([
+            'success' => true,
+            'imported' => $imported,
+            'output' => count($imported) . ' ' . _t('FERME_SEARCH_IMPORTED_STATUS'),
+        ]);
     }
 
     /**

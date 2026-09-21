@@ -186,6 +186,26 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(['gros', 'moyen', 'petit'], array_column($page['fiches'], 'bf_dossier-wiki'));
     }
 
+    public function testSortingByTheYearsActivityAddsUpTheTwelveMonths()
+    {
+        $page = $this->dashboard->select(
+            [$this->fiche('regulier'), $this->fiche('unecoupdefeu'), $this->fiche('mort')],
+            [
+                'regulier' => $this->stats(['activity' => array_fill(0, 12, 20)]),
+                'unecoupdefeu' => $this->stats(['activity' => [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 300]]),
+                'mort' => $this->stats(['activity' => array_fill(0, 12, 0)]),
+            ],
+            $this->current,
+            [],
+            '',
+            '',
+            'activity',
+            'desc'
+        );
+
+        $this->assertSame(['unecoupdefeu', 'regulier', 'mort'], array_column($page['fiches'], 'bf_dossier-wiki'));
+    }
+
     public function testAWikiWithNoStatsSortsLastWhicheverWayTheColumnGoes()
     {
         foreach (['asc', 'desc'] as $direction) {
