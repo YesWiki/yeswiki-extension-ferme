@@ -252,7 +252,10 @@ autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
   gâché quelques lignes garde son histoire, perd ces lignes-là et passe en écriture
   au groupe admin. Tout ce qui part est écrit dans les sauvegardes de la ferme
   avant de partir. `--dry-run` d'abord, `--list` détaille page par page, `--repair`
-  rend sa dernière révision à une page qui n'en a plus.
+  rend sa dernière révision à une page qui n'en a plus. `--stuck` liste les pages
+  condamnées qu'aucune règle ne sait nettoyer, avec les hôtes vers lesquels elles
+  pointent : c'est la boucle de sortie du dernier reliquat, un hôte ajouté à
+  `yeswiki-farm-spam-hosts` et le nettoyage relancé.
 - **`ferme:spam-index`** recense les lignes porteuses de liens que plusieurs wikis
   affichent. Une même ferme donne le même modèle à tous ses wikis : une ligne n'est
   donc retenue que si elle vient d'une page déjà condamnée **et** qu'aucune page
@@ -263,6 +266,17 @@ autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
   parce qu'une page saine les porte, et fait passer le spam vu de 175 wikis à 411.
   `--min` règle le nombre de wikis qui fait une campagne, `--show` montre l'index.
   `ferme:stats` le reconstruit tout seul une fois par semaine.
+
+Une page est condamnée pour deux liens du lexique, un hôte connu, une campagne, ou
+cinquante liens **et** trois lignes sur dix qui en portent un : le compte rendu de
+réunion qui cite cinquante adresses au fil de deux mille lignes de prose n'est pas
+du spam, et l'annoncer sans pouvoir le nettoyer laisse un chiffre que rien ne fait
+descendre. Le nettoyage, lui, vide deux formes d'empilement : dix lignes qui ne sont
+qu'un lien et font les trois cinquièmes de la page, ou cinquante lignes portant un
+lien qui en font les quatre cinquièmes — la deuxième attrape les fermes de liens
+étiquetés, `[[https://cabinet.example/article-12/ conseil juridique]]` mille fois de
+suite. Nettoyer n'est pas accuser : une page n'est vidée de ses liens que si autre
+chose l'a déjà condamnée.
 - **`ferme:config`** écrit et retire des clés dans le `wakka.config.php` de chaque
   wiki : `--set cle=valeur` (répétable, les points font des tableaux imbriqués,
   `int:5`, `json:{...}`, `true`, `false` et `null` gardent leur type) et

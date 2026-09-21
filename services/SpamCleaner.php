@@ -29,6 +29,9 @@ class SpamCleaner
     public const TEXT_BESIDE_LINK = 20;
     public const LINES_FOR_LINK_FARM = 10;
     public const SHARE_FOR_LINK_FARM = 0.6;
+    public const LINES_FOR_LINK_LIST = 50;
+    public const SHARE_FOR_LINK_LIST = 0.8;
+    public const SHARE_FOR_MANY_LINKS = 0.3;
 
     private $wiki;
     private $config;
@@ -81,6 +84,59 @@ class SpamCleaner
 
         try {
             return $this->look($db, (string)$wakkaConfig['table_prefix']);
+        } finally {
+            $db->close();
+        }
+    }
+
+    /**
+     * The pages a wiki is condemned for and that no rule can touch: the cleaning
+     * would run and change nothing, so the wiki stays marked forever. Each one
+     * comes with the hosts its links point at, which is what an operator needs to
+     * decide — add the host to `yeswiki-farm-spam-hosts`, or leave the page alone.
+     *
+     * @return array<int,array{tag:string,links:int,share:float,hosts:array<string,int>}>
+     */
+    public function stuck(string $folder): array
+    {
+        $wakkaConfig = $this->config->readWikiConfig($folder);
+        if (empty($wakkaConfig['table_prefix'])) {
+            throw new WikiStatsException($folder, _t('FERME_CLI_NO_CONFIG_FILE'));
+        }
+
+        $db = $this->database->connect($wakkaConfig);
+        $hosts = $this->hosts();
+
+        try {
+            $result = $db->query(
+                'SELECT tag, body FROM `' . $this->database->table((string)$wakkaConfig['table_prefix'], 'pages') . '`'
+                . ' WHERE latest = "Y"'
+            );
+
+            $stuck = [];
+            while ($result && ($row = $result->fetch_assoc())) {
+                $body = (string)$row['body'];
+                $words = (int)preg_match_all(WikiStats::SPAM_VOCABULARY, $body);
+                preg_match_all('#https?://([a-z0-9.\-]+)#i', $body, $found);
+                $links = count($found[1] ?? []);
+                if (!self::isSpamPage($body, $words, $links, $hosts, $this->fingerprints->isCampaignPage($body))) {
+                    continue;
+                }
+                if (self::strip($body, $hosts, $this->fingerprints) !== trim($body)) {
+                    continue;
+                }
+
+                $counted = array_count_values(array_map('strtolower', $found[1] ?? []));
+                arsort($counted);
+                $stuck[] = [
+                    'tag' => (string)$row['tag'],
+                    'links' => $links,
+                    'share' => self::linkShare(preg_split(self::LINES, $body) ?: []),
+                    'hosts' => array_slice($counted, 0, 3, true),
+                ];
+            }
+
+            return $stuck;
         } finally {
             $db->close();
         }
@@ -231,11 +287,38 @@ class SpamCleaner
      */
     public static function isSpamPage(string $body, int $words, int $links, string $hosts = '', bool $campaign = false): bool
     {
-        if ($campaign || $words >= self::WORDS_FOR_SPAM || $links >= self::LINKS_FOR_SPAM) {
+        if ($campaign || $words >= self::WORDS_FOR_SPAM) {
+            return true;
+        }
+        if ($links >= self::LINKS_FOR_SPAM && self::linkShare(preg_split(self::LINES, $body) ?: []) >= self::SHARE_FOR_MANY_LINKS) {
             return true;
         }
 
         return $hosts !== '' && @preg_match('#(' . $hosts . ')#i', $body) === 1;
+    }
+
+    /**
+     * How much of what a page says is links. Minutes of a meeting quote fifty
+     * addresses among two thousand lines of prose; a robot's page has nothing else
+     * to say.
+     *
+     * @param array<int,string> $lines
+     */
+    public static function linkShare(array $lines): float
+    {
+        $carrying = 0;
+        $written = 0;
+        foreach ($lines as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+            $written++;
+            if (preg_match('#https?://#i', $line) === 1) {
+                $carrying++;
+            }
+        }
+
+        return $written === 0 ? 0.0 : $carrying / $written;
     }
 
     /**
@@ -250,7 +333,8 @@ class SpamCleaner
      */
     public static function linkFarm(array $lines): array
     {
-        $farm = [];
+        $bare = [];
+        $carrying = [];
         $written = 0;
         foreach ($lines as $index => $line) {
             if (trim($line) === '') {
@@ -260,14 +344,19 @@ class SpamCleaner
             if (preg_match('#https?://#i', $line) !== 1 || str_contains($line, '{{')) {
                 continue;
             }
+            $carrying[$index] = true;
             $beside = trim((string)preg_replace('#\[\[|\]\]|https?://\S+#i', '', $line));
             if (strlen($beside) <= self::TEXT_BESIDE_LINK) {
-                $farm[$index] = true;
+                $bare[$index] = true;
             }
         }
 
-        return count($farm) >= self::LINES_FOR_LINK_FARM && count($farm) / max(1, $written) >= self::SHARE_FOR_LINK_FARM
-            ? $farm
+        if (count($bare) >= self::LINES_FOR_LINK_FARM && count($bare) / max(1, $written) >= self::SHARE_FOR_LINK_FARM) {
+            return $bare;
+        }
+
+        return count($carrying) >= self::LINES_FOR_LINK_LIST && count($carrying) / max(1, $written) >= self::SHARE_FOR_LINK_LIST
+            ? $carrying
             : [];
     }
 

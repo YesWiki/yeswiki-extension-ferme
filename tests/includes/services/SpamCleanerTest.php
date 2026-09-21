@@ -102,6 +102,10 @@ class SpamCleanerTest extends YesWikiTestCase
         $this->assertTrue(SpamCleaner::isSpamPage($deux, 2, 0), 'deux mots du lexique sur une page');
         $this->assertFalse(SpamCleaner::isSpamPage($un, 1, 0), 'un seul mot peut être un mot ordinaire');
         $this->assertTrue(SpamCleaner::isSpamPage($liens, 0, 60), 'une page de liens');
+        $this->assertFalse(
+            SpamCleaner::isSpamPage(str_repeat("Une ligne de compte rendu.\n", 500) . $liens, 0, 60),
+            'soixante adresses au milieu de cinq cents lignes de prose sont un compte rendu'
+        );
         $this->assertFalse(SpamCleaner::isSpamPage('Voir https://exemple.org', 0, 1));
         $this->assertTrue(
             SpamCleaner::isSpamPage('blog [[https://first42.fr/ ici]]', 0, 1, 'first42\\.fr'),
@@ -118,6 +122,17 @@ class SpamCleanerTest extends YesWikiTestCase
         $body = trim($body);
 
         $this->assertSame('====== Page Fan ======', SpamCleaner::strip($body));
+    }
+
+    public function testAPageThatIsOneLongListOfLinksIsClearedEvenWhenTheyAreLabelled()
+    {
+        $body = "====== Avocat ======\n";
+        for ($i = 0; $i < 60; $i++) {
+            $body .= '[[https://cabinet.example/article-' . $i . '/ conseil juridique numéro ' . $i . " en cas de litige]]\n";
+        }
+        $body = trim($body);
+
+        $this->assertSame('====== Avocat ======', SpamCleaner::strip($body));
     }
 
     public function testAPageListingItsResourcesKeepsThem()
