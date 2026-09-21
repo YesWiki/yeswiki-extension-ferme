@@ -59,6 +59,21 @@ class SpamCleanerTest extends YesWikiTestCase
         $this->assertSame('Notre compte rendu du mardi.', SpamCleaner::strip($body, 'first42\\.fr|legeekdunet\\.com'));
     }
 
+    public function testACyrillicOrChineseCharacterComesBackWhole()
+    {
+        $body = "Bonjour х et 具 ici\nBest escort in town\nÀ demain";
+
+        $cleaned = SpamCleaner::strip($body);
+
+        $this->assertSame("Bonjour х et 具 ici\nÀ demain", $cleaned);
+        $this->assertSame($body === mb_convert_encoding($body, 'UTF-8', 'UTF-8'), true);
+        $this->assertSame(
+            $cleaned,
+            mb_convert_encoding($cleaned, 'UTF-8', 'UTF-8'),
+            'la base refuse une chaîne dont un caractère a été coupé en deux'
+        );
+    }
+
     public function testTheSkeletonOfAWikiIsNeverDeletedOnlyCleaned()
     {
         foreach (['PagePrincipale', 'PageMenuHaut', 'PageHeader', 'pagefooter'] as $tag) {

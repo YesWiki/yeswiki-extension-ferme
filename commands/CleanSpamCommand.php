@@ -27,6 +27,7 @@ class CleanSpamCommand extends AbstractFarmCommand
             ->setDescription(_t('FERME_CLI_CLEAN_DESCRIPTION'))
             ->setHelp(_t('FERME_CLI_CLEAN_HELP'))
             ->addOption('list', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CLEAN_LIST'))
+            ->addOption('repair', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CLEAN_REPAIR'))
             ->addWikiSelectionOptions()
             ->addDryRunOption();
     }
@@ -41,6 +42,10 @@ class CleanSpamCommand extends AbstractFarmCommand
             $this->warnNothingFound($input, $output);
 
             return Command::SUCCESS;
+        }
+
+        if ($input->getOption('repair')) {
+            return $this->repair($input, $output, $wikis, $dryRun, $started);
         }
 
         $touched = 0;
@@ -82,6 +87,49 @@ class CleanSpamCommand extends AbstractFarmCommand
                 _t('FERME_CLI_CLEAN_TOUCHED') => $touched,
                 _t('FERME_CLI_CLEAN_DELETED') => $deleted,
                 _t('FERME_CLI_CLEAN_STRIPPED') => $stripped,
+                _t('FERME_CLI_FAILED') => count($failed),
+                _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+            ],
+            $failed,
+            $dryRun
+        );
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $wikis
+     */
+    private function repair(InputInterface $input, OutputInterface $output, array $wikis, bool $dryRun, float $started): int
+    {
+        $touched = 0;
+        $pages = 0;
+        $failed = [];
+
+        foreach ($wikis as $wiki) {
+            try {
+                $report = $this->cleaner->repair($wiki['FOLDER'], $dryRun);
+            } catch (\Throwable $throwable) {
+                $failed[] = $wiki['FOLDER'] . ' : ' . $throwable->getMessage();
+
+                continue;
+            }
+
+            if ($report['pages'] === 0) {
+                continue;
+            }
+
+            $touched++;
+            $pages += $report['pages'];
+            $output->writeln($this->dryRunPrefix($input) . '<info>' . $wiki['FOLDER'] . '</info> '
+                . implode(', ', $report['repaired']));
+        }
+
+        return $this->renderSummary(
+            $output,
+            _t('FERME_CLI_CLEAN_REPAIR_SUMMARY'),
+            [
+                _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+                _t('FERME_CLI_CLEAN_TOUCHED') => $touched,
+                _t('FERME_CLI_CLEAN_REPAIRED') => $pages,
                 _t('FERME_CLI_FAILED') => count($failed),
                 _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
             ],

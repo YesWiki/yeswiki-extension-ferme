@@ -539,5 +539,8 @@ $GLOBALS['translations'] = array_merge(
         'FERME_SELECT_ALL_N' => 'Select the %{n} wikis',
         'FERME_SELECT_NONE' => 'Unselect everything',
         'FERME_SELECTING' => 'Selecting…',
+        'FERME_CLI_OPT_CLEAN_REPAIR' => 'Give a page with no current revision its own back',
+        'FERME_CLI_CLEAN_REPAIR_SUMMARY' => 'Repairing pages with no current revision',
+        'FERME_CLI_CLEAN_REPAIRED' => 'Pages repaired',
     ]
 );

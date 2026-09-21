@@ -16,6 +16,13 @@ class SpamCleaner
 {
     public const SKELETON = ['pageprincipale', 'pageheader', 'pagefooter', 'pagetitre', 'pagemenu', 'pagerapide', 'pagecss', 'pagecolor', 'bacasable', 'tableaudebord', 'gerersite', 'accueil'];
     public const WRITERS_AFTER_CLEANING = '@admins';
+
+    /**
+     * Line breaks, spelled out. `\R` on a pattern without `u` also matches the
+     * single byte 0x85, which sits inside plenty of Cyrillic and CJK characters:
+     * splitting there cuts them in half and the database refuses what comes back.
+     */
+    public const LINES = '/\r\n|\r|\n/';
     public const WORDS_FOR_SPAM = 3;
     public const LINKS_FOR_SPAM = 50;
     public const LINKS_FOR_SPAM_LINE = 5;
@@ -109,12 +116,58 @@ class SpamCleaner
     }
 
     /**
+     * Pages left with no current revision, given theirs back.
+     *
+     * Writing a cleaned page used to be two statements without a transaction: when
+     * the second was refused, the page kept no revision marked current and vanished
+     * from its wiki. It cannot happen again, and this puts back what did.
+     *
+     * @return array{repaired:array<int,string>,pages:int}
+     */
+    public function repair(string $folder, bool $dryRun = true): array
+    {
+        $wakkaConfig = $this->config->readWikiConfig($folder);
+        if (empty($wakkaConfig['table_prefix'])) {
+            throw new WikiStatsException($folder, _t('FERME_CLI_NO_CONFIG_FILE'));
+        }
+
+        return $this->lock->during($this->config->wikiDir($folder), _t('FERME_LOCK_CLEAN'), function () use ($wakkaConfig, $dryRun) {
+            $db = $this->database->connect($wakkaConfig);
+            $table = $this->database->table((string)$wakkaConfig['table_prefix'], 'pages');
+
+            try {
+                $headless = [];
+                $result = $db->query(
+                    'SELECT tag FROM `' . $table . '` GROUP BY tag HAVING SUM(latest = "Y") = 0'
+                );
+                while ($result && ($row = $result->fetch_assoc())) {
+                    $headless[] = (string)$row['tag'];
+                }
+
+                if (!$dryRun) {
+                    foreach ($headless as $tag) {
+                        $db->query(
+                            'UPDATE `' . $table . '` SET latest = "Y"'
+                            . ' WHERE tag = "' . $db->real_escape_string($tag) . '"'
+                            . ' ORDER BY time DESC, id DESC LIMIT 1'
+                        );
+                    }
+                }
+
+                return ['repaired' => $headless, 'pages' => count($headless)];
+            } finally {
+                $db->close();
+            }
+        });
+    }
+
+    /**
      * A body with nothing left once the spam is out is a page the robot wrote.
      */
     public static function strip(string $body, string $hosts = ''): string
     {
         $kept = [];
-        foreach (preg_split('/\R/', $body) ?: [] as $line) {
+        foreach (preg_split(self::LINES, $body) ?: [] as $line) {
             if (self::isSpamLine($line, $hosts)) {
                 continue;
             }
@@ -276,14 +329,24 @@ class SpamCleaner
         }
 
         $cleaned = self::strip((string)$row['body'], $this->hosts());
-        $db->query('UPDATE `' . $table . '` SET latest = "N" WHERE tag = ' . $quoted);
-        $db->query(
-            'INSERT INTO `' . $table . '` (tag, time, body, body_r, owner, user, latest, handler, comment_on)'
-            . ' VALUES (' . $quoted . ', NOW(), "' . $db->real_escape_string($cleaned) . '", "",'
-            . ' "' . $db->real_escape_string((string)$row['owner']) . '",'
-            . ' "' . $db->real_escape_string((string)$row['user']) . '", "Y",'
-            . ' "' . $db->real_escape_string((string)($row['handler'] ?? 'page')) . '",'
-            . ' "' . $db->real_escape_string((string)$row['comment_on']) . '")'
-        );
+
+        $db->begin_transaction();
+
+        try {
+            $db->query('UPDATE `' . $table . '` SET latest = "N" WHERE tag = ' . $quoted);
+            $db->query(
+                'INSERT INTO `' . $table . '` (tag, time, body, body_r, owner, user, latest, handler, comment_on)'
+                . ' VALUES (' . $quoted . ', NOW(), "' . $db->real_escape_string($cleaned) . '", "",'
+                . ' "' . $db->real_escape_string((string)$row['owner']) . '",'
+                . ' "' . $db->real_escape_string((string)$row['user']) . '", "Y",'
+                . ' "' . $db->real_escape_string((string)($row['handler'] ?? 'page')) . '",'
+                . ' "' . $db->real_escape_string((string)$row['comment_on']) . '")'
+            );
+            $db->commit();
+        } catch (\Throwable $throwable) {
+            $db->rollback();
+
+            throw $throwable;
+        }
     }
 }

@@ -516,5 +516,8 @@ $GLOBALS['translations'] = array_merge(
         'FERME_SELECT_ALL_N' => 'Sélectionner les %{n} wikis',
         'FERME_SELECT_NONE' => 'Tout désélectionner',
         'FERME_SELECTING' => 'Sélection en cours…',
+        'FERME_CLI_OPT_CLEAN_REPAIR' => 'Rendre sa révision courante à une page qui n\'en a plus',
+        'FERME_CLI_CLEAN_REPAIR_SUMMARY' => 'Réparation des pages sans révision courante',
+        'FERME_CLI_CLEAN_REPAIRED' => 'Pages réparées',
     ]
 );
