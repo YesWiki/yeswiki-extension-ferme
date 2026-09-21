@@ -54,6 +54,10 @@ class FarmDashboard
     /**
      * @param array<string,mixed> $stats
      */
+    /**
+     * Quiet for six months and nobody meant it. A wiki someone put to sleep is
+     * quiet on purpose, and belongs in its own count rather than in this one.
+     */
     public function isDormant(array $stats): bool
     {
         return !empty($stats['lastActivity'])
@@ -106,7 +110,7 @@ class FarmDashboard
                 $measured['diskBytes'] = (int)($measured['filesBytes'] ?? 0)
                     + (int)($measured['customBytes'] ?? 0)
                     + (int)($measured['privateBytes'] ?? 0);
-                $measured['dormant'] = $this->isDormant($measured);
+                $measured['dormant'] = $this->isDormant($measured) && !$this->isAsleep($fiches[$index]);
                 $measured['toUpdate'] = $this->isToUpdate($measured, $current);
                 $measured['heavyArchives'] = (int)($measured['privateBytes'] ?? 0) >= self::HEAVY_ARCHIVES;
                 $measured['failed'] = ($measured['status'] ?? '') === WikiStatsStore::STATUS_ERROR;

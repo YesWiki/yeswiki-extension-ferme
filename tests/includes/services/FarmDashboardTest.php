@@ -343,6 +343,24 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(2, $page['totals']['hibernating']);
     }
 
+    public function testAWikiPutToSleepIsNotAlsoCalledDormant()
+    {
+        $vieux = date('Y-m-d H:i:s', strtotime('-8 months'));
+        $fiches = [$this->fiche('oublie'), $this->fiche('endormi', null, 'hibernate')];
+        $stats = [
+            'oublie' => $this->stats(['lastActivity' => $vieux]),
+            'endormi' => $this->stats(['lastActivity' => $vieux]),
+        ];
+
+        $page = $this->select($fiches, $stats);
+
+        $this->assertSame(1, $page['counts']['dormant'], 'seul celui que personne n\'a endormi');
+        $this->assertSame(1, $page['counts']['hibernating']);
+        $byFolder = array_column($page['fiches'], 'stats', 'bf_dossier-wiki');
+        $this->assertTrue($byFolder['oublie']['dormant']);
+        $this->assertFalse($byFolder['endormi']['dormant'], 'il dort parce qu\'on l\'a voulu');
+    }
+
     public function testTheSleepingOnesAreCountedEvenWhenTheyAreNotOnThePage()
     {
         $fiches = [];
