@@ -90,15 +90,7 @@ class WikiRepository
         $page = $this->dashboard->select(
             $fiches,
             $this->statsStore->readAll(),
-            [
-                'current' => [
-                    'version' => (string)$this->wiki->config['yeswiki_version'],
-                    'release' => (string)$this->wiki->config['yeswiki_release'],
-                ],
-                'onDisk' => $this->wikisOnDisk($fiches),
-                'statuses' => $this->statuses($fiches),
-                'spamThreshold' => $this->spamScore->threshold(),
-            ],
+            $this->context($fiches),
             [
                 'search' => $search,
                 'filter' => $filter,
@@ -130,14 +122,7 @@ class WikiRepository
         $page = $this->dashboard->select(
             $fiches,
             $this->statsStore->readAll(),
-            [
-                'current' => [
-                    'version' => (string)$this->wiki->config['yeswiki_version'],
-                    'release' => (string)$this->wiki->config['yeswiki_release'],
-                ],
-                'onDisk' => $this->wikisOnDisk($fiches),
-                'spamThreshold' => $this->spamScore->threshold(),
-            ],
+            $this->context($fiches),
             [
                 'search' => $search,
                 'filter' => $filter,
@@ -163,6 +148,28 @@ class WikiRepository
         }
 
         return ['wikis' => $wikis, 'total' => $page['filtered']];
+    }
+
+    /**
+     * What the dashboard needs to know besides the entries and their statistics.
+     * Both the page and the "select them all" button read it from here: built in
+     * two places, the two answered different numbers for the same chip.
+     *
+     * @param array<int,array<string,mixed>> $fiches
+     *
+     * @return array<string,mixed>
+     */
+    private function context(array $fiches): array
+    {
+        return [
+            'current' => [
+                'version' => (string)$this->wiki->config['yeswiki_version'],
+                'release' => (string)$this->wiki->config['yeswiki_release'],
+            ],
+            'onDisk' => $this->wikisOnDisk($fiches),
+            'statuses' => $this->statuses($fiches),
+            'spamThreshold' => $this->spamScore->threshold(),
+        ];
     }
 
     /**
