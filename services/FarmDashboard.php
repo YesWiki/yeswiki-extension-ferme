@@ -13,7 +13,7 @@ class FarmDashboard
     public const SPAMMED_WORDS = 3;
     public const HEAVY_ARCHIVES = 1073741824;
 
-    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating'];
+    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating', 'running'];
     public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
     public const SORTS = ['title', 'referent', 'lastActivity', 'activity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
@@ -133,6 +133,8 @@ class FarmDashboard
         foreach ($fiches as $fiche) {
             if ($this->isAsleep($fiche)) {
                 $counts['hibernating']++;
+            } else {
+                $counts['running']++;
             }
             if ($this->hasProblem($fiche)) {
                 $counts['failed']++;
@@ -231,7 +233,10 @@ class FarmDashboard
             if ($filter === 'hibernating' && !$this->isAsleep($fiche)) {
                 return false;
             }
-            if ($filter !== '' && !in_array($filter, ['failed', 'unmeasured', 'hibernating'], true) && empty($fiche['stats'][$filter])) {
+            if ($filter === 'running' && $this->isAsleep($fiche)) {
+                return false;
+            }
+            if ($filter !== '' && !in_array($filter, ['failed', 'unmeasured', 'hibernating', 'running'], true) && empty($fiche['stats'][$filter])) {
                 return false;
             }
             if ($needle === '') {

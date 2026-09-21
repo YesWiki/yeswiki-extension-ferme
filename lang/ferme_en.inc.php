@@ -555,5 +555,6 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_STATS_PRIVATE_MADE' => 'Private folders created',
         'FERME_CLI_STATS_ARCHIVES_SWEPT' => 'Stale archives removed',
         'EDIT_CONFIG_HINT_yeswiki-farm-archive-keep' => 'How many seconds an undownloaded archive stays in its wiki (604800 = one week, 0 = for ever)',
+        'FERME_FILTER_BY' => 'Show only:',
     ]
 );

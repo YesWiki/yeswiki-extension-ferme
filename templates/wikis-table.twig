@@ -34,6 +34,16 @@
     gap: 6px;
     margin-left: auto;
 }
+.ferme-total-filter {
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+.ferme-total-filter:hover {
+    border-bottom-color: rgba(127, 127, 127, 0.4);
+}
+.ferme-total-filter.active {
+    border-bottom-color: currentColor;
+}
 .ferme-chip.active {
     box-shadow: inset 0 0 0 2px currentColor;
 }
@@ -300,6 +310,7 @@
      data-upgrade-ext-intro="{{ _t("FERME_UPGRADE_EXTENSIONS_INTRO") }}"
      data-recover-title="{{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}"
      data-total-wikis="{{ _t("FERME_TOTAL_WIKIS") }}"
+     data-i18n-filter-by="{{ _t("FERME_FILTER_BY") }}"
      data-i18n-total-running="{{ _t("FERME_STATUS_RUNNING") }}"
      data-i18n-total-hibernating="{{ _t("FERME_STATUS_HIBERNATE") }}"
      data-total-users="{{ _t("FERME_SORT_USERS") }}"

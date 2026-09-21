@@ -330,20 +330,31 @@ $(document).ready(function() {
       : '';
 
     [
-      ['wikis', i18n.totalWikis, true],
-      ['running', i18n.i18nTotalRunning, true],
-      ['hibernating', i18n.i18nTotalHibernating, true],
-      ['entries', i18n.totalEntries, false],
-      ['pages', i18n.totalPages, false],
-      ['users', i18n.totalUsers, false],
-      ['disk', i18n.totalDisk, false]
+      ['wikis', i18n.totalWikis, true, ''],
+      ['running', i18n.i18nTotalRunning, true, 'running'],
+      ['hibernating', i18n.i18nTotalHibernating, true, 'hibernating'],
+      ['entries', i18n.totalEntries, false, ''],
+      ['pages', i18n.totalPages, false, ''],
+      ['users', i18n.totalUsers, false, ''],
+      ['disk', i18n.totalDisk, false, '']
     ].forEach(function(entry) {
       if (totals[entry[0]] === undefined) { return; }
       var known = entry[2] || measured > 0;
-      $totals.append($('<div class="ferme-total">')
+      var filter = entry[3];
+      var $total = $('<div class="ferme-total">')
         .attr('title', known ? (entry[2] ? '' : partial) : i18n.i18nNeverMeasured)
         .append($('<strong>').text(known ? totals[entry[0]] : '?'))
-        .append($('<span>').text(entry[1])));
+        .append($('<span>').text(entry[1]));
+
+      if (filter) {
+        $total
+          .addClass('ferme-total-filter')
+          .toggleClass('active', activeFilter === filter)
+          .attr('data-filter', filter)
+          .attr('title', i18n.i18nFilterBy + ' ' + entry[1]);
+      }
+
+      $totals.append($total);
     });
 
     var $chips = $('#ferme-chips').empty();
@@ -357,6 +368,12 @@ $(document).ready(function() {
         .html('<i class="fas fa-' + chip.icon + '"></i> ' + esc(i18n[chip.label]) + ' <span class="badge">' + count + '</span>'));
     });
   }
+
+  $(document).on('click', '.ferme-total-filter', function() {
+    var wanted = $(this).data('filter');
+    activeFilter = activeFilter === wanted ? '' : wanted;
+    wikisTable.ajax.reload();
+  });
 
   $(document).on('click', '.ferme-chip', function() {
     var wanted = $(this).data('filter');

@@ -532,5 +532,6 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_STATS_PRIVATE_MADE' => 'Dossiers private créés',
         'FERME_CLI_STATS_ARCHIVES_SWEPT' => 'Archives périmées retirées',
         'EDIT_CONFIG_HINT_yeswiki-farm-archive-keep' => 'Combien de secondes une archive non téléchargée reste dans son wiki (604800 = une semaine, 0 = pour toujours)',
+        'FERME_FILTER_BY' => 'Ne montrer que :',
     ]
 );

@@ -52,7 +52,7 @@ class FarmDashboardTest extends YesWikiTestCase
         );
 
         $this->assertSame(
-            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0],
+            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0, 'running' => 5],
             $page['counts']
         );
         $this->assertSame(5, $page['total']);
@@ -320,6 +320,10 @@ class FarmDashboardTest extends YesWikiTestCase
         $asleep = $this->select($fiches, $stats, [], '', 'hibernating');
         $this->assertSame(2, $asleep['filtered']);
         $this->assertSame(['archive', 'dormeur'], array_column($asleep['fiches'], 'bf_dossier-wiki'));
+
+        $awake = $this->select($fiches, $stats, [], '', 'running');
+        $this->assertSame(2, $awake['filtered'], 'et le clic sur « en service » montre les autres');
+        $this->assertSame(['actif', 'actifaussi'], array_column($awake['fiches'], 'bf_dossier-wiki'));
     }
 
     public function testTheSummarySaysHowManyAreInServiceAndHowManyAsleep()
