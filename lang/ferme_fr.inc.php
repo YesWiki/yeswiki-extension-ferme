@@ -471,5 +471,9 @@ $GLOBALS['translations'] = array_merge(
         'FERME_WAKE_SELECTED' => 'Sortir d\'hibernation',
         'FERME_WAKE_INTRO' => 'Les wikis choisis redeviennent modifiables.',
         'FERME_HOOK_OPEN_WIKI' => 'Ouvrir le wiki',
+        'FERME_SPAM_DOMAIN' => 'son dossier est un nom de domaine',
+        'FERME_CHIP_SPAMMED' => 'contenu spammé',
+        'FERME_STATS_SPAM_WORDS' => 'mots de spam',
+        'FERME_STATS_SPAM_LINKS' => 'liens',
     ]
 );

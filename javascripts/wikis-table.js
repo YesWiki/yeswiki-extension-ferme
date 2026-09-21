@@ -40,7 +40,8 @@ $(document).ready(function() {
     { key: 'suspect', label: 'chipSuspect', kind: 'danger', icon: 'ban' },
     { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'exclamation-triangle' },
     { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' },
-    { key: 'hibernating', label: 'chipHibernating', kind: 'default', icon: 'moon' }
+    { key: 'hibernating', label: 'chipHibernating', kind: 'default', icon: 'moon' },
+    { key: 'spammed', label: 'chipSpammed', kind: 'warning', icon: 'link' }
   ];
 
   function esc(str) {
@@ -185,6 +186,14 @@ $(document).ready(function() {
           + '</small>'
           + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + ' ' + statusBadge(row) + '</small>'
           + '</div>';
+        if (row.stats && row.stats.spammed) {
+          html +=
+            '<div><span class="label label-warning" title="' +
+            esc(row.stats.spam_hosts) +
+            '"><i class="fas fa-link"></i> ' +
+            esc(i18n.chipSpammed) +
+            '</span></div>';
+        }
         if (row.stats && row.stats.suspect) {
           html += '<div><span class="label label-danger" title="' + esc((row.stats.suspect_why || []).join(', ')) + '">'
             + '<i class="fas fa-ban"></i> ' + esc(i18n.chipSuspect) + '</span></div>';
@@ -435,7 +444,8 @@ $(document).ready(function() {
       ['user', i18n.totalUsers, row.stats.users],
       ['paperclip', i18n.i18nFiles, row.stats.files + ' · ' + row.stats.disk],
       ['clock', i18n.i18nMeasuredAt, row.stats.computed_age],
-      statusFigure(row)
+      statusFigure(row),
+      ['link', i18n.i18nSpamWords, row.stats.spam_words + ' · ' + row.stats.spam_links + ' ' + i18n.i18nSpamLinks]
     ];
 
     var html = '<div class="ferme-detail"><div class="ferme-detail-grid">';
@@ -444,6 +454,9 @@ $(document).ready(function() {
         + '<span class="ferme-muted">' + esc(item[1]) + '</span> <strong>' + esc(String(item[2])) + '</strong></div>';
     });
     html += '</div>';
+    if (row.stats.spam_hosts) {
+      html += '<div class="ferme-muted ferme-detail-note">' + esc(row.stats.spam_hosts) + '</div>';
+    }
     html += '<div class="ferme-muted ferme-detail-note">' + esc(row.stats.disk_detail)
       + ' · ' + esc(i18n.i18nMeasuredAt) + ' ' + esc(row.stats.computed_at || '') + '</div>';
 

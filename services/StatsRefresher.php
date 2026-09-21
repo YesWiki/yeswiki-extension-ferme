@@ -55,7 +55,7 @@ class StatsRefresher
                     'filesMtime' => $this->stats->diskProbe($folder),
                 ]);
             }
-            $this->store->save($folder, array_merge($measured, $this->judge($measured, $known)));
+            $this->store->save($folder, array_merge($measured, $this->judge($folder, $measured, $known)));
         } catch (WikiStatsException $exception) {
             $this->store->fail($folder, $exception->getReason());
 
@@ -74,7 +74,7 @@ class StatsRefresher
      *
      * @return array<string,mixed>
      */
-    private function judge(array $measured, ?array $known): array
+    private function judge(string $folder, array $measured, ?array $known): array
     {
         if (!array_key_exists('name', $measured)) {
             return [];
@@ -83,7 +83,8 @@ class StatsRefresher
         $verdict = $this->spam->of(
             (string)$measured['name'],
             (string)($measured['description'] ?? ''),
-            $measured
+            $measured,
+            $folder
         );
 
         return [

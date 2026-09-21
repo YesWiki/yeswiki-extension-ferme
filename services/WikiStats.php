@@ -14,6 +14,9 @@ use YesWiki\Ferme\Exception\WikiStatsException;
 class WikiStats
 {
     public const MONTHS = 12;
+    public const PAGES_READ = 8;
+
+    private const SPAM_VOCABULARY = '/(casino|jackpot|escort|call.?girl|camgirl|viagra|cialis|sattamatka|porn|xxx|nude|hookup|adultfriend|backlink|payday.?loan|\bbet\b|\bslots?\b|\bpoker\b|\bseo\b|\bessays?\b|\bhomework\b|\bdating\b|keonhacai|nhacai|taixiu|soikeo|bongda|cacuoc|sunwin|togel|judi)/i';
 
     private $config;
     private $database;
@@ -55,7 +58,8 @@ class WikiStats
                     'pages' => $this->countPages($db, $prefix),
                 ],
                 $this->latest($db, $prefix),
-                ['activity' => $this->activity($db, $prefix)]
+                ['activity' => $this->activity($db, $prefix)],
+                $this->spamInPages($db, $prefix, (string)($wakkaConfig['root_page'] ?? 'PagePrincipale'))
             );
         } catch (\Throwable $throwable) {
             throw new WikiStatsException($folder, $throwable->getMessage(), $throwable);
@@ -194,6 +198,42 @@ class WikiStats
     /**
      * @return array{lastPageId:int,lastActivity:?string}
      */
+    /**
+     * What the wiki itself is serving. A farm left open collects pages stuffed with
+     * links by robots, and the wikis it happens to are ordinary ones whose owners
+     * have no idea: this counts the damage rather than judging whose wiki it is.
+     *
+     * @return array{spamWords:int,spamLinks:int,spamHosts:string}
+     */
+    private function spamInPages(\mysqli $db, string $prefix, string $rootPage): array
+    {
+        $body = '';
+        $result = $db->query(
+            'SELECT body FROM `' . $this->database->table($prefix, 'pages') . '`'
+            . ' WHERE latest = "Y"'
+            . ' ORDER BY tag = "' . $db->real_escape_string($rootPage) . '" DESC, time DESC'
+            . ' LIMIT ' . self::PAGES_READ
+        );
+        while ($result && ($row = $result->fetch_assoc())) {
+            $body .= "\n" . (string)($row['body'] ?? '');
+        }
+
+        $words = preg_match_all(self::SPAM_VOCABULARY, $body);
+        preg_match_all('#https?://([a-z0-9.\-]+)#i', $body, $found);
+
+        $hosts = [];
+        foreach (array_count_values(array_map('strtolower', $found[1] ?? [])) as $host => $times) {
+            $hosts[$host] = $times;
+        }
+        arsort($hosts);
+
+        return [
+            'spamWords' => (int)$words,
+            'spamLinks' => count($found[1] ?? []),
+            'spamHosts' => implode(' ', array_slice(array_keys($hosts), 0, 3)),
+        ];
+    }
+
     private function latest(\mysqli $db, string $prefix): array
     {
         $row = $db->query(

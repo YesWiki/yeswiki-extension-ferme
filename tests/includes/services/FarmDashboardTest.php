@@ -52,7 +52,7 @@ class FarmDashboardTest extends YesWikiTestCase
         );
 
         $this->assertSame(
-            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0],
+            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0],
             $page['counts']
         );
         $this->assertSame(5, $page['total']);

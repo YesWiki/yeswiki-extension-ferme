@@ -10,9 +10,10 @@ namespace YesWiki\Ferme\Service;
 class FarmDashboard
 {
     public const DORMANT_AFTER = '-6 months';
+    public const SPAMMED_WORDS = 3;
     public const HEAVY_ARCHIVES = 1073741824;
 
-    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'failed', 'unmeasured', 'hibernating'];
+    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating'];
     public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
     public const SORTS = ['title', 'referent', 'lastActivity', 'activity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
@@ -108,6 +109,7 @@ class FarmDashboard
                 $measured['heavyArchives'] = (int)($measured['privateBytes'] ?? 0) >= self::HEAVY_ARCHIVES;
                 $measured['failed'] = ($measured['status'] ?? '') === WikiStatsStore::STATUS_ERROR;
                 $measured['suspect'] = (int)($measured['suspect'] ?? 0) >= $spamThreshold;
+                $measured['spammed'] = (int)($measured['spamWords'] ?? 0) >= self::SPAMMED_WORDS;
                 $measured['suspectWhy'] = array_values(array_filter(explode(',', (string)($measured['suspectWhy'] ?? ''))));
             }
 
@@ -142,7 +144,7 @@ class FarmDashboard
                 $counts['unmeasured']++;
                 continue;
             }
-            foreach (['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'failed'] as $flag) {
+            foreach (['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'spammed', 'failed'] as $flag) {
                 if (!empty($stats[$flag])) {
                     $counts[$flag]++;
                 }
