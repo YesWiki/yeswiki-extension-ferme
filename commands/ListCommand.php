@@ -8,6 +8,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
+use YesWiki\Ferme\Service\ImportFilter;
 use YesWiki\Ferme\Service\WikiRepository;
 use YesWiki\Wiki;
 
@@ -16,11 +17,13 @@ class ListCommand extends AbstractFarmCommand
     private const FORMATS = ['table', 'json', 'csv'];
 
     protected $repository;
+    protected $filter;
 
     public function __construct(Wiki &$wiki)
     {
         parent::__construct($wiki);
         $this->repository = $wiki->services->get(WikiRepository::class);
+        $this->filter = $wiki->services->get(ImportFilter::class);
     }
 
     protected function configure()
@@ -32,6 +35,11 @@ class ListCommand extends AbstractFarmCommand
             ->addOption('format', 'f', InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_FORMAT'), 'table')
             ->addOption('import', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_IMPORT'))
             ->addOption('email', 'e', InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_EMAIL'))
+            ->addOption('min-entries', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_MIN_ENTRIES'))
+            ->addOption('min-pages', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_MIN_PAGES'))
+            ->addOption('min-users', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_MIN_USERS'))
+            ->addOption('active-since', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_ACTIVE_SINCE'))
+            ->addOption('name-excludes', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_NAME_EXCLUDES'))
             ->addWikiSelectionOptions()
             ->addDryRunOption();
     }
@@ -58,17 +66,20 @@ class ListCommand extends AbstractFarmCommand
             return !$wiki['existsInBazar'];
         }));
 
+        $selection = $this->filter->apply($inspected, $this->criteria($input));
+        $candidates = $selection['keep'];
+
         $imported = [];
         if ($input->getOption('import')) {
             $imported = $this->isDryRun($input)
-                ? array_column($missingFromBazar, 'folder')
-                : $this->repository->import($inspected, $this->fallbackEmail($input));
+                ? array_column($candidates, 'folder')
+                : $this->repository->import($candidates, $this->fallbackEmail($input));
         }
 
         switch ($format) {
             case 'json':
                 $output->writeln(json_encode(
-                    ['wikis' => $inspected, 'imported' => $imported],
+                    ['wikis' => $inspected, 'candidates' => array_column($candidates, 'folder'), 'imported' => $imported],
                     JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
                 ));
 
@@ -89,6 +100,8 @@ class ListCommand extends AbstractFarmCommand
                 _t('FERME_CLI_WIKIS_FOUND') => count($inspected),
                 _t('FERME_CLI_IN_BAZAR') => count($inspected) - count($missingFromBazar),
                 _t('FERME_CLI_NOT_IN_BAZAR') => count($missingFromBazar),
+                _t('FERME_CLI_IMPORT_CANDIDATES') => count($candidates),
+                _t('FERME_CLI_LEFT_OUT') => $this->describeLeftOut($selection['left']),
                 ($this->isDryRun($input) ? _t('FERME_CLI_WOULD_IMPORT') : _t('FERME_CLI_IMPORTED')) => count($imported),
                 _t('FERME_CLI_DB_FAILURES') => count(array_filter($inspected, function ($wiki) {
                     return !$wiki['sqlOk'] || !$wiki['tablesOk'];
@@ -97,6 +110,44 @@ class ListCommand extends AbstractFarmCommand
             [],
             $this->isDryRun($input) && $input->getOption('import')
         );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function criteria(InputInterface $input): array
+    {
+        $since = (string)$input->getOption('active-since');
+
+        return [
+            'minEntries' => $this->threshold($input, 'min-entries'),
+            'minPages' => $this->threshold($input, 'min-pages'),
+            'minUsers' => $this->threshold($input, 'min-users'),
+            'activeSince' => $since === '' ? null : $this->seconds($since),
+            'nameExcludes' => (string)$input->getOption('name-excludes'),
+        ];
+    }
+
+    private function threshold(InputInterface $input, string $option): ?int
+    {
+        $value = $input->getOption($option);
+
+        return $value === null || $value === '' ? null : max(0, (int)$value);
+    }
+
+    /**
+     * @param array<string,array<int,string>> $left
+     */
+    private function describeLeftOut(array $left): string
+    {
+        $said = [];
+        foreach ($left as $reason => $folders) {
+            if (!empty($folders)) {
+                $said[] = count($folders) . ' ' . _t('FERME_CLI_LEFT_' . strtoupper($reason));
+            }
+        }
+
+        return empty($said) ? '-' : implode(', ', $said);
     }
 
     /**
@@ -117,15 +168,24 @@ class ListCommand extends AbstractFarmCommand
             _t('FERME_CLI_COL_URL'),
             _t('FERME_CLI_COL_VERSION'),
             _t('FERME_CLI_COL_BAZAR'),
+            _t('FERME_CLI_COL_PAGES'),
+            _t('FERME_CLI_COL_ENTRIES'),
+            _t('FERME_CLI_COL_USERS'),
+            _t('FERME_CLI_COL_LAST_ACTIVITY'),
             _t('FERME_CLI_COL_DATABASE'),
             _t('FERME_CLI_COL_ADMIN'),
         ]);
         foreach ($inspected as $wiki) {
+            $stats = $wiki['stats'] ?? null;
             $table->addRow([
                 $wiki['folder'],
                 $wiki['url'],
                 trim($wiki['version'] . ' ' . $wiki['release']),
                 $wiki['existsInBazar'] ? _t('FERME_CLI_YES') : _t('FERME_CLI_NO'),
+                $stats === null ? '?' : (string)($stats['pages'] ?? 0),
+                $stats === null ? '?' : (string)($stats['entries'] ?? 0),
+                $stats === null ? '?' : (string)($stats['users'] ?? 0),
+                $stats === null ? '?' : substr((string)($stats['lastActivity'] ?? ''), 0, 10),
                 $this->databaseState($wiki),
                 $wiki['adminEmail'] ?? '',
             ]);
@@ -137,8 +197,9 @@ class ListCommand extends AbstractFarmCommand
     {
         $handle = fopen('php://output', 'w');
         // the escape argument is explicit: its default changes in php 8.4
-        fputcsv($handle, ['folder', 'path', 'url', 'version', 'release', 'inBazar', 'sqlOk', 'tablesOk', 'missingTables', 'sqlError', 'adminEmail'], ',', '"', '');
+        fputcsv($handle, ['folder', 'path', 'url', 'version', 'release', 'inBazar', 'pages', 'entries', 'users', 'files', 'lastActivity', 'sqlOk', 'tablesOk', 'missingTables', 'sqlError', 'adminEmail'], ',', '"', '');
         foreach ($inspected as $wiki) {
+            $stats = $wiki['stats'] ?? null;
             fputcsv($handle, [
                 $wiki['folder'],
                 $wiki['path'],
@@ -146,6 +207,11 @@ class ListCommand extends AbstractFarmCommand
                 $wiki['version'],
                 $wiki['release'],
                 $wiki['existsInBazar'] ? '1' : '0',
+                $stats === null ? '' : (string)($stats['pages'] ?? 0),
+                $stats === null ? '' : (string)($stats['entries'] ?? 0),
+                $stats === null ? '' : (string)($stats['users'] ?? 0),
+                $stats === null ? '' : (string)($stats['files'] ?? 0),
+                $stats === null ? '' : (string)($stats['lastActivity'] ?? ''),
                 $wiki['sqlOk'] ? '1' : '0',
                 $wiki['tablesOk'] ? '1' : '0',
                 implode(' ', $wiki['missingTables']),

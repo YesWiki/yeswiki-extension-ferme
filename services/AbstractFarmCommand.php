@@ -61,6 +61,20 @@ abstract class AbstractFarmCommand extends Command
         return $this->finder->find($path === '' ? null : $path, max(0, (int)$input->getOption('depth')));
     }
 
+    /**
+     * A duration as an operator writes it: 90, 30s, 15m, 8h, 7d.
+     */
+    protected function seconds(string $duration): int
+    {
+        if (!preg_match('/^(\d+)([smhd]?)$/', trim($duration), $matches)) {
+            throw new \InvalidArgumentException(_t('FERME_CLI_BAD_DURATION') . ' ' . $duration);
+        }
+
+        $units = ['' => 1, 's' => 1, 'm' => 60, 'h' => 3600, 'd' => 86400];
+
+        return (int)$matches[1] * $units[$matches[2]];
+    }
+
     protected function elapsed(float $started): string
     {
         $seconds = (int)round(microtime(true) - $started);

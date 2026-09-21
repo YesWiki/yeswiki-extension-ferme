@@ -190,10 +190,33 @@ commande ne peut pas écrire est signalé en échec : il n'y a pas de `sudo` ici
 `--dry-run` montre ce qui serait fait sans rien écrire.
 
 - **`ferme:list`** dit, pour chaque wiki trouvé, s'il a une fiche dans le
-  formulaire de la ferme, si sa base répond, s'il ne lui manque pas de table, et
-  qui l'administre. `--format=json|csv` sort la même chose pour un autre
-  programme. `--import` crée les fiches manquantes, avec l'email du premier admin
-  du wiki concerné.
+  formulaire de la ferme, ce qu'il contient (pages, fiches, comptes, dernière
+  modification, d'après les statistiques déjà mesurées), si sa base répond, s'il ne
+  lui manque pas de table, et qui l'administre. `--format=json|csv` sort la même
+  chose pour un autre programme. `--import` crée les fiches manquantes, avec l'email
+  du premier admin du wiki concerné.
+
+Sur une ferme ouverte depuis longtemps, l'immense majorité des dossiers sans fiche
+sont des wikis créés puis jamais utilisés, dont beaucoup de spam : les importer tous
+fabriquerait des centaines de fiches pour rien. Cinq filtres restreignent l'import à
+ce qui mérite une fiche, tous fondés sur les statistiques déjà mesurées, donc
+gratuits :
+
+```
+./yeswicli ferme:list --import --dry-run \
+    --min-entries=15 --min-users=2 --active-since=180d \
+    --name-excludes='bet|casino|win|slot|clb|essay|writing|homework'
+```
+
+`--min-entries`, `--min-pages`, `--min-users` et `--active-since` écartent ce qui n'a
+jamais servi, `--name-excludes` écarte par le nom. Le compte rendu dit combien de
+wikis chaque filtre a laissés de côté, et un wiki jamais mesuré est laissé de côté
+plutôt que deviné. Commencez toujours par `--dry-run`.
+
+Un wiki qui sort du modèle et que personne n'a touché a une signature reconnaissable,
+autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
+`--min-users=2` écartent. Pour se faire une idée avant de choisir les seuils,
+`ferme:list --format=csv` sort une colonne par chiffre, qui se trie dans un tableur.
 - **`ferme:config`** écrit et retire des clés dans le `wakka.config.php` de chaque
   wiki : `--set cle=valeur` (répétable, les points font des tableaux imbriqués,
   `int:5`, `json:{...}`, `true`, `false` et `null` gardent leur type) et

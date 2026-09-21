@@ -266,15 +266,4 @@ class StatsCommand extends AbstractFarmCommand
 
         return $handle;
     }
-
-    private function seconds(string $duration): int
-    {
-        if (!preg_match('/^(\d+)([smhd]?)$/', trim($duration), $matches)) {
-            throw new \InvalidArgumentException(_t('FERME_CLI_OPT_STALE') . ': ' . $duration);
-        }
-
-        $units = ['' => 1, 's' => 1, 'm' => 60, 'h' => 3600, 'd' => 86400];
-
-        return (int)$matches[1] * $units[$matches[2]];
-    }
 }

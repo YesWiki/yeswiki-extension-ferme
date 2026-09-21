@@ -131,10 +131,13 @@ class WikiRepository
     public function inspect(array $wikis): array
     {
         $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
+        $stats = $this->statsStore->readMany(array_column($wikis, 'FOLDER'));
 
         $results = [];
         foreach ($wikis as $wiki) {
-            $results[] = $this->inspectWiki($wiki, in_array($wiki['FOLDER'], $known, true));
+            $inspected = $this->inspectWiki($wiki, in_array($wiki['FOLDER'], $known, true));
+            $inspected['stats'] = $stats[$wiki['FOLDER']] ?? null;
+            $results[] = $inspected;
         }
 
         return $results;
