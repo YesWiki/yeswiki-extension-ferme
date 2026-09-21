@@ -557,10 +557,13 @@ $(document).ready(function() {
     $('#select-everything-label').text(i18n.i18nSelecting);
 
     postWithToken(selectUrl, { search: currentSearch(), filter: activeFilter }).done(function(response) {
+      selectedWikis = {};
       (response.wikis || []).forEach(function(wiki) {
         selectedWikis[wiki.folder] = { title: wiki.title, idFiche: wiki.id_fiche, mail: wiki.mail };
       });
-      $table.find('.wiki-checkbox').prop('checked', true);
+      $table.find('.wiki-checkbox').each(function() {
+        $(this).prop('checked', Object.prototype.hasOwnProperty.call(selectedWikis, this.value));
+      });
       updateSelectAllState();
       updateBulkBtns();
       $('#select-everything-label').text(was);

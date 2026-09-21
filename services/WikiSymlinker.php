@@ -29,14 +29,16 @@ class WikiSymlinker
     private $files;
     private $lock;
     private $hibernator;
+    private $refresher;
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, FileSystem $files, FolderLock $lock, WikiHibernator $hibernator)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, FileSystem $files, FolderLock $lock, WikiHibernator $hibernator, StatsRefresher $refresher)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->files = $files;
         $this->lock = $lock;
         $this->hibernator = $hibernator;
+        $this->refresher = $refresher;
     }
 
     /**
@@ -118,6 +120,10 @@ class WikiSymlinker
                 if (!$dryRun) {
                     $this->run($source, $wikiDir, $step);
                 }
+            }
+
+            if (!$dryRun && $linked > 0) {
+                $this->refresher->remeasure(basename($wikiDir));
             }
 
             return ['linked' => $linked, 'freed' => $freed, 'kept' => $kept, 'steps' => $steps];

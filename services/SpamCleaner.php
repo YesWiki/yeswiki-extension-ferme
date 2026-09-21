@@ -32,14 +32,22 @@ class SpamCleaner
     private $database;
     private $lock;
     private $hibernator;
+    private $refresher;
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, FolderLock $lock, WikiHibernator $hibernator)
-    {
+    public function __construct(
+        \YesWiki\Wiki $wiki,
+        FarmConfig $config,
+        WikiDatabase $database,
+        FolderLock $lock,
+        WikiHibernator $hibernator,
+        StatsRefresher $refresher
+    ) {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->database = $database;
         $this->lock = $lock;
         $this->hibernator = $hibernator;
+        $this->refresher = $refresher;
     }
 
     /**
@@ -107,6 +115,10 @@ class SpamCleaner
                     }
                 }
 
+                if (!$dryRun && $todo !== []) {
+                    $this->remeasure($folder);
+                }
+
                 return [
                     'deleted' => count(array_filter($todo, fn (array $p) => $p['action'] === 'delete')),
                     'stripped' => count(array_filter($todo, fn (array $p) => $p['action'] === 'strip')),
@@ -162,11 +174,26 @@ class SpamCleaner
                     }
                 }
 
+                if (!$dryRun && $headless !== []) {
+                    $this->remeasure($folder);
+                }
+
                 return ['repaired' => $headless, 'pages' => count($headless)];
             } finally {
                 $db->close();
             }
         });
+    }
+
+    /**
+     * Count the wiki again, now that its pages have changed: the page that ordered
+     * the cleaning shows the new figures rather than the ones from before. Only the
+     * database is read again — the cleaning moves no file. A failure here is left
+     * alone, the sweep puts the numbers right within the quarter of an hour.
+     */
+    private function remeasure(string $folder): void
+    {
+        $this->refresher->remeasure($folder, false);
     }
 
     /**

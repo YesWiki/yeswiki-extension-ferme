@@ -23,12 +23,14 @@ class WikiArchiver
     private $config;
     private $lock;
     private $hibernator;
+    private $refresher;
 
-    public function __construct(FarmConfig $config, FolderLock $lock, WikiHibernator $hibernator)
+    public function __construct(FarmConfig $config, FolderLock $lock, WikiHibernator $hibernator, StatsRefresher $refresher)
     {
         $this->config = $config;
         $this->lock = $lock;
         $this->hibernator = $hibernator;
+        $this->refresher = $refresher;
     }
 
     /**
@@ -73,6 +75,7 @@ class WikiArchiver
 
             $latest = $made[0];
             $this->wakeInside($latest['path']);
+            $this->refresher->remeasure($folder);
 
             return ['file' => $latest['file'], 'bytes' => (int)filesize($latest['path']), 'replaced' => $replaced];
         });

@@ -106,6 +106,21 @@ class StatsRefresher
     }
 
     /**
+     * Count one wiki again, now, because something the farm did just changed what
+     * there is to count. Used by the actions rather than by the sweep: waiting a
+     * quarter of an hour to see the result of one's own click is no fun.
+     */
+    public function remeasure(string $folder, bool $withDisk = true): void
+    {
+        try {
+            $this->refresh($folder, ['force' => true, 'withDisk' => $withDisk]);
+            $this->close();
+        } catch (\Throwable $throwable) {
+            error_log('ferme: ' . $throwable->getMessage());
+        }
+    }
+
+    /**
      * Ends a sweep: the wikis where nothing had moved get their check date in one
      * statement, and the connections opened along the way are released.
      */

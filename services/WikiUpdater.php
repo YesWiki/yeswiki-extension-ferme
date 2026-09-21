@@ -29,6 +29,7 @@ class WikiUpdater
     protected $extensions;
     protected $lock;
     protected $hibernator;
+    protected $refresher;
 
     public function __construct(
         Wiki $wiki,
@@ -39,7 +40,8 @@ class WikiUpdater
         CustomAside $aside,
         ExtensionVersions $extensions,
         FolderLock $lock,
-        WikiHibernator $hibernator
+        WikiHibernator $hibernator,
+        StatsRefresher $refresher
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -50,6 +52,7 @@ class WikiUpdater
         $this->extensions = $extensions;
         $this->lock = $lock;
         $this->hibernator = $hibernator;
+        $this->refresher = $refresher;
     }
 
     /**
@@ -153,6 +156,7 @@ class WikiUpdater
 
             $this->patch($wikiDir, ['yeswiki_release' => $release]);
             $messages[] = _t('FERME_CLI_STAMPED') . ' ' . $version . ' ' . $release;
+            $this->refresher->remeasure(basename($wikiDir));
 
             if ($backupDir !== null) {
                 $this->files->remove($backupDir);

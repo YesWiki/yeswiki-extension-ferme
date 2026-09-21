@@ -17,14 +17,16 @@ class FarmAdminAccount
     protected $editor;
     protected $database;
     protected $hibernator;
+    protected $refresher;
 
-    public function __construct(Wiki $wiki, FarmConfig $config, WikiConfigEditor $editor, WikiDatabase $database, WikiHibernator $hibernator)
+    public function __construct(Wiki $wiki, FarmConfig $config, WikiConfigEditor $editor, WikiDatabase $database, WikiHibernator $hibernator, StatsRefresher $refresher)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->editor = $editor;
         $this->database = $database;
         $this->hibernator = $hibernator;
+        $this->refresher = $refresher;
     }
 
     /**
@@ -46,6 +48,8 @@ class FarmAdminAccount
             return ['errors' => [$th->getMessage()]];
         }
 
+        $this->refresher->remeasure($folder, false);
+
         return $result + ['success' => [_t('FERME_SUPER_USER_ADDED') . ' ' . $folder]];
     }
 
@@ -66,6 +70,8 @@ class FarmAdminAccount
         } catch (\Throwable $th) {
             return ['errors' => [$th->getMessage()]];
         }
+
+        $this->refresher->remeasure($folder, false);
 
         return $result + ['success' => [_t('FERME_SUPER_USER_REMOVED') . ' ' . $folder]];
     }
