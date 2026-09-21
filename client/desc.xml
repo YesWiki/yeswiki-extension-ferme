@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin name="fermeclient" version="1.0" active="1">
+  <author>Florian Schmitt</author>
+  <label>Wiki d'une ferme</label>
+  <desc>Empêche un wiki de réécrire le code que sa ferme lui prête par lien symbolique</desc>
+</plugin>
