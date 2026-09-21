@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\CoversMethod;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FileSystem;
 use YesWiki\Ferme\Service\FolderLock;
+use YesWiki\Ferme\Service\SpamApprovals;
 use YesWiki\Ferme\Service\SpamCleaner;
 use YesWiki\Ferme\Service\SpamFingerprints;
 use YesWiki\Ferme\Service\StatsRefresher;
@@ -205,7 +206,8 @@ class SpamCleanerTest extends YesWikiTestCase
             $lock,
             $hibernator,
             $this->createStub(StatsRefresher::class),
-            $this->createStub(SpamFingerprints::class)
+            $this->createStub(SpamFingerprints::class),
+            $this->createStub(SpamApprovals::class)
         );
     }
 

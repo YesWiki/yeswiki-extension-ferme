@@ -40,6 +40,7 @@ class SpamCleaner
     private $hibernator;
     private $refresher;
     private $fingerprints;
+    private $approvals;
 
     public function __construct(
         \YesWiki\Wiki $wiki,
@@ -48,7 +49,8 @@ class SpamCleaner
         FolderLock $lock,
         WikiHibernator $hibernator,
         StatsRefresher $refresher,
-        SpamFingerprints $fingerprints
+        SpamFingerprints $fingerprints,
+        SpamApprovals $approvals
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -57,6 +59,7 @@ class SpamCleaner
         $this->hibernator = $hibernator;
         $this->refresher = $refresher;
         $this->fingerprints = $fingerprints;
+        $this->approvals = $approvals;
     }
 
     /**
@@ -83,7 +86,30 @@ class SpamCleaner
         $db = $this->database->connect($wakkaConfig);
 
         try {
-            return $this->look($db, (string)$wakkaConfig['table_prefix']);
+            return $this->look($db, (string)$wakkaConfig['table_prefix'], $folder);
+        } finally {
+            $db->close();
+        }
+    }
+
+    /** One page of a wiki, as it stands, or null when it has no such page. */
+    public function bodyOf(string $folder, string $tag): ?string
+    {
+        $wakkaConfig = $this->config->readWikiConfig($folder);
+        if (empty($wakkaConfig['table_prefix'])) {
+            throw new WikiStatsException($folder, _t('FERME_CLI_NO_CONFIG_FILE'));
+        }
+
+        $db = $this->database->connect($wakkaConfig);
+
+        try {
+            $result = $db->query(
+                'SELECT body FROM `' . $this->database->table((string)$wakkaConfig['table_prefix'], 'pages') . '`'
+                . ' WHERE latest = "Y" AND tag = "' . $db->real_escape_string($tag) . '"'
+            );
+            $row = $result ? $result->fetch_assoc() : null;
+
+            return $row === null ? null : (string)$row['body'];
         } finally {
             $db->close();
         }
@@ -120,6 +146,9 @@ class SpamCleaner
                 preg_match_all('#https?://([a-z0-9.\-]+)#i', $body, $found);
                 $links = count($found[1] ?? []);
                 if (!self::isSpamPage($body, $words, $links, $hosts, $this->fingerprints->isCampaignPage($body))) {
+                    continue;
+                }
+                if ($this->approvals->isApproved($folder, (string)$row['tag'], $body)) {
                     continue;
                 }
                 if (self::strip($body, $hosts, $this->fingerprints) !== trim($body)) {
@@ -159,7 +188,7 @@ class SpamCleaner
 
             try {
                 $db = $this->database->connect($wakkaConfig);
-                $pages = $this->look($db, $prefix);
+                $pages = $this->look($db, $prefix, $folder);
                 $todo = array_values(array_filter($pages, function (array $page) {
                     return $page['action'] !== 'keep';
                 }));
@@ -394,7 +423,7 @@ class SpamCleaner
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function look(\mysqli $db, string $prefix): array
+    private function look(\mysqli $db, string $prefix, string $folder): array
     {
         $hosts = $this->hosts();
 
@@ -415,6 +444,10 @@ class SpamCleaner
             }
 
             $tag = (string)$row['tag'];
+            if ($this->approvals->isApproved($folder, $tag, $body)) {
+                continue;
+            }
+
             $pages[] = [
                 'tag' => $tag,
                 'action' => $this->decide($tag, $body, (int)$row['revisions'], (string)($row['owner'] ?? '')),

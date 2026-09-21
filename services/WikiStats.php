@@ -22,14 +22,16 @@ class WikiStats
     private $config;
     private $database;
     private $fingerprints;
+    private $approvals;
     private $connections = [];
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, SpamFingerprints $fingerprints)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, SpamFingerprints $fingerprints, SpamApprovals $approvals)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->database = $database;
         $this->fingerprints = $fingerprints;
+        $this->approvals = $approvals;
     }
 
     /**
@@ -63,7 +65,7 @@ class WikiStats
                 ],
                 $this->latest($db, $prefix),
                 ['activity' => $this->activity($db, $prefix)],
-                $this->spamInPages($db, $prefix, (string)($wakkaConfig['root_page'] ?? 'PagePrincipale'))
+                $this->spamInPages($folder, $db, $prefix, (string)($wakkaConfig['root_page'] ?? 'PagePrincipale'))
             );
         } catch (\Throwable $throwable) {
             throw new WikiStatsException($folder, $throwable->getMessage(), $throwable);
@@ -209,10 +211,10 @@ class WikiStats
      *
      * @return array{spamWords:int,spamLinks:int,spamHosts:string}
      */
-    private function spamInPages(\mysqli $db, string $prefix, string $rootPage): array
+    private function spamInPages(string $folder, \mysqli $db, string $prefix, string $rootPage): array
     {
         $result = $db->query(
-            'SELECT body FROM `' . $this->database->table($prefix, 'pages') . '`'
+            'SELECT tag, body FROM `' . $this->database->table($prefix, 'pages') . '`'
             . ' WHERE latest = "Y"'
             . ' ORDER BY tag = "' . $db->real_escape_string($rootPage) . '" DESC, time DESC'
             . ' LIMIT ' . self::PAGES_READ
@@ -236,7 +238,8 @@ class WikiStats
                 $hosts[$host] = ($hosts[$host] ?? 0) + 1;
             }
 
-            if (SpamCleaner::isSpamPage($body, $itsWords, $itsLinks, $known, $this->fingerprints->isCampaignPage($body))) {
+            if (SpamCleaner::isSpamPage($body, $itsWords, $itsLinks, $known, $this->fingerprints->isCampaignPage($body))
+                && !$this->approvals->isApproved($folder, (string)($row['tag'] ?? ''), $body)) {
                 $dirty++;
             }
         }

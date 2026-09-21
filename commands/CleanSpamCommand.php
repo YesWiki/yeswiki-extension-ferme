@@ -7,17 +7,20 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
+use YesWiki\Ferme\Service\SpamApprovals;
 use YesWiki\Ferme\Service\SpamCleaner;
 use YesWiki\Wiki;
 
 class CleanSpamCommand extends AbstractFarmCommand
 {
     protected $cleaner;
+    protected $approvals;
 
     public function __construct(Wiki &$wiki)
     {
         parent::__construct($wiki);
         $this->cleaner = $wiki->services->get(SpamCleaner::class);
+        $this->approvals = $wiki->services->get(SpamApprovals::class);
     }
 
     protected function configure()
@@ -29,6 +32,7 @@ class CleanSpamCommand extends AbstractFarmCommand
             ->addOption('list', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CLEAN_LIST'))
             ->addOption('repair', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CLEAN_REPAIR'))
             ->addOption('stuck', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CLEAN_STUCK'))
+            ->addOption('approved', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CLEAN_APPROVED'))
             ->addWikiSelectionOptions()
             ->addDryRunOption();
     }
@@ -51,6 +55,10 @@ class CleanSpamCommand extends AbstractFarmCommand
 
         if ($input->getOption('stuck')) {
             return $this->stuck($output, $wikis, $started);
+        }
+
+        if ($input->getOption('approved')) {
+            return $this->approved($output, $wikis, $started);
         }
 
         $touched = 0;
@@ -97,6 +105,55 @@ class CleanSpamCommand extends AbstractFarmCommand
             ],
             $failed,
             $dryRun
+        );
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $wikis
+     */
+    private function approved(OutputInterface $output, array $wikis, float $started): int
+    {
+        $pages = 0;
+        $stale = 0;
+        $touched = 0;
+
+        foreach ($wikis as $wiki) {
+            $vouched = $this->approvals->all($wiki['FOLDER']);
+            if ($vouched === []) {
+                continue;
+            }
+
+            $touched++;
+            $output->writeln('<info>' . $wiki['FOLDER'] . '</info>');
+            foreach ($vouched as $tag => $mark) {
+                $pages++;
+                $body = null;
+
+                try {
+                    $body = $this->cleaner->bodyOf($wiki['FOLDER'], (string)$tag);
+                } catch (\Throwable $throwable) {
+                }
+
+                $still = $body !== null && SpamApprovals::mark($body) === $mark;
+                if (!$still) {
+                    $stale++;
+                }
+                $output->writeln('      ' . $tag . ($still ? '' : '  <comment>' . _t('FERME_CLI_CLEAN_APPROVED_STALE') . '</comment>'));
+            }
+        }
+
+        return $this->renderSummary(
+            $output,
+            _t('FERME_CLI_CLEAN_APPROVED_SUMMARY'),
+            [
+                _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+                _t('FERME_CLI_CLEAN_TOUCHED') => $touched,
+                _t('FERME_CLI_CLEAN_APPROVED_PAGES') => $pages,
+                _t('FERME_CLI_CLEAN_APPROVED_STALE') => $stale,
+                _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+            ],
+            [],
+            false
         );
     }
 

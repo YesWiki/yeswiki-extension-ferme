@@ -20,7 +20,7 @@ class WikiStatsStore
     public const PROPERTY_PREFIX = 'http://yeswiki.net/_vocabulary/ferme/stats/';
 
     public const NUMBERS = ['users', 'forms', 'entries', 'pages', 'lastPageId', 'filesMtime', 'files', 'filesBytes', 'customBytes', 'privateBytes', 'suspect', 'spamWords', 'spamLinks', 'spamPages'];
-    public const TEXTS = ['lastActivity', 'computedAt', 'checkedAt', 'status', 'error', 'version', 'release', 'suspectWhy', 'spamHosts'];
+    public const TEXTS = ['lastActivity', 'computedAt', 'checkedAt', 'status', 'error', 'version', 'release', 'suspectWhy', 'spamHosts', 'spamApproved'];
     public const SERIES = ['activity'];
 
     public const STATUS_OK = 'ok';
@@ -68,6 +68,17 @@ class WikiStatsStore
         ]);
 
         $this->write($folder, $values);
+    }
+
+    /**
+     * Write a value that is not a measurement — something a person decided — next
+     * to the numbers, without claiming the wiki was counted again.
+     *
+     * @param array<string,mixed> $values
+     */
+    public function keep(string $folder, array $values): void
+    {
+        $this->write($folder, array_merge($this->read($folder) ?? [], $values));
     }
 
     /**

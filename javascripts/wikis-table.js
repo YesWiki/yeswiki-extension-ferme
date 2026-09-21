@@ -18,6 +18,7 @@ $(document).ready(function() {
   var selectUrl = $config.data('select-url');
   var cleanSpamUrl = $config.data('clean-spam-url');
   var spamPagesUrl = $config.data('spam-pages-url');
+  var approveSpamUrl = $config.data('approve-spam-url');
   var hibernateUrl = $config.data('hibernate-url');
   var wakeUrl = $config.data('wake-url');
   var adminAddUrl = $config.data('admin-add-url');
@@ -473,11 +474,16 @@ $(document).ready(function() {
           var $line = $('<li>')
             .append($('<a target="_blank" rel="noopener">').attr('href', page.url).text(page.tag))
             .append(' ')
-            .append($('<span class="ferme-muted">').text(page.why))
-            .append(' ')
-            .append($('<span class="label">')
+            .append($('<span class="ferme-muted">').text(page.why));
+          if (!page.approved) {
+            $line.append(' ').append($('<span class="label">')
               .addClass(page.cleanable ? 'label-warning' : 'label-default')
               .text(page.cleanable ? page.action : response.stuck));
+          }
+          $line.append(' ').append($('<a href="#" class="ferme-spam-approve">')
+            .attr('data-tag', page.tag)
+            .attr('data-undo', page.approved ? '1' : '0')
+            .text(page.approved ? response.unapprove : response.approve));
           $list.append($line);
         });
         $slot.append($list);
@@ -487,6 +493,41 @@ $(document).ready(function() {
       }
     });
   }
+
+  $(document).on('click', '.ferme-spam-approve', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    var $link = $(this);
+    var $slot = $link.closest('.ferme-spam-slot');
+    if (!approveSpamUrl || $link.data('busy')) { return; }
+    $link.data('busy', true);
+
+    $.ajax({
+      url: approveSpamUrl,
+      method: 'POST',
+      data: {
+        folder: $slot.data('folder'),
+        tag: $link.attr('data-tag'),
+        undo: $link.attr('data-undo'),
+        'csrf-token': csrfToken
+      },
+      dataType: 'json',
+      success: function(response) {
+        if (!response || !response.success) {
+          $link.text((response && response.error) || '').data('busy', false);
+
+          return;
+        }
+        $slot.data('loaded', false);
+        loadSpamPages($slot);
+        wikisTable.ajax.reload(null, false);
+      },
+      error: function(xhr, status, error) {
+        $link.text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error)).data('busy', false);
+      }
+    });
+  });
 
   function statusFigure(row) {
     return [

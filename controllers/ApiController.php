@@ -14,8 +14,10 @@ use YesWiki\Core\YesWikiController;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FarmMailer;
 use YesWiki\Ferme\Service\FarmService;
+use YesWiki\Ferme\Service\SpamApprovals;
 use YesWiki\Ferme\Service\SpamCleaner;
 use YesWiki\Ferme\Service\StatsPresenter;
+use YesWiki\Ferme\Service\StatsRefresher;
 use YesWiki\Ferme\Service\WikiArchiver;
 use YesWiki\Ferme\Service\WikiHibernator;
 
@@ -259,8 +261,20 @@ class ApiController extends YesWikiController
 
         $wakkaConfig = $this->getService(FarmConfig::class)->readWikiConfig($wikiFolder);
         $base = (string)($wakkaConfig['base_url'] ?? '');
+        $approvals = $this->getService(SpamApprovals::class);
 
         $pages = [];
+        foreach (array_keys($approvals->all($wikiFolder)) as $tag) {
+            $pages[] = [
+                'tag' => $tag,
+                'url' => $base . $tag,
+                'why' => _t('FERME_SPAM_APPROVED_BY_HAND'),
+                'action' => '',
+                'cleanable' => false,
+                'approved' => true,
+            ];
+        }
+
         foreach ($found as $page) {
             $why = [];
             if ($page['words'] >= SpamCleaner::WORDS_FOR_SPAM) {
@@ -282,6 +296,7 @@ class ApiController extends YesWikiController
                 'why' => implode(' + ', $why),
                 'action' => _t($page['action'] === 'delete' ? 'FERME_SPAM_WOULD_DELETE' : 'FERME_SPAM_WOULD_STRIP'),
                 'cleanable' => $page['action'] === 'delete' || $page['cleanable'],
+                'approved' => false,
             ];
         }
 
@@ -290,8 +305,49 @@ class ApiController extends YesWikiController
             'title' => _t('FERME_SPAM_PAGES_TITLE'),
             'stuck' => _t('FERME_SPAM_STUCK'),
             'none' => _t('FERME_CLEAN_NOTHING'),
+            'approve' => _t('FERME_SPAM_APPROVE'),
+            'unapprove' => _t('FERME_SPAM_UNAPPROVE'),
             'pages' => $pages,
         ]);
+    }
+
+    /**
+     * Somebody looked at a page and says it is not spam — or takes that back. What
+     * is remembered is the page as it stands now: let a robot write in it again and
+     * it counts as spam once more, without anybody having to withdraw anything.
+     *
+     * @Route("/api/ferme/wikis/approve-spam-page", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function approveSpamPage(Request $request)
+    {
+        $wikiFolder = $this->askedFolder($request);
+        if (!is_string($wikiFolder)) {
+            return $wikiFolder;
+        }
+
+        $tag = trim((string)$request->request->get('tag', ''));
+        if ($tag === '') {
+            return new ApiResponse(['success' => false, 'error' => 'Missing page name'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $approvals = $this->getService(SpamApprovals::class);
+
+        try {
+            if ($request->request->get('undo', '') === '1') {
+                $approvals->forget($wikiFolder, $tag);
+            } else {
+                $body = $this->getService(SpamCleaner::class)->bodyOf($wikiFolder, $tag);
+                if ($body === null) {
+                    return new ApiResponse(['success' => false, 'error' => 'Page not found: ' . $tag], Response::HTTP_NOT_FOUND);
+                }
+                $approvals->approve($wikiFolder, $tag, $body);
+            }
+            $this->getService(StatsRefresher::class)->remeasure($wikiFolder, false);
+        } catch (\Throwable $throwable) {
+            return new ApiResponse(['success' => false, 'error' => $throwable->getMessage()]);
+        }
+
+        return new ApiResponse(['success' => true]);
     }
 
     /**

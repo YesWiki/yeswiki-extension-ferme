@@ -255,7 +255,18 @@ autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
   rend sa dernière révision à une page qui n'en a plus. `--stuck` liste les pages
   condamnées qu'aucune règle ne sait nettoyer, avec les hôtes vers lesquels elles
   pointent : c'est la boucle de sortie du dernier reliquat, un hôte ajouté à
-  `yeswiki-farm-spam-hosts` et le nettoyage relancé.
+  `yeswiki-farm-spam-hosts` et le nettoyage relancé. `--approved` liste ce qu'une
+  personne a validé à la main.
+
+Une page peut être honnête et ressembler à du spam : une liste de ressources est
+faite de liens et rien d'autre, et aucune règle ne la distinguera jamais d'une
+ferme de liens. Une personne la valide donc une fois, depuis le détail du wiki
+dans la page d'administration, et la ferme s'en souvient. **Ce dont elle se
+souvient est la page telle qu'elle a été validée** : un condensé du texte, rangé
+dans `spamApproved` à côté des statistiques du wiki. Que le robot y revienne et
+le condensé ne correspond plus — la page redevient du spam sans que personne ait
+eu à retirer quoi que ce soit. La mesure ne la compte plus, le nettoyage ne la
+touche plus, et `--approved` signale les validations devenues caduques.
 
 `yeswiki-farm-spam-hosts` est un fragment d'expression régulière, `|` entre les
 motifs, cherché dans le corps de la page : un hôte qui s'y trouve condamne la page

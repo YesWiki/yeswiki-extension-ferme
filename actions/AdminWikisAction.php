@@ -51,6 +51,7 @@ class AdminWikisAction extends YesWikiAction
                     'select_api_url' => $this->wiki->href('', 'api/ferme/wikis/select'),
                     'clean_spam_api_url' => $this->wiki->href('', 'api/ferme/wikis/clean-spam'),
                     'spam_pages_api_url' => $this->wiki->href('', 'api/ferme/wikis/spam-pages'),
+                    'approve_spam_api_url' => $this->wiki->href('', 'api/ferme/wikis/approve-spam-page'),
                     'hibernate_api_url' => $this->wiki->href('', 'api/ferme/wikis/hibernate'),
                     'wake_api_url' => $this->wiki->href('', 'api/ferme/wikis/wake'),
                     'admin_add_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-add'),
