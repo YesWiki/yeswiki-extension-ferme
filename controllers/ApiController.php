@@ -552,6 +552,10 @@ class ApiController extends YesWikiController
             'private' => $presenter->size((int)($stats['privateBytes'] ?? 0)),
             'heavy_archives' => !empty($stats['heavyArchives']),
             'dormant' => !empty($stats['dormant']),
+            'suspect' => !empty($stats['suspect']),
+            'suspect_why' => array_map(function (string $reason) {
+                return _t('FERME_SPAM_' . strtoupper($reason));
+            }, (array)($stats['suspectWhy'] ?? [])),
             'to_update' => !empty($stats['toUpdate']),
             'failed' => !empty($stats['failed']),
             'error' => $stats['error'] ?? null,

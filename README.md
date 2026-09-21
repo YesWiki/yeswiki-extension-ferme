@@ -213,6 +213,17 @@ jamais servi, `--name-excludes` écarte par le nom. Le compte rendu dit combien 
 wikis chaque filtre a laissés de côté, et un wiki jamais mesuré est laissé de côté
 plutôt que deviné. Commencez toujours par `--dry-run`.
 
+Chaque wiki reçoit aussi une **note de suspicion**, calculée à la mesure et rangée
+avec le reste. Cinq signaux, calibrés sur une ferme de 3735 wikis : écriture d'un
+autre alphabet et vocabulaire de paris, escorte ou vente de devoirs valent 3 points
+chacun ; un lien dans le nom, un nom dans une autre langue que celle de la ferme, et
+un wiki jamais allé au-delà du modèle valent 2 chacun. À partir de 3 points, donc dès
+qu'un signal de contenu est présent et pas seulement l'inactivité, le wiki est
+signalé : 500 wikis sur 3735, dont deux à tort en relisant la liste. La puce
+« ressemble à du spam » les rassemble dans la page d'admin, `--skip-suspect` les
+écarte d'un import, et `yeswiki-farm-spam-threshold` et `yeswiki-farm-spam-words`
+règlent la sévérité et le vocabulaire.
+
 Un wiki qui sort du modèle et que personne n'a touché a une signature reconnaissable,
 autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
 `--min-users=2` écartent. Pour se faire une idée avant de choisir les seuils,

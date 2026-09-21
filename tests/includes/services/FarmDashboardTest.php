@@ -25,10 +25,9 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testEachWikiCarriesItsStatsAndWhatTheySayAboutIt()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('alpha'), $this->fiche('beta')],
             ['alpha' => $this->stats(['entries' => 12])],
-            $this->current
         );
 
         $alpha = $page['fiches'][0];
@@ -39,7 +38,7 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testTheSummaryCountsEveryStateBeforeAnyFilterIsApplied()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('avirer'), $this->fiche('dormant'), $this->fiche('lourd'), $this->fiche('casse'), $this->fiche('inconnu')],
             [
                 'avirer' => $this->stats(['release' => '4.6.0']),
@@ -47,24 +46,54 @@ class FarmDashboardTest extends YesWikiTestCase
                 'lourd' => $this->stats(['privateBytes' => 3 * FarmDashboard::HEAVY_ARCHIVES]),
                 'casse' => $this->stats(['status' => WikiStatsStore::STATUS_ERROR]),
             ],
-            $this->current,
             [],
             '',
             'dormant'
         );
 
-        $this->assertSame(['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'failed' => 1, 'unmeasured' => 1], $page['counts']);
+        $this->assertSame(
+            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'failed' => 1, 'unmeasured' => 1],
+            $page['counts']
+        );
         $this->assertSame(5, $page['total']);
         $this->assertSame(1, $page['filtered'], 'the chip narrowed the list');
         $this->assertSame('dormant', $page['fiches'][0]['bf_dossier-wiki']);
     }
 
-    public function testAnEntryWhoseWikiIsGoneCountsAsBrokenAndNotAsUnmeasured()
+    public function testAWikiScoredAboveTheThresholdIsCountedAsSuspectAndTheChipSelectsIt()
     {
         $page = $this->dashboard->select(
+            [$this->fiche('spam'), $this->fiche('sain')],
+            [
+                'spam' => $this->stats(['suspect' => 5, 'suspectWhy' => 'words,untouched']),
+                'sain' => $this->stats(['suspect' => 2, 'suspectWhy' => 'untouched']),
+            ],
+            ['current' => $this->current, 'spamThreshold' => 3],
+            ['filter' => 'suspect']
+        );
+
+        $this->assertSame(1, $page['counts']['suspect'], 'deux points ne suffisent pas');
+        $this->assertSame(['spam'], array_column($page['fiches'], 'bf_dossier-wiki'));
+        $this->assertSame(['words', 'untouched'], $page['fiches'][0]['stats']['suspectWhy']);
+    }
+
+    public function testTheSuspicionThresholdIsTheFarmsToSet()
+    {
+        $fiches = [$this->fiche('limite')];
+        $stats = ['limite' => $this->stats(['suspect' => 3])];
+
+        $strict = $this->dashboard->select($fiches, $stats, ['current' => $this->current, 'spamThreshold' => 3]);
+        $laxe = $this->dashboard->select($fiches, $stats, ['current' => $this->current, 'spamThreshold' => 6]);
+
+        $this->assertSame(1, $strict['counts']['suspect']);
+        $this->assertSame(0, $laxe['counts']['suspect']);
+    }
+
+    public function testAnEntryWhoseWikiIsGoneCountsAsBrokenAndNotAsUnmeasured()
+    {
+        $page = $this->select(
             [$this->fiche('vivant'), $this->fiche('disparu')],
             ['vivant' => $this->stats()],
-            $this->current,
             ['vivant' => true, 'disparu' => false]
         );
 
@@ -77,7 +106,7 @@ class FarmDashboardTest extends YesWikiTestCase
     {
         $fiches = [$this->fiche('memedossier', 'Premier'), $this->fiche('memedossier', 'Second'), $this->fiche('seul')];
 
-        $page = $this->dashboard->select($fiches, [], $this->current, ['memedossier' => true, 'seul' => true]);
+        $page = $this->select($fiches, [], ['memedossier' => true, 'seul' => true]);
 
         $this->assertSame(2, $page['counts']['failed']);
         foreach ($page['fiches'] as $fiche) {
@@ -88,13 +117,12 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testTheErrorChipSelectsBrokenEntriesAndFailedMeasurements()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('disparu'), $this->fiche('casse'), $this->fiche('sain')],
             [
                 'casse' => $this->stats(['status' => WikiStatsStore::STATUS_ERROR]),
                 'sain' => $this->stats(),
             ],
-            $this->current,
             ['disparu' => false, 'casse' => true, 'sain' => true],
             '',
             'failed'
@@ -109,7 +137,7 @@ class FarmDashboardTest extends YesWikiTestCase
         $orphan = $this->fiche('sansdossier');
         $orphan['bf_dossier-wiki'] = '';
 
-        $page = $this->dashboard->select([$orphan], [], $this->current, []);
+        $page = $this->select([$orphan], [], []);
 
         $this->assertTrue($page['fiches'][0]['problems']['noFolder']);
         $this->assertSame(1, $page['counts']['failed']);
@@ -117,7 +145,7 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testAFolderNobodyCheckedOnDiskIsNotAccused()
     {
-        $page = $this->dashboard->select([$this->fiche('alpha')], [], $this->current, []);
+        $page = $this->select([$this->fiche('alpha')], [], []);
 
         $this->assertFalse($page['fiches'][0]['problems']['missingWiki'], 'not knowing is not the same as missing');
         $this->assertSame(1, $page['counts']['unmeasured']);
@@ -140,13 +168,12 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testTotalsAddUpWhatTheFarmHolds()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('alpha'), $this->fiche('beta'), $this->fiche('inconnu')],
             [
                 'alpha' => $this->stats(['users' => 10, 'entries' => 100, 'files' => 5]),
                 'beta' => $this->stats(['users' => 7, 'entries' => 3, 'files' => 2]),
             ],
-            $this->current
         );
 
         $this->assertSame(3, $page['totals']['wikis']);
@@ -159,7 +186,7 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testAFarmNobodyMeasuredYetSaysSoRatherThanAddingUpToZero()
     {
-        $page = $this->dashboard->select([$this->fiche('alpha'), $this->fiche('beta')], [], $this->current);
+        $page = $this->select([$this->fiche('alpha'), $this->fiche('beta')], []);
 
         $this->assertSame(2, $page['totals']['wikis']);
         $this->assertSame(0, $page['totals']['measured'], 'which is what lets the page show a question mark');
@@ -168,14 +195,13 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testSortingOnAStatOrdersTheWholeFarmAndNotJustThePage()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('petit'), $this->fiche('gros'), $this->fiche('moyen')],
             [
                 'petit' => $this->stats(['entries' => 1]),
                 'gros' => $this->stats(['entries' => 900]),
                 'moyen' => $this->stats(['entries' => 50]),
             ],
-            $this->current,
             [],
             '',
             '',
@@ -188,14 +214,13 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testSortingByTheYearsActivityAddsUpTheTwelveMonths()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('regulier'), $this->fiche('unecoupdefeu'), $this->fiche('mort')],
             [
                 'regulier' => $this->stats(['activity' => array_fill(0, 12, 20)]),
                 'unecoupdefeu' => $this->stats(['activity' => [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 300]]),
                 'mort' => $this->stats(['activity' => array_fill(0, 12, 0)]),
             ],
-            $this->current,
             [],
             '',
             '',
@@ -209,10 +234,9 @@ class FarmDashboardTest extends YesWikiTestCase
     public function testAWikiWithNoStatsSortsLastWhicheverWayTheColumnGoes()
     {
         foreach (['asc', 'desc'] as $direction) {
-            $page = $this->dashboard->select(
+            $page = $this->select(
                 [$this->fiche('inconnu'), $this->fiche('connu')],
                 ['connu' => $this->stats(['entries' => 5])],
-                $this->current,
                 [],
                 '',
                 '',
@@ -226,10 +250,9 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testSortingByTitleIgnoresCaseAndIsTheDefault()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('b', 'banana'), $this->fiche('a', 'Ananas')],
             [],
-            $this->current
         );
 
         $this->assertSame(['Ananas', 'banana'], array_column($page['fiches'], 'bf_titre'));
@@ -241,7 +264,7 @@ class FarmDashboardTest extends YesWikiTestCase
         $fiches[1]['bf_mail'] = 'contact@exemple.org';
 
         foreach (['second', 'contact@', 'beta'] as $needle) {
-            $page = $this->dashboard->select($fiches, [], $this->current, [], $needle);
+            $page = $this->select($fiches, [], [], $needle);
             $this->assertSame(1, $page['filtered'], 'searching ' . $needle);
             $this->assertSame('beta', $page['fiches'][0]['bf_dossier-wiki']);
         }
@@ -254,7 +277,7 @@ class FarmDashboardTest extends YesWikiTestCase
             $fiches[] = $this->fiche('wiki' . str_pad((string)$i, 2, '0', STR_PAD_LEFT));
         }
 
-        $page = $this->dashboard->select($fiches, [], $this->current, [], '', '', 'title', 'asc', 20, 10);
+        $page = $this->select($fiches, [], [], '', '', 'title', 'asc', 20, 10);
 
         $this->assertCount(5, $page['fiches']);
         $this->assertSame(25, $page['total']);
@@ -264,10 +287,9 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testAnUnknownSortOrFilterFallsBackInsteadOfBreaking()
     {
-        $page = $this->dashboard->select(
+        $page = $this->select(
             [$this->fiche('b', 'beta'), $this->fiche('a', 'alpha')],
             [],
-            $this->current,
             [],
             '',
             'pasunfiltre',
@@ -276,6 +298,33 @@ class FarmDashboardTest extends YesWikiTestCase
 
         $this->assertSame(2, $page['filtered']);
         $this->assertSame('alpha', $page['fiches'][0]['bf_titre']);
+    }
+
+    /**
+     * The dashboard's own signature groups its arguments; the tests keep reading
+     * as a list of what varies.
+     *
+     * @param array<int,array<string,mixed>>    $fiches
+     * @param array<string,array<string,mixed>> $stats
+     * @param array<string,bool>                $onDisk
+     */
+    private function select(
+        array $fiches,
+        array $stats,
+        array $onDisk = [],
+        string $search = '',
+        string $filter = '',
+        string $sort = 'title',
+        string $direction = 'asc',
+        int $start = 0,
+        int $length = 100
+    ): array {
+        return $this->dashboard->select(
+            $fiches,
+            $stats,
+            ['current' => $this->current, 'onDisk' => $onDisk],
+            compact('search', 'filter', 'sort', 'direction', 'start', 'length')
+        );
     }
 
     private function fiche(string $folder, ?string $title = null): array

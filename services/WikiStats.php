@@ -34,7 +34,7 @@ class WikiStats
     }
 
     /**
-     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,activity:array<int,int>,version:string,release:string}
+     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,activity:array<int,int>,version:string,release:string,name:string,description:string}
      */
     public function fromDatabase(string $folder): array
     {
@@ -47,6 +47,8 @@ class WikiStats
                 [
                     'version' => (string)($wakkaConfig['yeswiki_version'] ?? ''),
                     'release' => (string)($wakkaConfig['yeswiki_release'] ?? ''),
+                    'name' => (string)($wakkaConfig['wakka_name'] ?? ''),
+                    'description' => mb_substr((string)($wakkaConfig['meta_description'] ?? ''), 0, 300),
                     'users' => $this->countRows($db, $prefix, 'users'),
                     'forms' => $this->countRows($db, $prefix, 'nature'),
                     'entries' => $this->countEntries($db, $prefix),

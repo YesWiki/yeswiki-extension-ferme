@@ -15,12 +15,14 @@ class StatsRefresher
 
     private $stats;
     private $store;
+    private $spam;
     private $untouched = [];
 
-    public function __construct(WikiStats $stats, WikiStatsStore $store)
+    public function __construct(WikiStats $stats, WikiStatsStore $store, SpamScore $spam)
     {
         $this->stats = $stats;
         $this->store = $store;
+        $this->spam = $spam;
     }
 
     /**
@@ -53,7 +55,7 @@ class StatsRefresher
                     'filesMtime' => $this->stats->diskProbe($folder),
                 ]);
             }
-            $this->store->save($folder, $measured);
+            $this->store->save($folder, array_merge($measured, $this->judge($measured, $known)));
         } catch (WikiStatsException $exception) {
             $this->store->fail($folder, $exception->getReason());
 
@@ -61,6 +63,33 @@ class StatsRefresher
         }
 
         return ['counted' => $countAgain, 'walked' => $walkAgain, 'failed' => null];
+    }
+
+    /**
+     * What the numbers and the wiki's own name say about it being spam. A pass that
+     * only weighed the folders keeps whatever the last full count decided.
+     *
+     * @param array<string,mixed>      $measured
+     * @param array<string,mixed>|null $known
+     *
+     * @return array<string,mixed>
+     */
+    private function judge(array $measured, ?array $known): array
+    {
+        if (!array_key_exists('name', $measured)) {
+            return [];
+        }
+
+        $verdict = $this->spam->of(
+            (string)$measured['name'],
+            (string)($measured['description'] ?? ''),
+            $measured
+        );
+
+        return [
+            'suspect' => $verdict['score'],
+            'suspectWhy' => implode(',', $verdict['reasons']),
+        ];
     }
 
     /**

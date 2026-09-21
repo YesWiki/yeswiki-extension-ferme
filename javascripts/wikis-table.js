@@ -35,6 +35,7 @@ $(document).ready(function() {
     { key: 'toUpdate', label: 'chipToUpdate', kind: 'danger', icon: 'sync-alt' },
     { key: 'dormant', label: 'chipDormant', kind: 'default', icon: 'moon' },
     { key: 'heavyArchives', label: 'chipHeavyArchives', kind: 'warning', icon: 'archive' },
+    { key: 'suspect', label: 'chipSuspect', kind: 'danger', icon: 'ban' },
     { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'exclamation-triangle' },
     { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' }
   ];
@@ -161,6 +162,10 @@ $(document).ready(function() {
           + '</small>'
           + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + '</small>'
           + '</div>';
+        if (row.stats && row.stats.suspect) {
+          html += '<div><span class="label label-danger" title="' + esc((row.stats.suspect_why || []).join(', ')) + '">'
+            + '<i class="fas fa-ban"></i> ' + esc(i18n.chipSuspect) + '</span></div>';
+        }
         (row.problems || []).forEach(function(problem) {
           html += '<div><span class="label label-danger"><i class="fas fa-exclamation-triangle"></i> '
             + esc(problem.label) + '</span></div>';

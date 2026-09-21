@@ -10,11 +10,11 @@ namespace YesWiki\Ferme\Service;
  */
 class ImportFilter
 {
-    public const REASONS = ['inBazar', 'unmeasured', 'entries', 'pages', 'users', 'idle', 'name'];
+    public const REASONS = ['inBazar', 'unmeasured', 'entries', 'pages', 'users', 'idle', 'name', 'suspect'];
 
     /**
      * @param array<int,array<string,mixed>> $inspected as WikiRepository::inspect returns
-     * @param array<string,mixed>            $criteria  minEntries, minPages, minUsers, activeSince, nameExcludes
+     * @param array<string,mixed>            $criteria  minEntries, minPages, minUsers, activeSince, nameExcludes, skipSuspect
      *
      * @return array{keep:array<int,array<string,mixed>>,left:array<string,array<int,string>>}
      */
@@ -50,6 +50,10 @@ class ImportFilter
         $excludes = (string)($criteria['nameExcludes'] ?? '');
         if ($excludes !== '' && @preg_match('/' . $excludes . '/i', (string)$wiki['folder']) === 1) {
             return 'name';
+        }
+
+        if (!empty($criteria['skipSuspect']) && (int)($wiki['stats']['suspect'] ?? 0) >= (int)$criteria['skipSuspect']) {
+            return 'suspect';
         }
 
         $asked = array_filter([

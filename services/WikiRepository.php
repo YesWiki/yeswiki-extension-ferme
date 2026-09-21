@@ -24,6 +24,7 @@ class WikiRepository
     protected $database;
     protected $statsStore;
     protected $dashboard;
+    protected $spamScore;
 
     public function __construct(
         Wiki $wiki,
@@ -36,7 +37,8 @@ class WikiRepository
         WikiConfigEditor $configEditor,
         WikiDatabase $database,
         WikiStatsStore $statsStore,
-        FarmDashboard $dashboard
+        FarmDashboard $dashboard,
+        SpamScore $spamScore
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -49,6 +51,7 @@ class WikiRepository
         $this->database = $database;
         $this->statsStore = $statsStore;
         $this->dashboard = $dashboard;
+        $this->spamScore = $spamScore;
     }
 
     public function getAll(): array
@@ -85,16 +88,21 @@ class WikiRepository
             $fiches,
             $this->statsStore->readAll(),
             [
-                'version' => (string)$this->wiki->config['yeswiki_version'],
-                'release' => (string)$this->wiki->config['yeswiki_release'],
+                'current' => [
+                    'version' => (string)$this->wiki->config['yeswiki_version'],
+                    'release' => (string)$this->wiki->config['yeswiki_release'],
+                ],
+                'onDisk' => $this->wikisOnDisk($fiches),
+                'spamThreshold' => $this->spamScore->threshold(),
             ],
-            $this->wikisOnDisk($fiches),
-            $search,
-            $filter,
-            $sort,
-            $direction,
-            $start,
-            $length
+            [
+                'search' => $search,
+                'filter' => $filter,
+                'sort' => $sort,
+                'direction' => $direction,
+                'start' => $start,
+                'length' => $length,
+            ]
         );
 
         foreach ($page['fiches'] as $index => $fiche) {

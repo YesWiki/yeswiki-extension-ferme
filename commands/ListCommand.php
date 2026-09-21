@@ -9,6 +9,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
 use YesWiki\Ferme\Service\ImportFilter;
+use YesWiki\Ferme\Service\SpamScore;
 use YesWiki\Ferme\Service\WikiRepository;
 use YesWiki\Wiki;
 
@@ -40,6 +41,7 @@ class ListCommand extends AbstractFarmCommand
             ->addOption('min-users', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_MIN_USERS'))
             ->addOption('active-since', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_ACTIVE_SINCE'))
             ->addOption('name-excludes', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_NAME_EXCLUDES'))
+            ->addOption('skip-suspect', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_SKIP_SUSPECT'))
             ->addWikiSelectionOptions()
             ->addDryRunOption();
     }
@@ -125,6 +127,9 @@ class ListCommand extends AbstractFarmCommand
             'minUsers' => $this->threshold($input, 'min-users'),
             'activeSince' => $since === '' ? null : $this->seconds($since),
             'nameExcludes' => (string)$input->getOption('name-excludes'),
+            'skipSuspect' => $input->getOption('skip-suspect')
+                ? $this->wiki->services->get(SpamScore::class)->threshold()
+                : null,
         ];
     }
 

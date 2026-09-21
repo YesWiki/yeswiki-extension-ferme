@@ -18,6 +18,13 @@ parameters:
   # how many wikis each turn measures. A hundred wikis where nothing moved costs about
   # 30 ms, spent after the visitor has their page.
   yeswiki-farm-stats-per-visit: 100
+  # from how many points a wiki is called spam. Signals: writing from another alphabet
+  # or gambling/escort/essay vocabulary are 3 points each, a link in the name, a name
+  # in a foreign language, and a wiki that never grew past the model are 2 each. At 3,
+  # a farm of 3735 wikis flagged 500 with two that were not spam.
+  yeswiki-farm-spam-threshold: 3
+  # words of your own to add to the ones above, as a regular expression fragment
+  yeswiki-farm-spam-words: ''
   contact_wikis:
     default_template: 'list-email.twig'
   yeswiki_symlinked_files:
@@ -101,6 +108,8 @@ parameters:
     - 'yeswiki-farm-stats-on-visit'
     - 'yeswiki-farm-stats-interval'
     - 'yeswiki-farm-stats-per-visit'
+    - 'yeswiki-farm-spam-threshold'
+    - 'yeswiki-farm-spam-words'
 services:
   _defaults:
     autowire: true

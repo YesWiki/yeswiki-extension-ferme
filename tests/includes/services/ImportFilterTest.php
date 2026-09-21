@@ -77,6 +77,20 @@ class ImportFilterTest extends YesWikiTestCase
         $this->assertSame(['33winsurf', 'Papergraders'], $selection['left']['name'], 'and the match ignores case');
     }
 
+    public function testAWikiThatLooksLikeSpamIsLeftOutWhenAsked()
+    {
+        $wikis = [
+            $this->wiki('assoc', ['stats' => $this->stats(['suspect' => 2])]),
+            $this->wiki('33winsurf', ['stats' => $this->stats(['suspect' => 8])]),
+        ];
+
+        $selection = $this->filter->apply($wikis, ['skipSuspect' => 3]);
+
+        $this->assertSame(['assoc'], array_column($selection['keep'], 'folder'));
+        $this->assertSame(['33winsurf'], $selection['left']['suspect']);
+        $this->assertCount(2, $this->filter->apply($wikis, [])['keep'], 'sans le critère, rien n\'est écarté');
+    }
+
     public function testAWikiNobodyMeasuredCannotBeJudgedSoItIsLeftOut()
     {
         $selection = $this->filter->apply([$this->wiki('inconnu', ['stats' => null])], ['minEntries' => 15]);

@@ -12,42 +12,37 @@ class FarmDashboard
     public const DORMANT_AFTER = '-6 months';
     public const HEAVY_ARCHIVES = 1073741824;
 
-    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'failed', 'unmeasured'];
+    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'failed', 'unmeasured'];
     public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
     public const SORTS = ['title', 'referent', 'lastActivity', 'activity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
     private const TEXT_SORTS = ['title', 'referent', 'lastActivity'];
 
     /**
-     * @param array<int,array<string,mixed>>    $fiches  the farm entries, as bazar returns them
-     * @param array<string,array<string,mixed>> $stats   what the store holds, keyed by folder
-     * @param array<string,string>              $current the version and release the farm runs
-     * @param array<string,bool>                $onDisk  folder => whether its wakka.config.php is there
+     * @param array<int,array<string,mixed>>    $fiches the farm entries, as bazar returns them
+     * @param array<string,array<string,mixed>> $stats  what the store holds, keyed by folder
      *
      * @return array{fiches:array<int,array<string,mixed>>,total:int,filtered:int,counts:array<string,int>,totals:array<string,int>}
      */
-    public function select(
-        array $fiches,
-        array $stats,
-        array $current,
-        array $onDisk = [],
-        string $search = '',
-        string $filter = '',
-        string $sort = 'title',
-        string $direction = 'asc',
-        int $start = 0,
-        int $length = 100
-    ): array {
-        $fiches = $this->attach($fiches, $stats, $current, $onDisk);
+    public function select(array $fiches, array $stats, array $context = [], array $query = []): array
+    {
+        $fiches = $this->attach(
+            $fiches,
+            $stats,
+            $context['current'] ?? [],
+            $context['onDisk'] ?? [],
+            (int)($context['spamThreshold'] ?? 3)
+        );
         $total = count($fiches);
         $counts = $this->counts($fiches);
         $totals = $this->totals($fiches);
 
-        $kept = $this->filter($fiches, $search, $filter);
+        $kept = $this->filter($fiches, (string)($query['search'] ?? ''), (string)($query['filter'] ?? ''));
         $filtered = count($kept);
+        $sorted = $this->sort($kept, (string)($query['sort'] ?? 'title'), (string)($query['direction'] ?? 'asc'));
 
         return [
-            'fiches' => array_slice($this->sort($kept, $sort, $direction), $start, $length),
+            'fiches' => array_slice($sorted, (int)($query['start'] ?? 0), (int)($query['length'] ?? 100)),
             'total' => $total,
             'filtered' => $filtered,
             'counts' => $counts,
@@ -88,7 +83,7 @@ class FarmDashboard
      *
      * @return array<int,array<string,mixed>>
      */
-    private function attach(array $fiches, array $stats, array $current, array $onDisk): array
+    private function attach(array $fiches, array $stats, array $current, array $onDisk, int $spamThreshold = 3): array
     {
         $claims = array_count_values(array_filter(array_map(function (array $fiche) {
             return (string)($fiche['bf_dossier-wiki'] ?? '');
@@ -112,6 +107,8 @@ class FarmDashboard
                 $measured['toUpdate'] = $this->isToUpdate($measured, $current);
                 $measured['heavyArchives'] = (int)($measured['privateBytes'] ?? 0) >= self::HEAVY_ARCHIVES;
                 $measured['failed'] = ($measured['status'] ?? '') === WikiStatsStore::STATUS_ERROR;
+                $measured['suspect'] = (int)($measured['suspect'] ?? 0) >= $spamThreshold;
+                $measured['suspectWhy'] = array_values(array_filter(explode(',', (string)($measured['suspectWhy'] ?? ''))));
             }
 
             $fiches[$index]['stats'] = $measured;
@@ -142,7 +139,7 @@ class FarmDashboard
                 $counts['unmeasured']++;
                 continue;
             }
-            foreach (['toUpdate', 'dormant', 'heavyArchives', 'failed'] as $flag) {
+            foreach (['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'failed'] as $flag) {
                 if (!empty($stats[$flag])) {
                     $counts[$flag]++;
                 }
