@@ -42,7 +42,7 @@ class UpdateCommand extends AbstractFarmCommand
             ->addOption('workers', 'w', InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_WORKERS'), 4)
             ->addOption('force', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_FORCE'))
             ->addOption('nobackup', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_NOBACKUP_UPDATE'))
-            ->addOption('continue-on-error', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CONTINUE'))
+            ->addOption('stop-on-error', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_STOP_ON_ERROR'))
             ->addOption('ignore-extensions', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_IGNORE_EXTENSIONS'))
             ->addOption('recover-only', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_RECOVER_ONLY'))
             ->addOption('migratecerco', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATECERCO'))
@@ -317,7 +317,7 @@ class UpdateCommand extends AbstractFarmCommand
             } catch (\Throwable $th) {
                 $failed[] = $label;
                 $output->writeln('<error>      ' . $th->getMessage() . '</error>');
-                if (!$input->getOption('continue-on-error')) {
+                if ($input->getOption('stop-on-error')) {
                     $output->writeln('<error>' . _t('FERME_CLI_STOPPING') . '</error>');
                     break;
                 }
@@ -383,7 +383,7 @@ class UpdateCommand extends AbstractFarmCommand
                 }
 
                 $failed[] = $label;
-                if (!$input->getOption('continue-on-error')) {
+                if ($input->getOption('stop-on-error')) {
                     $stop = true;
                     $queue = [];
                     $output->writeln('<error>' . _t('FERME_CLI_DRAINING') . '</error>');

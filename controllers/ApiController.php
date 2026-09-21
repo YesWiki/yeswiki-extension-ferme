@@ -5,6 +5,7 @@ namespace YesWiki\Ferme\Controller;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use YesWiki\Core\ApiResponse;
 use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiController;
@@ -226,6 +227,21 @@ class ApiController extends YesWikiController
         }
 
         return $wikiFolder;
+    }
+
+    /**
+     * The session's current token, for a page that has been open long enough for
+     * its own to have gone stale. Same origin only, and admins only, so this hands
+     * the token to whoever could already read it off the page.
+     *
+     * @Route("/api/ferme/csrf-token", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function freshCsrfToken()
+    {
+        return new ApiResponse([
+            'success' => true,
+            'token' => $this->getService(CsrfTokenManager::class)->getToken('main')->getValue(),
+        ]);
     }
 
     /**

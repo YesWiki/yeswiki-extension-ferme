@@ -207,7 +207,9 @@ commande ne peut pas écrire est signalé en échec : il n'y a pas de `sudo` ici
   fichiers remplacés et de la base, mise à niveau des extensions que le wiki a en
   plus, copie, migrations, puis effacement de la sauvegarde si tout s'est bien
   passé. `--workers` en traite plusieurs à la fois, `--force` refait un wiki déjà
-  à jour, `--archive-url` part d'une archive zip plutôt que du wiki maître.
+  à jour, `--archive-url` part d'une archive zip plutôt que du wiki maître. Un wiki
+  en échec est signalé et la série continue, comme dans la page d'administration ;
+  `--stop-on-error` arrête tout au premier échec.
 
 Personne n'a à mettre les extensions à jour à la main : la commande va chercher
 au dépôt la version publiée pour la version de YesWiki visée, et ne télécharge

@@ -15,6 +15,7 @@ $(document).ready(function() {
   var adminAddUrl = $config.data('admin-add-url');
   var adminRemoveUrl = $config.data('admin-remove-url');
   var csrfToken = $config.data('csrf-token');
+  var csrfTokenUrl = $config.data('csrf-token-url');
   var i18n = $config.data();
   var runModes = {};
   var runMode = null;
@@ -38,6 +39,57 @@ $(document).ready(function() {
 
   function esc(str) {
     return $('<span>').text(str || '').html();
+  }
+
+  function isCsrfFailure(answer) {
+    return !!(answer && answer.error && /csrf/i.test(String(answer.error)));
+  }
+
+  function refreshCsrfToken() {
+    if (!csrfTokenUrl) { return $.Deferred().resolve().promise(); }
+
+    return $.ajax({ url: csrfTokenUrl, method: 'POST', dataType: 'json' })
+      .done(function(response) {
+        if (response && response.token) { csrfToken = response.token; }
+      });
+  }
+
+  /**
+   * One POST per wiki, carrying the token. A token that went stale while the page
+   * was open is fetched again and the call replayed once, and whatever happens the
+   * promise resolves, so a queue never stops on one wiki.
+   */
+  function postWithToken(url, data, retried) {
+    var answered = $.Deferred();
+
+    function replay() {
+      refreshCsrfToken().always(function() {
+        postWithToken(url, data, true).done(function(answer) { answered.resolve(answer); });
+      });
+    }
+
+    $.ajax({
+      url: url,
+      method: 'POST',
+      data: $.extend({}, data, { 'csrf-token': csrfToken }),
+      dataType: 'json'
+    }).done(function(response) {
+      if (!retried && isCsrfFailure(response)) { replay(); return; }
+      answered.resolve(response || { success: false, error: 'empty answer' });
+    }).fail(function(xhr, status, error) {
+      var answer = xhr.responseJSON || { success: false, error: 'HTTP ' + xhr.status + ': ' + (error || status) };
+      if (!retried && isCsrfFailure(answer)) { replay(); return; }
+      answered.resolve(answer);
+    });
+
+    return answered.promise();
+  }
+
+  function summarise($list, ok, failed) {
+    var text = String(i18n.i18nRunSummary || '%{ok} / %{failed}')
+      .replace('%{ok}', ok)
+      .replace('%{failed}', failed);
+    $list.prepend($('<div class="list-group-item">').append($('<strong>').text(text)));
   }
 
   function figure(icon, value, label) {
@@ -472,10 +524,13 @@ $(document).ready(function() {
     deleteSequential(wikis, 0);
   });
 
-  function deleteSequential(wikis, index) {
+  function deleteSequential(wikis, index, done) {
+    done = done || { ok: 0, failed: 0 };
+
     if (index >= wikis.length) {
+      summarise($('#delete-wikis-list'), done.ok, done.failed);
       $('#btn-close-delete-modal').prop('disabled', false);
-      wikisTable.ajax.reload(null, false); // refresh table without resetting pagination
+      wikisTable.ajax.reload(null, false);
       return;
     }
 
@@ -484,45 +539,26 @@ $(document).ready(function() {
     $item.find('.delete-icon').attr('class', 'fas fa-spinner fa-spin delete-icon text-info');
     $item.find('.delete-badge').text(i18n.deleting).css('background-color', '#5bc0de');
 
-    $.ajax({
-      url: deleteUrl,
-      method: 'POST',
-      data: { id_fiche: wiki.idFiche, 'csrf-token': csrfToken },
-      dataType: 'json',
-      success: function(response) {
-        if (response.success) {
-          $item.find('.delete-icon').attr('class', 'fas fa-check delete-icon text-success');
-          $item.find('.delete-badge').text(i18n.deleteSuccess).css('background-color', '#5cb85c');
-          delete selectedWikis[wiki.folder];
-          updateBulkBtns();
-          deleteSequential(wikis, index + 1);
-        } else {
-          $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
-          $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
-          if (response.error) {
-            $item.find('.delete-output pre').text(response.error);
-            $item.find('.delete-output').show();
-          }
-          $('#btn-close-delete-modal').prop('disabled', false);
-        }
-      },
-      error: function(xhr, status, error) {
+    postWithToken(deleteUrl, { id_fiche: wiki.idFiche }).done(function(response) {
+      if (response.success) {
+        done.ok++;
+        $item.find('.delete-icon').attr('class', 'fas fa-check delete-icon text-success');
+        $item.find('.delete-badge').text(i18n.deleteSuccess).css('background-color', '#5cb85c');
+        delete selectedWikis[wiki.folder];
+        updateBulkBtns();
+      } else {
+        done.failed++;
         $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
         $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
-        $item.find('.delete-output pre').text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
+        $item.find('.delete-output pre').text(response.error || '');
         $item.find('.delete-output').show();
-        $('#btn-close-delete-modal').prop('disabled', false);
       }
+      deleteSequential(wikis, index + 1, done);
     });
   }
 
   function adminAjax(folder, action) {
-    return $.ajax({
-      url: action === 'remove' ? adminRemoveUrl : adminAddUrl,
-      method: 'POST',
-      data: { folder: folder, 'csrf-token': csrfToken },
-      dataType: 'json'
-    });
+    return postWithToken(action === 'remove' ? adminRemoveUrl : adminAddUrl, { folder: folder });
   }
 
   // Admin add/remove — delegated for DataTables re-render safety
@@ -538,19 +574,15 @@ $(document).ready(function() {
 
     $btn.prop('disabled', true).prepend('<i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i>');
 
-    adminAjax(wiki, action)
-      .done(function(response) {
-        if (response && response.success) {
-          wikisTable.ajax.reload(null, false);
-        } else {
-          $btn.prop('disabled', false).find('.fa-spinner').remove();
-          $btn.attr('title', (response && response.error) || i18n.adminError);
-        }
-      })
-      .fail(function(xhr) {
-        $btn.prop('disabled', false).find('.fa-spinner').remove();
-        $btn.attr('title', (xhr.responseJSON && xhr.responseJSON.error) || i18n.adminError);
-      });
+    adminAjax(wiki, action).done(function(response) {
+      if (response && response.success) {
+        wikisTable.ajax.reload(null, false);
+
+        return;
+      }
+      $btn.prop('disabled', false).find('.fa-spinner').remove();
+      $btn.attr('title', (response && response.error) || i18n.adminError);
+    });
   });
 
   $('#btn-admin-add-selected').on('click', function(event) { event.preventDefault(); openAdminModal('add'); });
@@ -585,8 +617,11 @@ $(document).ready(function() {
     adminSequential(wikis, 0, action);
   }
 
-  function adminSequential(wikis, index, action) {
+  function adminSequential(wikis, index, action, done) {
+    done = done || { ok: 0, failed: 0 };
+
     if (index >= wikis.length) {
+      summarise($('#admin-wikis-list'), done.ok, done.failed);
       $('#btn-close-admin-modal').prop('disabled', false);
       wikisTable.ajax.reload(null, false);
       return;
@@ -597,32 +632,22 @@ $(document).ready(function() {
     $item.find('.admin-icon').attr('class', 'fas fa-spinner fa-spin admin-icon text-info');
     $item.find('.admin-badge').text(i18n.inProgress).css('background-color', '#5bc0de');
 
-    function failed(message) {
-      $item.find('.admin-icon').attr('class', 'fas fa-times admin-icon text-danger');
-      $item.find('.admin-badge').text(i18n.adminError).css('background-color', '#d9534f');
-      if (message) {
-        $item.find('.admin-output pre').text(message);
+    postWithToken(action === 'remove' ? adminRemoveUrl : adminAddUrl, { folder: wiki.folder }).done(function(response) {
+      if (response.success) {
+        done.ok++;
+        $item.find('.admin-icon').attr('class', 'fas fa-check admin-icon text-success');
+        $item.find('.admin-badge')
+          .text(action === 'add' ? i18n.adminAdded : i18n.adminRemoved)
+          .css('background-color', '#5cb85c');
+      } else {
+        done.failed++;
+        $item.find('.admin-icon').attr('class', 'fas fa-times admin-icon text-danger');
+        $item.find('.admin-badge').text(i18n.adminError).css('background-color', '#d9534f');
+        $item.find('.admin-output pre').text(response.error || '');
         $item.find('.admin-output').show();
       }
-    }
-
-    adminAjax(wiki.folder, action)
-      .done(function(response) {
-        if (response && response.success) {
-          $item.find('.admin-icon').attr('class', 'fas fa-check admin-icon text-success');
-          $item.find('.admin-badge')
-            .text(action === 'add' ? i18n.adminAdded : i18n.adminRemoved)
-            .css('background-color', '#5cb85c');
-        } else {
-          failed(response && response.error);
-        }
-      })
-      .fail(function(xhr, status, error) {
-        failed((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
-      })
-      .always(function() {
-        adminSequential(wikis, index + 1, action);
-      });
+      adminSequential(wikis, index + 1, action, done);
+    });
   }
 
   $('#btn-search-wikis').on('click', function() {
@@ -711,8 +736,11 @@ $(document).ready(function() {
     $('#btn-close-search-modal').prop('disabled', true);
   });
 
-  function upgradeSequential(wikis, index) {
+  function upgradeSequential(wikis, index, done) {
+    done = done || { ok: 0, failed: 0 };
+
     if (index >= wikis.length) {
+      summarise($('#upgrade-wikis-list'), done.ok, done.failed);
       $('#btn-close-upgrade-modal').prop('disabled', false);
       wikisTable.ajax.reload(null, false);
       return;
@@ -724,37 +752,22 @@ $(document).ready(function() {
     $item.find('.upgrade-icon').attr('class', 'fas fa-spinner fa-spin upgrade-icon text-info');
     $item.find('.upgrade-badge').text(i18n.inProgress).css('background-color', '#5bc0de');
 
-    $.ajax({
-      url: runMode.url,
-      method: 'POST',
-      data: { folder: wiki.folder, 'csrf-token': csrfToken },
-      dataType: 'json',
-      success: function(response) {
-        if (response.output) {
-          $item.find('.upgrade-output pre').text(response.output);
-          $item.find('.upgrade-output').show();
-        }
-        if (response.success) {
-          $item.find('.upgrade-icon').attr('class', 'fas fa-check upgrade-icon text-success');
-          $item.find('.upgrade-badge').text(i18n.success).css('background-color', '#5cb85c');
-          upgradeSequential(wikis, index + 1);
-        } else {
-          $item.find('.upgrade-icon').attr('class', 'fas fa-times upgrade-icon text-danger');
-          $item.find('.upgrade-badge').text(i18n.error).css('background-color', '#d9534f');
-          if (response.error) {
-            $item.find('.upgrade-output pre').append((response.output ? '\n\n' : '') + response.error);
-            $item.find('.upgrade-output').show();
-          }
-          $('#btn-close-upgrade-modal').prop('disabled', false);
-        }
-      },
-      error: function(xhr, status, error) {
+    postWithToken(runMode.url, { folder: wiki.folder }).done(function(response) {
+      var text = [response.output, response.success ? '' : response.error].filter(Boolean).join('\n\n');
+      if (text) {
+        $item.find('.upgrade-output pre').text(text);
+        $item.find('.upgrade-output').show();
+      }
+      if (response.success) {
+        done.ok++;
+        $item.find('.upgrade-icon').attr('class', 'fas fa-check upgrade-icon text-success');
+        $item.find('.upgrade-badge').text(i18n.success).css('background-color', '#5cb85c');
+      } else {
+        done.failed++;
         $item.find('.upgrade-icon').attr('class', 'fas fa-times upgrade-icon text-danger');
         $item.find('.upgrade-badge').text(i18n.error).css('background-color', '#d9534f');
-        $item.find('.upgrade-output pre').text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
-        $item.find('.upgrade-output').show();
-        $('#btn-close-upgrade-modal').prop('disabled', false);
       }
+      upgradeSequential(wikis, index + 1, done);
     });
   }
 });

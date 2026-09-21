@@ -190,6 +190,7 @@
      data-recover-custom-url="{{ recover_custom_api_url }}"
      data-refresh-stats-url="{{ refresh_stats_api_url }}"
      data-activity-url="{{ activity_api_url }}"
+     data-csrf-token-url="{{ csrf_token_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
@@ -250,7 +251,8 @@
      data-recover-intro="{{ _t("FERME_RECOVER_CUSTOM_INTRO") }}"
      data-refresh-title="{{ _t("FERME_REFRESH_STATS_SELECTED") }}"
      data-refresh-intro="{{ _t("FERME_REFRESH_STATS_INTRO") }}"
-     data-i18n-loading="{{ _t("FERME_STATS_LOADING") }}"></div>
+     data-i18n-loading="{{ _t("FERME_STATS_LOADING") }}"
+     data-i18n-run-summary="{{ _t("FERME_RUN_SUMMARY") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
 {# Upgrade modal #}
 <div class="modal fade"
