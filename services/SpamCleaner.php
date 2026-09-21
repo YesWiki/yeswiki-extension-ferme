@@ -15,6 +15,7 @@ use YesWiki\Ferme\Exception\WikiStatsException;
 class SpamCleaner
 {
     public const SKELETON = ['pageprincipale', 'pageheader', 'pagefooter', 'pagetitre', 'pagemenu', 'pagerapide', 'pagecss', 'pagecolor', 'bacasable', 'tableaudebord', 'gerersite', 'accueil'];
+    public const WRITERS_AFTER_CLEANING = '@admins';
     public const WORDS_FOR_SPAM = 3;
     public const LINKS_FOR_SPAM = 50;
     public const LINKS_FOR_SPAM_LINE = 5;
@@ -89,6 +90,7 @@ class SpamCleaner
                             $this->deletePage($db, $prefix, $page['tag']);
                         } else {
                             $this->stripPage($db, $prefix, $page['tag']);
+                            $this->closeToWriters($db, $prefix, $page['tag']);
                         }
                     }
                 }
@@ -219,12 +221,34 @@ class SpamCleaner
             while ($result && ($row = $result->fetch_assoc())) {
                 $revisions[] = $row;
             }
-            $kept[] = ['tag' => $page['tag'], 'action' => $page['action'], 'revisions' => $revisions];
+            $acls = [];
+            $rights = $db->query(
+                'SELECT privilege, list FROM `' . $this->database->table($prefix, 'acls') . '`'
+                . ' WHERE page_tag = "' . $db->real_escape_string($page['tag']) . '"'
+            );
+            while ($rights && ($right = $rights->fetch_assoc())) {
+                $acls[$right['privilege']] = $right['list'];
+            }
+
+            $kept[] = ['tag' => $page['tag'], 'action' => $page['action'], 'acls' => $acls, 'revisions' => $revisions];
         }
 
         file_put_contents($path, json_encode($kept, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
 
         return $path;
+    }
+
+    /**
+     * A page cleaned once is a page the robot found open. Writing on it goes back
+     * to the wiki's administrators; reading and commenting are left as they were.
+     */
+    private function closeToWriters(\mysqli $db, string $prefix, string $tag): void
+    {
+        $db->query(
+            'INSERT INTO `' . $this->database->table($prefix, 'acls') . '` (page_tag, privilege, list)'
+            . ' VALUES ("' . $db->real_escape_string($tag) . '", "write", "' . self::WRITERS_AFTER_CLEANING . '")'
+            . ' ON DUPLICATE KEY UPDATE list = "' . self::WRITERS_AFTER_CLEANING . '"'
+        );
     }
 
     private function deletePage(\mysqli $db, string $prefix, string $tag): void
