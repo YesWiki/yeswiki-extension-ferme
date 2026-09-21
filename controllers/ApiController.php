@@ -66,6 +66,25 @@ class ApiController extends YesWikiController
     }
 
     /**
+     * Every wiki the current search and chip keep, name and address only, so the
+     * page can select beyond the hundred rows it shows.
+     *
+     * @Route("/api/ferme/wikis/select", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function selectWikis(Request $request)
+    {
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $search = trim((string)$request->request->get('search', ''));
+        $filter = (string)$request->request->get('filter', '');
+        $found = $this->getService(FarmService::class)->wikisForSelection($search, $filter);
+
+        return new ApiResponse(['success' => true, 'wikis' => $found['wikis'], 'total' => $found['total']]);
+    }
+
+    /**
      * Upgrade a single wiki to the state of the farm master.
      *
      * @Route("/api/ferme/wikis/upgrade", methods={"POST"}, options={"acl":{"@admins"}})

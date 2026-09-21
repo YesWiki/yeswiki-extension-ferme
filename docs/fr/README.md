@@ -47,7 +47,7 @@ Ces chiffres ne sont pas recalculés à chaque affichage : la ferme mesure les w
 
 {{attach file="basdepagebis.png" desc="image basdepage.png (0.1MB)" size="big" class="center"}}
 En bas de cette page
- - une case "Tout sélectionner", et un menu déroulant "Actions sur la sélection" qui porte le nombre de wikis cochés. Il réunit :
+ - une case "Sélectionner cette page", un bouton "Sélectionner les N wikis" qui prend tous ceux que la recherche et l'étiquette en cours retiennent — au-delà des cent affichés —, un lien "Tout désélectionner", et un menu déroulant "Actions sur la sélection" qui porte le nombre de wikis cochés. Il réunit :
    -  **Mettre à jour les wikis sélectionnés** : fichiers, migrations, et les extensions propres à chaque wiki
    -  **Mettre à jour seulement les extensions** : les extensions propres au wiki passent à la version publiée pour la version de YesWiki qu'il fait tourner, puis leurs migrations sont lancées. Le cœur n'est pas touché
    -  **Recalculer les statistiques** : remesure les wikis cochés tout de suite, sans attendre la prochaine passe

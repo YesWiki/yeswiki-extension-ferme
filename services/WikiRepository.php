@@ -113,6 +113,55 @@ class WikiRepository
     }
 
     /**
+     * Just enough of every wiki the filter keeps to select them all: the page is
+     * limited to a hundred rows, and an operator cleaning a farm needs the lot.
+     * None of the per-wiki work of a page is done here.
+     *
+     * @return array{wikis:array<int,array<string,string>>,total:int}
+     */
+    public function listForSelection(string $search, string $filter = ''): array
+    {
+        $fiches = $this->getAllWikiFiches();
+
+        $page = $this->dashboard->select(
+            $fiches,
+            $this->statsStore->readAll(),
+            [
+                'current' => [
+                    'version' => (string)$this->wiki->config['yeswiki_version'],
+                    'release' => (string)$this->wiki->config['yeswiki_release'],
+                ],
+                'onDisk' => $this->wikisOnDisk($fiches),
+                'spamThreshold' => $this->spamScore->threshold(),
+            ],
+            [
+                'search' => $search,
+                'filter' => $filter,
+                'sort' => 'title',
+                'direction' => 'asc',
+                'start' => 0,
+                'length' => count($fiches) ?: 1,
+            ]
+        );
+
+        $wikis = [];
+        foreach ($page['fiches'] as $fiche) {
+            $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
+            if ($folder === '') {
+                continue;
+            }
+            $wikis[] = [
+                'folder' => $folder,
+                'id_fiche' => (string)($fiche['id_fiche'] ?? ''),
+                'title' => (string)($fiche['bf_titre'] ?? $folder),
+                'mail' => (string)($fiche['bf_mail'] ?? ''),
+            ];
+        }
+
+        return ['wikis' => $wikis, 'total' => $page['filtered']];
+    }
+
+    /**
      * Which of the farm entries still have a wiki behind them. One stat per entry,
      * about 4 ms for a farm of 2 700, so an entry left over from a deleted wiki is
      * counted with the broken ones instead of passing for one nobody measured yet.

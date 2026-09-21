@@ -180,9 +180,15 @@
     <div class="checkbox" style="display:inline-block; margin-right:10px;">
         <label>
             <input type="checkbox" id="select-all-wikis">
-            <span>{{ _t("FERME_SELECT_ALL") }}</span>
+            <span>{{ _t("FERME_SELECT_PAGE") }}</span>
         </label>
     </div>
+    <button id="btn-select-everything" type="button" class="btn btn-default btn-sm" style="margin-right:10px;">
+        <i class="fas fa-check-double"></i> <span id="select-everything-label">{{ _t("FERME_SELECT_ALL") }}</span>
+    </button>
+    <button id="btn-select-none" type="button" class="btn btn-link btn-sm" style="display:none; margin-right:10px;">
+        {{ _t("FERME_SELECT_NONE") }}
+    </button>
     <div class="btn-group">
         <button id="btn-bulk-actions"
                 type="button"
@@ -252,6 +258,7 @@
      data-import-url="{{ import_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
+     data-select-url="{{ select_api_url }}"
      data-clean-spam-url="{{ clean_spam_api_url }}"
      data-hibernate-url="{{ hibernate_api_url }}"
      data-wake-url="{{ wake_api_url }}"
@@ -312,6 +319,9 @@
      data-wake-title="{{ _t("FERME_WAKE_SELECTED") }}"
      data-wake-intro="{{ _t("FERME_WAKE_INTRO") }}"
      data-i18n-status="{{ _t("FERME_STATUS") }}"
+     data-i18n-select-all="{{ _t("FERME_SELECT_ALL") }}"
+     data-i18n-select-all-n="{{ _t("FERME_SELECT_ALL_N") }}"
+     data-i18n-selecting="{{ _t("FERME_SELECTING") }}"
      data-i18n-never-measured="{{ _t("FERME_STATS_NEVER_MEASURED") }}"
      data-i18n-measured-at="{{ _t("FERME_STATS_MEASURED_AT") }}"
      data-i18n-admin-present="{{ _t("FERME_ADMIN_PRESENT") }}"

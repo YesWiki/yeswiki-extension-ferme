@@ -535,5 +535,9 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_SYMLINK_LINKS' => 'Folders handled',
         'FERME_CLI_SYMLINK_KEPT' => 'Folders left',
         'FERME_CLI_SYMLINK_FREED' => 'Space given back',
+        'FERME_SELECT_PAGE' => 'Select this page',
+        'FERME_SELECT_ALL_N' => 'Select the %{n} wikis',
+        'FERME_SELECT_NONE' => 'Unselect everything',
+        'FERME_SELECTING' => 'Selecting…',
     ]
 );

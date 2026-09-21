@@ -14,6 +14,7 @@ $(document).ready(function() {
   var importUrl = $config.data('import-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
+  var selectUrl = $config.data('select-url');
   var cleanSpamUrl = $config.data('clean-spam-url');
   var hibernateUrl = $config.data('hibernate-url');
   var wakeUrl = $config.data('wake-url');
@@ -33,6 +34,7 @@ $(document).ready(function() {
   var DELETE_CHUNK = 5;
   var DELETE_PARALLEL = 5;
   var selectedWikis = {};
+  var filteredCount = 0;
   var activeFilter = '';
   var chips = [
     { key: 'toUpdate', label: 'chipToUpdate', kind: 'danger', icon: 'sync-alt' },
@@ -313,7 +315,10 @@ $(document).ready(function() {
   });
 
   wikisTable.on('xhr', function(e, settings, json) {
-    if (json) { renderSummary(json.totals || {}, json.counts || {}); }
+    if (!json) { return; }
+    renderSummary(json.totals || {}, json.counts || {});
+    filteredCount = json.recordsFiltered || 0;
+    updateSelectEverything();
   });
 
   function renderSummary(totals, counts) {
@@ -512,6 +517,46 @@ $(document).ready(function() {
       $('#bulk-selected-count').hide();
       $('#btn-bulk-actions').closest('.btn-group').removeClass('open');
     }
+    $('#btn-select-none').toggle(count > 0);
+  }
+
+  /**
+   * The page shows a hundred wikis at a time; the button says how many the current
+   * search and chip actually hold, and takes them all.
+   */
+  function updateSelectEverything() {
+    $('#select-everything-label').text(
+      filteredCount > 0 ? i18n.i18nSelectAllN.replace('%{n}', filteredCount) : i18n.i18nSelectAll
+    );
+    $('#btn-select-everything').prop('disabled', filteredCount === 0);
+  }
+
+  $('#btn-select-everything').on('click', function() {
+    var $button = $(this).prop('disabled', true);
+    var was = $('#select-everything-label').text();
+    $('#select-everything-label').text(i18n.i18nSelecting);
+
+    postWithToken(selectUrl, { search: currentSearch(), filter: activeFilter }).done(function(response) {
+      (response.wikis || []).forEach(function(wiki) {
+        selectedWikis[wiki.folder] = { title: wiki.title, idFiche: wiki.id_fiche, mail: wiki.mail };
+      });
+      $table.find('.wiki-checkbox').prop('checked', true);
+      updateSelectAllState();
+      updateBulkBtns();
+      $('#select-everything-label').text(was);
+      $button.prop('disabled', false);
+    });
+  });
+
+  $('#btn-select-none').on('click', function() {
+    selectedWikis = {};
+    $table.find('.wiki-checkbox').prop('checked', false);
+    updateSelectAllState();
+    updateBulkBtns();
+  });
+
+  function currentSearch() {
+    return String(wikisTable.search() || '');
   }
 
   // Select/deselect all wikis on the current page

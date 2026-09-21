@@ -196,6 +196,14 @@ class FarmService
         return $this->repository->getAll();
     }
 
+    /**
+     * @return array{wikis:array<int,array<string,string>>,total:int}
+     */
+    public function wikisForSelection(string $search, string $filter = ''): array
+    {
+        return $this->repository->listForSelection($search, $filter);
+    }
+
     public function getWikiListPaginated(
         int $start,
         int $length,
