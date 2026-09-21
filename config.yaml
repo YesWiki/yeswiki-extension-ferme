@@ -25,6 +25,10 @@ parameters:
   yeswiki-farm-spam-threshold: 3
   # words of your own to add to the ones above, as a regular expression fragment
   yeswiki-farm-spam-words: ''
+  # the hosts a spam campaign keeps pointing at, as a regular expression fragment:
+  # a page linking to one of them is spam however short it is. Used by the cleaning,
+  # which is the only way to catch a one-line page that only carries a link.
+  yeswiki-farm-spam-hosts: ''
   # a Mattermost incoming webhook, to be told when a wiki is created or deleted.
   # The message carries a link to the entry's deletion page, which asks for a login
   # and a confirmation like any other, so nothing here is a button that deletes.
@@ -114,6 +118,7 @@ parameters:
     - 'yeswiki-farm-stats-per-visit'
     - 'yeswiki-farm-spam-threshold'
     - 'yeswiki-farm-spam-words'
+    - 'yeswiki-farm-spam-hosts'
     # comptes créés dans chaque wiki
     - 'yeswiki-farm-create-user'
     - 'yeswiki-farm-default-WikiAdmin'

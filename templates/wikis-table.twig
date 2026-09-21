@@ -210,6 +210,13 @@
             </li>
             <li role="separator" class="divider"></li>
             <li>
+                <a href="#" id="btn-clean-spam-dry"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_DRY_SELECTED") }}</a>
+            </li>
+            <li>
+                <a href="#" id="btn-clean-spam"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_SELECTED") }}</a>
+            </li>
+            <li role="separator" class="divider"></li>
+            <li>
                 <a href="#" id="btn-hibernate-selected"><i class="fas fa-moon fa-fw"></i> {{ _t("FERME_HIBERNATE_SELECTED") }}</a>
             </li>
             <li>
@@ -245,6 +252,7 @@
      data-import-url="{{ import_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
+     data-clean-spam-url="{{ clean_spam_api_url }}"
      data-hibernate-url="{{ hibernate_api_url }}"
      data-wake-url="{{ wake_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
@@ -295,6 +303,10 @@
      data-chip-spammed="{{ _t("FERME_CHIP_SPAMMED") }}"
      data-i18n-spam-words="{{ _t("FERME_STATS_SPAM_WORDS") }}"
      data-i18n-spam-links="{{ _t("FERME_STATS_SPAM_LINKS") }}"
+     data-clean-title="{{ _t("FERME_CLEAN_SELECTED") }}"
+     data-clean-intro="{{ _t("FERME_CLEAN_INTRO") }}"
+     data-clean-dry-title="{{ _t("FERME_CLEAN_DRY_SELECTED") }}"
+     data-clean-dry-intro="{{ _t("FERME_CLEAN_DRY_INTRO") }}"
      data-hibernate-title="{{ _t("FERME_HIBERNATE_SELECTED") }}"
      data-hibernate-intro="{{ _t("FERME_HIBERNATE_INTRO") }}"
      data-wake-title="{{ _t("FERME_WAKE_SELECTED") }}"

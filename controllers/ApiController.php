@@ -11,6 +11,7 @@ use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiController;
 use YesWiki\Ferme\Service\FarmMailer;
 use YesWiki\Ferme\Service\FarmService;
+use YesWiki\Ferme\Service\SpamCleaner;
 use YesWiki\Ferme\Service\StatsPresenter;
 use YesWiki\Ferme\Service\WikiHibernator;
 
@@ -375,6 +376,62 @@ class ApiController extends YesWikiController
             'results' => $results,
             'seconds' => round($elapsed, 2),
         ]);
+    }
+
+    /**
+     * Take the robots' pages out of one wiki.
+     *
+     * @Route("/api/ferme/wikis/clean-spam", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function cleanSpam(Request $request)
+    {
+        $folder = trim($request->request->get('folder', ''));
+        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $folder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+        }
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $dryRun = $request->request->get('dry', '') === '1';
+
+        try {
+            $report = $this->getService(SpamCleaner::class)->clean($folder, $dryRun);
+        } catch (\Throwable $throwable) {
+            return new ApiResponse(['success' => false, 'error' => $throwable->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new ApiResponse([
+            'success' => true,
+            'output' => $this->describeCleaning($report, $dryRun),
+        ]);
+    }
+
+    /**
+     * @param array{deleted:int,stripped:int,kept:int,pages:array<int,array<string,mixed>>,dump:?string} $report
+     */
+    private function describeCleaning(array $report, bool $dryRun): string
+    {
+        if ($report['deleted'] === 0 && $report['stripped'] === 0) {
+            return _t('FERME_CLEAN_NOTHING');
+        }
+
+        $lines = [_t($dryRun ? 'FERME_CLEAN_WOULD' : 'FERME_CLEAN_DID', [
+            'deleted' => $report['deleted'],
+            'stripped' => $report['stripped'],
+        ])];
+
+        foreach (array_slice($report['pages'], 0, 20) as $page) {
+            $lines[] = '  ' . $page['action'] . ' ' . $page['tag'];
+        }
+        if (count($report['pages']) > 20) {
+            $lines[] = '  …';
+        }
+        if (!empty($report['dump'])) {
+            $lines[] = _t('FERME_CLEAN_DUMP') . ' ' . $report['dump'];
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

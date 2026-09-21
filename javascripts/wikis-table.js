@@ -14,6 +14,7 @@ $(document).ready(function() {
   var importUrl = $config.data('import-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
+  var cleanSpamUrl = $config.data('clean-spam-url');
   var hibernateUrl = $config.data('hibernate-url');
   var wakeUrl = $config.data('wake-url');
   var adminAddUrl = $config.data('admin-add-url');
@@ -549,6 +550,8 @@ $(document).ready(function() {
     extensions: { url: upgradeExtensionsUrl, icon: 'fas fa-puzzle-piece', title: i18n.upgradeExtTitle, intro: i18n.upgradeExtIntro },
     recover: { url: recoverCustomUrl, icon: 'fas fa-undo', title: i18n.recoverTitle, intro: i18n.recoverIntro },
     stats: { url: refreshStatsUrl, icon: 'fas fa-chart-bar', title: i18n.refreshTitle, intro: i18n.refreshIntro },
+    cleanDry: { url: cleanSpamUrl, icon: 'fas fa-broom', title: i18n.cleanDryTitle, intro: i18n.cleanDryIntro, data: { dry: '1' } },
+    clean: { url: cleanSpamUrl, icon: 'fas fa-broom', title: i18n.cleanTitle, intro: i18n.cleanIntro },
     hibernate: { url: hibernateUrl, icon: 'fas fa-moon', title: i18n.hibernateTitle, intro: i18n.hibernateIntro },
     wake: { url: wakeUrl, icon: 'fas fa-sun', title: i18n.wakeTitle, intro: i18n.wakeIntro }
   };
@@ -572,6 +575,16 @@ $(document).ready(function() {
   $('#btn-recover-custom-selected').on('click', function(event) {
     event.preventDefault();
     openUpgradeModal('recover');
+  });
+
+  $('#btn-clean-spam-dry').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('cleanDry');
+  });
+
+  $('#btn-clean-spam').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('clean');
   });
 
   $('#btn-hibernate-selected').on('click', function(event) {
@@ -1056,7 +1069,7 @@ $(document).ready(function() {
     $item.find('.upgrade-icon').attr('class', 'fas fa-spinner fa-spin upgrade-icon text-info');
     $item.find('.upgrade-badge').text(i18n.inProgress).css('background-color', '#5bc0de');
 
-    postWithToken(runMode.url, { folder: wiki.folder }).done(function(response) {
+    postWithToken(runMode.url, $.extend({ folder: wiki.folder }, runMode.data || {})).done(function(response) {
       var text = [response.output, response.success ? '' : response.error].filter(Boolean).join('\n\n');
       if (text) {
         $item.find('.upgrade-output pre').text(text);
