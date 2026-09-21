@@ -11,6 +11,7 @@ namespace YesWiki\Ferme;
 use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Core\Controller\CsrfTokenController;
 use YesWiki\Core\YesWikiHandler;
+use YesWiki\Ferme\Exception\FolderBusyException;
 use YesWiki\Ferme\Exception\WikiStatsException;
 use YesWiki\Ferme\Service\FarmService;
 use YesWiki\Ferme\Service\StatsPresenter;
@@ -44,6 +45,8 @@ class __DeletePageHandler extends YesWikiHandler
                 if ($this->wiki->services->get(CsrfTokenController::class)->checkToken('main', 'POST', 'csrf-token', false)) {
                     $this->wiki->services->get(FarmService::class)->deleteWikiFromEntry($tag);
                 }
+            } catch (FolderBusyException $busy) {
+                return '<div class="alert alert-warning">' . htmlspecialchars($busy->getMessage()) . '</div>';
             } catch (\Throwable $th) {
                 exit('No CSRF token'); // do nothing
             }

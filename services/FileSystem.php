@@ -4,6 +4,13 @@ namespace YesWiki\Ferme\Service;
 
 class FileSystem
 {
+    public const FAILURES_KEPT = 10;
+
+    private $failures = [];
+    private $failed = 0;
+    private $copied = 0;
+    private $depth = 0;
+
     public function rrmdir($src)
     {
         $dir = opendir($src);
@@ -47,28 +54,109 @@ class FileSystem
         }
     }
 
-    public function copyRecursive($path, $dest)
+    /**
+     * Copy a file or a whole folder, and say so only when everything arrived. A copy
+     * that lost files used to pass for a good one, which is how a wiki was created
+     * with an empty tree and nobody heard about it.
+     */
+    public function copyRecursive($path, $dest): bool
+    {
+        if ($this->depth === 0) {
+            $this->failures = [];
+            $this->failed = 0;
+            $this->copied = 0;
+        }
+
+        $this->depth++;
+
+        try {
+            return $this->copyInto((string)$path, (string)$dest);
+        } finally {
+            $this->depth--;
+        }
+    }
+
+    /** How many files the last copy wrote. */
+    public function copiedFiles(): int
+    {
+        return $this->copied;
+    }
+
+    /** How many it could not, and the first of them by name. */
+    public function failedFiles(): int
+    {
+        return $this->failed;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public function failures(): array
+    {
+        return $this->failures;
+    }
+
+    public function failureSummary(): string
+    {
+        if ($this->failed === 0) {
+            return '';
+        }
+
+        $summary = $this->failed . ' ' . _t('FERME_COPY_FAILED_FILES') . ' : ' . implode(', ', $this->failures);
+
+        return $this->failed > count($this->failures) ? $summary . '…' : $summary;
+    }
+
+    private function copyInto(string $path, string $dest): bool
     {
         if (is_dir($path)) {
-            @mkdir($dest, 0777, true);
-            $objects = scandir($path);
-            if (count($objects) > 0) {
-                foreach ($objects as $file) {
-                    if ($file == '.' || $file == '..' || $file == '.git' || $file == 'bower_components') {
-                        continue;
-                    }
+            return $this->copyFolder($path, $dest);
+        }
 
-                    if (is_dir($path . DIRECTORY_SEPARATOR . $file)) {
-                        $this->copyRecursive($path . DIRECTORY_SEPARATOR . $file, $dest . DIRECTORY_SEPARATOR . $file);
-                    } else {
-                        copy($path . DIRECTORY_SEPARATOR . $file, $dest . DIRECTORY_SEPARATOR . $file);
-                    }
-                }
+        if (is_file($path)) {
+            return @copy($path, $dest) ? $this->counted() : $this->missed($path);
+        }
+
+        return $this->missed($path);
+    }
+
+    private function copyFolder(string $path, string $dest): bool
+    {
+        if (!is_dir($dest) && !@mkdir($dest, 0777, true) && !is_dir($dest)) {
+            return $this->missed($dest);
+        }
+
+        $objects = @scandir($path);
+        if ($objects === false) {
+            return $this->missed($path);
+        }
+
+        $whole = true;
+        foreach ($objects as $file) {
+            if (in_array($file, ['.', '..', '.git', 'bower_components'], true)) {
+                continue;
             }
 
-            return true;
-        } elseif (is_file($path) && file_exists($path)) {
-            return copy($path, $dest);
+            $from = $path . DIRECTORY_SEPARATOR . $file;
+            $to = $dest . DIRECTORY_SEPARATOR . $file;
+            $whole = (is_dir($from) ? $this->copyFolder($from, $to) : $this->copyInto($from, $to)) && $whole;
+        }
+
+        return $whole;
+    }
+
+    private function counted(): bool
+    {
+        $this->copied++;
+
+        return true;
+    }
+
+    private function missed(string $path): bool
+    {
+        $this->failed++;
+        if (count($this->failures) < self::FAILURES_KEPT) {
+            $this->failures[] = $path;
         }
 
         return false;

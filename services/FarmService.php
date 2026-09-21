@@ -150,6 +150,16 @@ class FarmService
     }
 
     /**
+     * @param array<int,string> $idFiches
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function deleteWikisForApi(array $idFiches): array
+    {
+        return $this->remover->deleteMany($idFiches);
+    }
+
+    /**
      * @return array<int,string> the other farm entries pointing at that wiki
      */
     public function entriesClaiming(string $folder, string $idFiche): array

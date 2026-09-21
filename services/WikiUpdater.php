@@ -27,6 +27,7 @@ class WikiUpdater
     protected $database;
     protected $aside;
     protected $extensions;
+    protected $lock;
 
     public function __construct(
         Wiki $wiki,
@@ -35,7 +36,8 @@ class WikiUpdater
         WikiConfigEditor $editor,
         WikiDatabase $database,
         CustomAside $aside,
-        ExtensionVersions $extensions
+        ExtensionVersions $extensions,
+        FolderLock $lock
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -44,6 +46,7 @@ class WikiUpdater
         $this->database = $database;
         $this->aside = $aside;
         $this->extensions = $extensions;
+        $this->lock = $lock;
     }
 
     /**
@@ -62,82 +65,94 @@ class WikiUpdater
             throw new \RuntimeException(_t('FERME_CLI_MASTER_EXCLUDED'));
         }
 
-        $messages = [];
-        $wakkaConfig = $this->editor->load($wikiDir);
-        $replace = $this->entriesToReplace();
-        $symlink = $this->symlinkedEntries();
-        $extras = $this->extraExtensions($sourceDir, $wikiDir);
-        [$version, $release] = $this->sourceVersion($sourceDir);
-        $sameVersion = strtolower((string)($wakkaConfig['yeswiki_version'] ?? '')) === strtolower($version);
-        $skipExtensions = $options['ignoreExtensions'] ?? false;
-        $toUpgrade = $skipExtensions ? [] : $this->extensions->toUpgrade($wikiDir, $extras, $version, (string)($wakkaConfig['yeswiki_version'] ?? ''));
-        $unpublished = $skipExtensions ? [] : $this->extensions->unpublished($extras, $version);
+        return $this->lock->during($wikiDir, _t('FERME_LOCK_UPDATE'), function () use ($wikiDir, $sourceDir, $backup, $dryRun, $options) {
+            $messages = [];
+            $wakkaConfig = $this->editor->load($wikiDir);
+            $replace = $this->entriesToReplace();
+            $symlink = $this->symlinkedEntries();
+            $extras = $this->extraExtensions($sourceDir, $wikiDir);
+            [$version, $release] = $this->sourceVersion($sourceDir);
+            $sameVersion = strtolower((string)($wakkaConfig['yeswiki_version'] ?? '')) === strtolower($version);
+            $skipExtensions = $options['ignoreExtensions'] ?? false;
+            $toUpgrade = $skipExtensions ? [] : $this->extensions->toUpgrade($wikiDir, $extras, $version, (string)($wakkaConfig['yeswiki_version'] ?? ''));
+            $unpublished = $skipExtensions ? [] : $this->extensions->unpublished($extras, $version);
 
-        if ($dryRun) {
-            return ['status' => 'updated', 'messages' => $this->plan($wikiDir, $sourceDir, $replace, $symlink, $toUpgrade, $unpublished, $backup)];
-        }
+            if ($dryRun) {
+                return ['status' => 'updated', 'messages' => $this->plan($wikiDir, $sourceDir, $replace, $symlink, $toUpgrade, $unpublished, $backup)];
+            }
 
-        foreach ($unpublished as $extension) {
-            $messages[] = $extension . ' ' . _t('FERME_CLI_EXT_NOT_PUBLISHED') . ' ' . $version;
-        }
+            foreach ($unpublished as $extension) {
+                $messages[] = $extension . ' ' . _t('FERME_CLI_EXT_NOT_PUBLISHED') . ' ' . $version;
+            }
 
-        $recovered = $this->aside->recover($wikiDir);
-        if ($recovered !== null) {
-            $messages[] = $recovered;
-        }
+            $recovered = $this->aside->recover($wikiDir);
+            if ($recovered !== null) {
+                $messages[] = $recovered;
+            }
 
-        $backupDir = null;
-        if ($backup) {
-            $backupDir = $this->prepareBackupDir($wikiDir);
-            $messages[] = _t('FERME_CLI_BACKUP_IN') . ' ' . $backupDir;
+            $backupDir = null;
+            if ($backup) {
+                $backupDir = $this->prepareBackupDir($wikiDir);
+                $messages[] = _t('FERME_CLI_BACKUP_IN') . ' ' . $backupDir;
+                try {
+                    $messages[] = $this->dumpDatabase($wakkaConfig, $backupDir);
+                } catch (\Throwable $th) {
+                    // nothing has been moved yet, so the folder is only litter
+                    $this->files->remove($backupDir);
+
+                    throw $th;
+                }
+            }
+
+            if ($sameVersion) {
+                $messages = array_merge($messages, $this->upgradeExtensions($wikiDir, $toUpgrade));
+            }
+
+            foreach (self::REMOVED_TOOLS as $entry) {
+                $this->displace($wikiDir, $entry, $backupDir);
+            }
+            $copied = 0;
+            foreach ($replace as $entry) {
+                $source = $sourceDir . DIRECTORY_SEPARATOR . $entry;
+                if (!file_exists($source)) {
+                    $messages[] = _t('FERME_EXTRA_MISSING') . ' ' . $entry;
+
+                    continue;
+                }
+                $this->displace($wikiDir, $entry, $backupDir);
+                if ($this->files->copyRecursive($source, $wikiDir . DIRECTORY_SEPARATOR . $entry) !== true) {
+                    throw new \RuntimeException(_t('FERME_COPY_INCOMPLETE') . ' ' . $entry . ' : ' . $this->files->failureSummary());
+                }
+                $copied++;
+            }
+            foreach ($symlink as $entry) {
+                $this->displace($wikiDir, $entry, $backupDir);
+                symlink($sourceDir . DIRECTORY_SEPARATOR . $entry, $wikiDir . DIRECTORY_SEPARATOR . $entry);
+            }
+            $messages[] = _t('FERME_CLI_FILES_REPLACED') . ' ' . ($copied + count($symlink));
+
+            $hibernating = ($wakkaConfig['wiki_status'] ?? '') === 'hibernate';
+            $this->patch($wikiDir, $hibernating
+                ? ['wiki_status' => 'running', 'yeswiki_version' => $version]
+                : ['yeswiki_version' => $version]);
+
             try {
-                $messages[] = $this->dumpDatabase($wakkaConfig, $backupDir);
-            } catch (\Throwable $th) {
-                // nothing has been moved yet, so the folder is only litter
+                $messages = array_merge($messages, $this->runMigrations($wikiDir, $sameVersion ? [] : $toUpgrade));
+            } finally {
+                if ($hibernating) {
+                    $this->patch($wikiDir, ['wiki_status' => 'hibernate']);
+                }
+            }
+
+            $this->patch($wikiDir, ['yeswiki_release' => $release]);
+            $messages[] = _t('FERME_CLI_STAMPED') . ' ' . $version . ' ' . $release;
+
+            if ($backupDir !== null) {
                 $this->files->remove($backupDir);
-
-                throw $th;
             }
-        }
 
-        if ($sameVersion) {
-            $messages = array_merge($messages, $this->upgradeExtensions($wikiDir, $toUpgrade));
-        }
-
-        foreach (self::REMOVED_TOOLS as $entry) {
-            $this->displace($wikiDir, $entry, $backupDir);
-        }
-        foreach ($replace as $entry) {
-            $this->displace($wikiDir, $entry, $backupDir);
-            $this->files->copyRecursive($sourceDir . DIRECTORY_SEPARATOR . $entry, $wikiDir . DIRECTORY_SEPARATOR . $entry);
-        }
-        foreach ($symlink as $entry) {
-            $this->displace($wikiDir, $entry, $backupDir);
-            symlink($sourceDir . DIRECTORY_SEPARATOR . $entry, $wikiDir . DIRECTORY_SEPARATOR . $entry);
-        }
-        $messages[] = _t('FERME_CLI_FILES_REPLACED') . ' ' . (count($replace) + count($symlink));
-
-        $hibernating = ($wakkaConfig['wiki_status'] ?? '') === 'hibernate';
-        $this->patch($wikiDir, $hibernating
-            ? ['wiki_status' => 'running', 'yeswiki_version' => $version]
-            : ['yeswiki_version' => $version]);
-
-        try {
-            $messages = array_merge($messages, $this->runMigrations($wikiDir, $sameVersion ? [] : $toUpgrade));
-        } finally {
-            if ($hibernating) {
-                $this->patch($wikiDir, ['wiki_status' => 'hibernate']);
-            }
-        }
-
-        $this->patch($wikiDir, ['yeswiki_release' => $release]);
-        $messages[] = _t('FERME_CLI_STAMPED') . ' ' . $version . ' ' . $release;
-
-        if ($backupDir !== null) {
-            $this->files->remove($backupDir);
-        }
-
-        return ['status' => 'updated', 'messages' => $messages];
+            return ['status' => 'updated', 'messages' => $messages];
+        });
     }
 
     /**

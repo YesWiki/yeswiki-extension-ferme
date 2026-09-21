@@ -12,7 +12,8 @@ Elle correspond aux besoins, souvent énoncés par les usagers de YesWiki, de po
 
 **Ce que la ferme permet de :**
  - **retrouver tous les wiki installés sur votre serveur** et de pouvoir les administrer facilement au travers d'une interface dédiée
- - **récupérer les mails** (bientôt) de tous les gestionnaires des wiki de la ferme pour pouvoir les informer de...
+ - **écrire aux personnes référentes** des wiki de la ferme, une par une ou par paquets, pour les prévenir d'une migration, d'une fermeture, d'une nouveauté
+ - **suivre l'activité de chaque wiki** : fiches, pages, comptes, fichiers, espace disque et date du dernier changement, mis à jour tout seuls
  - **créer de nouveaux wiki** au travers d'un formulaire à remplir
  - **importer un wiki et le transformer en modèle** depuis un autre serveur
 
@@ -32,28 +33,30 @@ Nous allons passer en revue les actions proposées par l'extension Ferme.
 Quand vous installez la ferme, à partir de "Gestion ferme à wikis" dans molette, vous accédez à la page suivante :
 {{attach file="Accueil.png" desc="image tousleswiki.png (0.2MB)" size="large" class="center"}}
  - c'est dans cette page que vous retrouverez tous les wiki créés
-Si l'on liste les informations disponibles, vous obtenez :
- -  **Titre du wiki** : pas besoin de plus d'explications... Une étiquette orange "custom mis de côté" s'y affiche quand une mise à jour interrompue a laissé le wiki sans son dossier custom
- -  **Personne référente**	: vous devriez comprendre
- -  **Mail référent** : pas trop dur
- -  **Derniers changements** : La date du dernier changements sur ce wiki, pratique pour suivre l'activité. Quand on clique dessus, un pop-up avec les derniers changements du site s'affiche.
- -  **Admin temporaire** : selon votre configuration, un super admin pourra être installé sur ce wiki qui vous permettra de passer de l'un à l'autre, de le gérer sans avoir à gérer de nombreux mots de passe. Vous pourrez, ici, ajouter le super admin à ce wiki ou le supprimer.
- -  **Version du wiki** : vous pourrez mettre à jour votre wiki pour l'aligner sur la version du wiki qui héberge la ferme. En bas de cette colonne, il vous sera proposé de mettre à jour tous les wiki et éventuellement les pages par défaut
--  **Actions** : là, 4 petits boutons vous permettent...
- -  <i class="fa fa-eye"></i> de voir la fiche bazar correspondant à ce wiki
- -  <i class="fa fa-pencil-alt"></i> d'éditer cette fiche pour en changer les valeurs
- -  <i class="fas fa-file-archive"></i> de créer une archive de sauvegarde du wiki
- -  <i class="fa fa-trash"></i> de supprimer ce wiki ainsi que la fiche liée
+
+En haut de la page, un bandeau donne les totaux de la ferme et des étiquettes qui filtrent la liste d'un clic : à mettre à jour, dormants, archives lourdes, suspects, en erreur, jamais mesurés. Un menu "Trier par" range les wiki par titre, personne référente, dernière activité, activité totale, fiches, pages, comptes, formulaires ou espace disque.
+
+Le tableau tient en cinq colonnes :
+ -  **Nom du wiki** : son titre, une flèche pour l'ouvrir dans un nouvel onglet, la personne référente et son mail, sa version et son compte super admin s'il en a un. S'y ajoutent, quand il y a lieu, une étiquette "custom mis de côté" laissée par une mise à jour interrompue, "suspect" quand le nom sent le spam, ou l'erreur rencontrée à la dernière mesure
+ -  **Contenu** : ce que le wiki contient — fiches, pages, formulaires, comptes. Un point d'interrogation tant qu'il n'a jamais été mesuré
+ -  **Dernière activité** : un petit graphe des douze derniers mois, et "il y a 5 j" en dessous — la date elle-même au-delà de trois mois
+ -  **Disque** : la place prise par ses fichiers, et leur nombre
+ -  **Actions** : le chevron déplie le détail du wiki (les chiffres en colonnes, la date de la mesure, et l'activité du wiki sur l'année sous forme de calendrier), le bouton ⋯ ouvre le menu : voir la fiche bazar, l'éditer, mettre à jour vers la version du wiki maître, ajouter ou retirer le compte super admin, et supprimer le wiki — cette dernière entrée ouvre la page de suppression dans un nouvel onglet, en gardant la liste derrière, et cette page rappelle en rouge ce qui va disparaître
+
+Ces chiffres ne sont pas recalculés à chaque affichage : la ferme mesure les wiki en arrière-plan, et ne recompte que ceux qui ont bougé. Sur une grosse ferme, mieux vaut lancer `ferme:stats` depuis une tâche planifiée et passer le réglage "stats on visit" à false.
 
 {{attach file="basdepagebis.png" desc="image basdepage.png (0.1MB)" size="big" class="center"}}
 En bas de cette page
  - une case "Tout sélectionner", et un menu déroulant "Actions sur la sélection" qui porte le nombre de wikis cochés. Il réunit :
    -  **Mettre à jour les wikis sélectionnés** : fichiers, migrations, et les extensions propres à chaque wiki
    -  **Mettre à jour seulement les extensions** : les extensions propres au wiki passent à la version publiée pour la version de YesWiki qu'il fait tourner, puis leurs migrations sont lancées. Le cœur n'est pas touché
+   -  **Recalculer les statistiques** : remesure les wikis cochés tout de suite, sans attendre la prochaine passe
    -  **Rétablir les dossiers custom** : une mise à jour interrompue peut laisser un wiki sans son dossier custom, mis de côté sous le nom custom.temp. Les wikis dans ce cas portent l'étiquette "custom mis de côté" sous leur titre, et cette entrée les remet en place
+   -  **Envoyer un mail** : un message aux personnes référentes des wikis cochés, dont le modèle peut nommer le wiki, son adresse, sa dernière activité
    -  **Ajouter** ou **Retirer le compte admin** sur les wikis sélectionnés
-   -  **Supprimer les wikis sélectionnés**, après confirmation
- - un bouton "Rechercher d'autres wikis sur ce serveur" permettant de retrouver des wiki déjà installés et de pouvoir les gérer ensuite au travers de la ferme.
+   -  **Supprimer les wikis sélectionnés**, après confirmation. Supprimer une fiche depuis bazar efface aussi le wiki : la page de suppression le dit en rouge et rappelle ce que le wiki contient avant que vous confirmiez
+ Chaque traitement affiche le wiki en cours et son rang sur le total, et une erreur sur l'un n'arrête pas les autres. Les suppressions partent par paquets de cinq, cinq paquets à la fois, ce qui permet d'en passer des centaines sans y laisser l'après-midi.
+ - un bouton "Rechercher d'autres wikis sur ce serveur" : il inspecte le serveur et vous rend la liste des wiki installés qui n'ont pas de fiche, à cocher pour les importer. Rien n'est importé sans votre clic.
 
 ### La page de création d'un nouveau wiki
 Il s'agit du formulaire 1100 en mode saisie. Vous remplissez la fiche et...
@@ -77,7 +80,7 @@ Son fonctionnement est relativement aisé :
  - ajouter un super administrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ;
  - de supprimer, pour chaque wiki le compte superadmin.
 Pour ce faire deux solutions
- - La première, aller dans "gestion du site" / "Fichier de conf" / Ferme. Entrez un "Login du super admin" et un "Pass du super admin" puis cliquer sur "Valider"
+ - La première, aller dans "gestion du site" / "Fichier de conf" / "Ferme à wikis". Remplissez "Nom du compte super-administrateur..." et "Mot de passe de ce compte super-administrateur" puis cliquer sur "Valider". Chaque réglage y porte une phrase qui dit à quoi il sert, et la clé correspondante à côté
  - La seconde manière consiste à ajouter les deux lignes suivantes à wakka.config.php
 ```
 'yeswiki-farm-admin-name' => 'NomWikidusuperadmin',
@@ -110,47 +113,35 @@ Attention — Ces deux paramètres doivent être en cohérence l'un avec l'autre
 
 ### Thèmes activables
 {{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
-thèmes supplémentaires (doivent être présents dans le dossier thèmes du wiki source)
+thèmes supplémentaires, copiés dans chaque wiki créé en plus de ceux du cœur. Ils doivent être installés dans le dossier `themes` du wiki de la ferme, sans quoi la création le signale et passe son chemin.
 ```
-'yeswiki-farm-extra-themes' => ['bootstrap3'],
+'yeswiki-farm-extra-themes' => ['montheme'],
 ```
 
 ### Interface de sélection des thèmes activables
 {{label class="label-danger" }}Activable uniquement dans "wakka.config.php"{{end elem="label"}}
-tableau des choix de themes (ne s'affiche pas si un seul choix possible)
+tableau des choix de themes (ne s'affiche pas si un seul choix possible). La capture
+d'écran est un nom de fichier à déposer dans `tools/ferme/screenshots/`, pas une
+adresse : un fichier absent est simplement ignoré, le thème reste proposé sans image.
 ```
 'yeswiki-farm-themes' => [
     [
       'label' => 'Margot (thème par défaut de YesWiki)', //nom du thème à l'écran
-      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/margot.jpg', (screenshot du theme dans tools/ferme/screenshots)
+      'screenshot' => 'margot.jpg', //fichier dans tools/ferme/screenshots
       'theme' => 'margot', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
       'style' => 'margot.css' //style par defaut
     ],
     [
-      'label' => 'Bootstrap (très simple)', //nom du thème à l'écran
-      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/bootstrap.jpg', //screenshot du theme dans tools/ferme/screenshots
-      'theme' => 'bootstrap3', //nom de theme
+      'label' => 'Margot clair', //nom du thème à l'écran
+      'screenshot' => false, //pas de capture d'écran
+      'theme' => 'margot', //nom de theme
       'squelette' => '1col.tpl.html', //squelette par defaut
-      'style' => 'bootstrap.min.css' //style par defaut
-    ],
-    [
-      'label' => 'Paper (material design de google)', //nom du thème à l'écran
-      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/paper.jpg', //screenshot du theme dans tools/ferme/screenshots
-      'theme' => 'bootstrap3', //nom de theme
-      'squelette' => '1col.tpl.html', //squelette par defaut
-      'style' => 'paper.bootstrap.min.css' //style par defaut
-    ],
-    [
-      'label' => 'Cyborg (theme sombre, fond noir)', //nom du thème à l'écran
-      'screenshot' => 'https://ferme.yeswiki.net/tools/ferme/screenshots/cyborg.jpg', //screenshot du theme dans tools/ferme/screenshots
-      'theme' => 'bootstrap3', //nom de theme
-      'squelette' => '1col.tpl.html', //squelette par defaut
-      'style' => 'cyborg.bootstrap.min.css' //style par defaut
+      'style' => 'light.css' //style par defaut
     ],
   ],
 ```
-  
+
 ### Tools activables
 {{label class="label-danger" }}Activable uniquement dans "wakka.config.php"{{end elem="label"}}
 tools supplémentaires (doivent etre présents dans le dossier tools du wiki source)
@@ -178,13 +169,14 @@ Proposer de sélectionner les droits d'accès (ne s'affiche pas si qu'un choix p
     ]
   ],
 ```
-===Nom de la page principale===
-{{label class="label-danger" }}Activable uniquement dans "wakka.config.php"{{end elem="label"}}
-  // nom de la page d'accueil par défaut
+### Nom de la page principale
+{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
+nom de la page d'accueil des wikis créés
 ```
 'yeswiki-farm-homepage' => 'PagePrincipale',
 ```
-===Et pour la mention===
+### Ajouts proposés à la création
+{{label class="label-danger" }}Activable uniquement dans "wakka.config.php"{{end elem="label"}}
 options d'ajout sur certaines pages
 ```
 'yeswiki-farm-options' => [
@@ -203,18 +195,33 @@ options d'ajout sur certaines pages
   ],
 ```
 
+### Compte sur le wiki de la ferme
+{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
 cas spécifique ou l'on veut créer un user sur le wiki source
 ```
 'yeswiki-farm-create-user' => false,
 ```
   
+### Réglages hérités par les wikis créés
+{{label class="label-danger" }}Activable uniquement dans "wakka.config.php"{{end elem="label"}}
 ajouter des valeurs dans le fichier de configuration des wikis créés
 ```
 'yeswiki-farm-extra-config' => ['BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'],
 ```
 
-image de fond par défaut des wikis créés
+### Image de fond
+{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
+image de fond de la page de demande de wiki
 ```
 'yeswiki-farm-bg-img' => '',
 ```
+
+### Les autres réglages
+{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
+Le reste se règle dans "gestion du site" / "Fichier de conf" / "Ferme à wikis", où
+chaque ligne porte son explication : où sont rangés les wiki et sous quelle adresse,
+le préfixe de leurs tables, le dossier des sauvegardes, la fréquence des mesures
+d'activité, le seuil à partir duquel un wiki est signalé comme suspect et les mots
+qui le déclenchent, le modèle du mail envoyé aux personnes référentes, et l'adresse
+d'un webhook Mattermost prévenu à chaque wiki créé ou supprimé.
   

@@ -215,8 +215,11 @@ class ModelAssets
         $messages = [];
 
         if (is_dir($source . '/files')) {
-            $this->files->copyRecursive($source . '/files', $target . '/files');
+            $whole = $this->files->copyRecursive($source . '/files', $target . '/files');
             $messages[] = _t('FERME_MODEL_FILES_COPIED') . ' ' . $this->countFiles($target . '/files');
+            if ($whole !== true) {
+                $messages[] = _t('FERME_COPY_INCOMPLETE') . ' ' . $this->files->failureSummary();
+            }
         }
 
         if (is_dir($source . '/custom')) {
@@ -225,7 +228,9 @@ class ModelAssets
                 if (in_array($entry, ['.', '..'], true) || in_array($entry, self::CUSTOM_SKIPPED, true)) {
                     continue;
                 }
-                $this->files->copyRecursive($source . '/custom/' . $entry, $target . '/custom/' . $entry);
+                if ($this->files->copyRecursive($source . '/custom/' . $entry, $target . '/custom/' . $entry) !== true) {
+                    $messages[] = _t('FERME_COPY_INCOMPLETE') . ' ' . $this->files->failureSummary();
+                }
             }
             $messages[] = _t('FERME_MODEL_CUSTOM_COPIED') . ' ' . $this->countFiles($target . '/custom');
         }

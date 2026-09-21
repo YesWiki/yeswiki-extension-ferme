@@ -15,6 +15,8 @@ use YesWiki\Ferme\Service\StatsPresenter;
 
 class ApiController extends YesWikiController
 {
+    public const MAX_PER_BATCH = 25;
+
     /**
      * Display Ferme API documentation.
      *
@@ -328,25 +330,50 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * Delete a single wiki (folder + DB tables + bazar entry).
+     * Delete wikis (folder + DB tables + bazar entry), one or a batch of them.
+     *
+     * The session is closed as soon as the caller is known: PHP holds its file
+     * locked for the whole request, and the browser sends several of these at once.
      *
      * @Route("/api/ferme/wikis/delete", methods={"POST"}, options={"acl":{"@admins"}})
      */
     public function deleteWiki(Request $request)
     {
-        $idFiche = trim($request->request->get('id_fiche', ''));
+        $asked = $request->request->all('id_fiches');
+        $idFiches = is_array($asked) ? array_values(array_filter(array_map('trim', $asked))) : [];
+        if ($idFiches === []) {
+            $single = trim($request->request->get('id_fiche', ''));
+            $idFiches = $single === '' ? [] : [$single];
+        }
 
-        if (empty($idFiche)) {
+        if ($idFiches === []) {
             return new ApiResponse(['success' => false, 'error' => 'Missing id_fiche'], Response::HTTP_BAD_REQUEST);
+        }
+        if (count($idFiches) > self::MAX_PER_BATCH) {
+            return new ApiResponse(['success' => false, 'error' => 'Too many entries at once'], Response::HTTP_BAD_REQUEST);
         }
 
         if (!$this->tokenIsValid()) {
             return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
-        $result = $this->getService(FarmService::class)->deleteWikiForApi($idFiche);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
 
-        return new ApiResponse($result);
+        $started = microtime(true);
+        $results = $this->getService(FarmService::class)->deleteWikisForApi($idFiches);
+        $elapsed = microtime(true) - $started;
+
+        if (count($idFiches) === 1 && !$request->request->has('id_fiches')) {
+            return new ApiResponse($results[0]);
+        }
+
+        return new ApiResponse([
+            'success' => true,
+            'results' => $results,
+            'seconds' => round($elapsed, 2),
+        ]);
     }
 
     /**

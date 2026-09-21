@@ -109,7 +109,7 @@
             {% for key, theme in farmThemes %}
                 {% if theme.screenshot %}
                     <img class="theme-screenshot img-responsive{% if key != selectedTheme %} hide {% endif %}"
-                         src="{{ theme.screenshot }}"
+                         src="tools/ferme/screenshots/{{ theme.screenshot }}"
                          alt="screenshot for theme {{ theme.label }}" />
                 {% endif %}
             {% endfor %}

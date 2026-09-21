@@ -17,6 +17,17 @@ Permet de créer automatiquement un wiki en créant une fiche bazar
 Pour supprimer un wiki, l'interface propose un bouton poubelle pour supprimer la fiche wiki et son contenu associé.
 On peut aussi supprimer par l'interface de bazar. Cela déclenche la suppression du wiki en question.
 
+### Un seul traitement à la fois par wiki
+
+Créer, mettre à jour et supprimer un wiki ne peuvent pas se faire en même temps sur
+le même wiki. Le deuxième traitement ne patiente pas : il renonce en disant ce que
+l'autre est en train de faire, et une file de suppressions ou de mises à jour passe
+au wiki suivant.
+
+Une copie qui n'a pas tout apporté est une copie ratée : une création incomplète
+échoue et efface le dossier commencé, une mise à jour s'arrête avant d'estampiller
+la version.
+
 ### Création de comptes admins temporaires pour administrer des wikis hébergés
 
 - ajouter un super administrateur à chaque wiki afin de passer outre ou palier le compte administrateur de ce wiki ;

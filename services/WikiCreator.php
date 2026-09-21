@@ -12,19 +12,22 @@ class WikiCreator
     protected $files;
     protected $yeswicli;
     protected $mattermost;
+    protected $lock;
 
     public function __construct(
         Wiki $wiki,
         FarmConfig $config,
         FileSystem $files,
         Yeswicli $yeswicli,
-        MattermostNotifier $mattermost
+        MattermostNotifier $mattermost,
+        FolderLock $lock
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->files = $files;
         $this->yeswicli = $yeswicli;
         $this->mattermost = $mattermost;
+        $this->lock = $lock;
     }
 
     public function createFromEntry(array $entry, string $fieldName, string $theme = '0', string $model = 'default-content'): void
@@ -41,48 +44,62 @@ class WikiCreator
         $folder = $entry[$fieldName];
         $destfolder = $this->config->wikiDir($folder);
 
-        if (is_dir($destfolder)) {
-            throw new WikiCreationException(_t('FERME_ADDRESS_TAKEN_1') . ' ' . $this->config->rootUrl() . $folder . ' ' . _t('FERME_ADDRESS_TAKEN_2'), $fieldName);
-        }
-        if (!is_writable($this->config->rootFolder())) {
-            throw new WikiCreationException('Le dossier ' . $this->config->rootFolder() . ' n\'est pas accessible en écriture');
+        if (!$this->lock->acquire($destfolder, _t('FERME_LOCK_CREATE'))) {
+            throw new WikiCreationException(_t('FERME_FOLDER_BUSY') . ' ' . $folder, $fieldName);
         }
 
-        $this->copyWikiFiles(getcwd() . DIRECTORY_SEPARATOR, $destfolder);
+        try {
+            if (is_dir($destfolder)) {
+                throw new WikiCreationException(_t('FERME_ADDRESS_TAKEN_1') . ' ' . $this->config->rootUrl() . $folder . ' ' . _t('FERME_ADDRESS_TAKEN_2'), $fieldName);
+            }
+            if (!is_writable($this->config->rootFolder())) {
+                throw new WikiCreationException('Le dossier ' . $this->config->rootFolder() . ' n\'est pas accessible en écriture');
+            }
 
-        $prefix = $this->tablePrefix($entry, $fieldName);
-        $config = $this->buildWikiConfig($entry, $fieldName, $prefix, $this->resolveRights($entry, $fieldName), $this->config->theme($theme));
-        $this->writeWikiConfig($destfolder, $config);
+            try {
+                $this->copyWikiFiles(getcwd() . DIRECTORY_SEPARATOR, $destfolder);
+            } catch (\Throwable $th) {
+                $this->files->remove($destfolder);
 
-        $link = $this->createDbConnection();
-        $sqlReport = $this->createWikiDatabase($link, $prefix, [
-            'prefix' => $prefix,
-            'siteTitle' => $config['wakka_name'],
-            'WikiName' => $entry[$fieldName . '_wikiname'],
-            'hashedpassword' => md5($entry[$fieldName . '_password']),
-            'email' => $entry[$fieldName . '_email'],
-            'rootPage' => $config['root_page'],
-        ], $model);
+                throw $th;
+            }
 
-        $this->reportSql($sqlReport);
+            $prefix = $this->tablePrefix($entry, $fieldName);
+            $config = $this->buildWikiConfig($entry, $fieldName, $prefix, $this->resolveRights($entry, $fieldName), $this->config->theme($theme));
+            $this->writeWikiConfig($destfolder, $config);
 
-        if ($model !== 'default-content') {
-            $this->copyModelFiles($model, $destfolder);
+            $link = $this->createDbConnection();
+            $sqlReport = $this->createWikiDatabase($link, $prefix, [
+                'prefix' => $prefix,
+                'siteTitle' => $config['wakka_name'],
+                'WikiName' => $entry[$fieldName . '_wikiname'],
+                'hashedpassword' => md5($entry[$fieldName . '_password']),
+                'email' => $entry[$fieldName . '_email'],
+                'rootPage' => $config['root_page'],
+            ], $model);
+
+            $this->reportSql($sqlReport);
+
+            if ($model !== 'default-content') {
+                $this->copyModelFiles($model, $destfolder);
+            }
+
+            if (!empty($entry['access-username'])) {
+                $this->createWikiUser($link, $prefix, $entry, $fieldName);
+            }
+
+            if (!empty($entry['yeswiki-farm-options'])) {
+                $this->applyOptions($prefix, $entry['yeswiki-farm-options']);
+            }
+
+            $this->reportMigration($this->yeswicli->migrate($destfolder));
+
+            $this->createGroup($prefix, $entry);
+
+            $this->mattermost->created($entry, $folder);
+        } finally {
+            $this->lock->release($destfolder);
         }
-
-        if (!empty($entry['access-username'])) {
-            $this->createWikiUser($link, $prefix, $entry, $fieldName);
-        }
-
-        if (!empty($entry['yeswiki-farm-options'])) {
-            $this->applyOptions($prefix, $entry['yeswiki-farm-options']);
-        }
-
-        $this->reportMigration($this->yeswicli->migrate($destfolder));
-
-        $this->createGroup($prefix, $entry);
-
-        $this->mattermost->created($entry, $folder);
     }
 
     /** Refuse a theme, model, acl or option the farm does not offer. */
@@ -157,17 +174,23 @@ class WikiCreator
     {
         $symlinked = $this->wiki->config['yeswiki_symlinked_files'];
 
-        mkdir($destfolder, 0755, true);
+        $this->makeDir($destfolder);
         foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
             if (!in_array($folder, $symlinked)) {
-                mkdir($destfolder . $folder, 0777, true);
+                $this->makeDir($destfolder . $folder);
             }
         }
 
         foreach ($this->wiki->config['yeswiki_files'] as $file) {
-            if (!in_array($file, $symlinked)) {
-                $this->files->copyRecursive($srcfolder . $file, $destfolder . $file);
+            if (in_array($file, $symlinked)) {
+                continue;
             }
+            if (!file_exists($srcfolder . $file)) {
+                $this->warn(_t('FERME_EXTRA_MISSING') . ' ' . $file);
+
+                continue;
+            }
+            $this->copyOrFail($srcfolder . $file, $destfolder . $file);
         }
 
         foreach ($symlinked as $file) {
@@ -176,10 +199,13 @@ class WikiCreator
 
         foreach (['themes' => 'yeswiki-farm-extra-themes', 'tools' => 'yeswiki-farm-extra-tools'] as $parent => $configKey) {
             foreach ($this->wiki->config[$configKey] as $dir) {
-                $this->files->copyRecursive(
-                    $srcfolder . $parent . DIRECTORY_SEPARATOR . $dir,
-                    $destfolder . $parent . DIRECTORY_SEPARATOR . $dir
-                );
+                $source = $srcfolder . $parent . DIRECTORY_SEPARATOR . $dir;
+                if (!file_exists($source)) {
+                    $this->warn(_t('FERME_EXTRA_MISSING') . ' ' . $parent . '/' . $dir);
+
+                    continue;
+                }
+                $this->copyOrFail($source, $destfolder . $parent . DIRECTORY_SEPARATOR . $dir);
             }
         }
     }
@@ -189,8 +215,28 @@ class WikiCreator
         foreach (['files', 'custom'] as $dir) {
             $source = $this->config->modelDir($model) . '/' . $dir;
             if (is_dir($source)) {
-                $this->files->copyRecursive($source, $destfolder . $dir);
+                $this->copyOrFail($source, $destfolder . $dir);
             }
+        }
+    }
+
+    /**
+     * A wiki whose files did not all arrive is not a wiki. Better to say which ones
+     * are missing than to hand over a tree that looks installed.
+     */
+    private function copyOrFail(string $source, string $dest): void
+    {
+        if ($this->files->copyRecursive($source, $dest) === true) {
+            return;
+        }
+
+        throw new WikiCreationException(_t('FERME_COPY_INCOMPLETE') . ' ' . $source . ' : ' . $this->files->failureSummary());
+    }
+
+    private function makeDir(string $dir): void
+    {
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new WikiCreationException(_t('FERME_CLI_CANNOT_CREATE_DIR') . ' ' . $dir);
         }
     }
 
@@ -375,6 +421,15 @@ class WikiCreator
         $message = _t('FERME_MIGRATION_FAILED') . '<br /><pre>' . htmlspecialchars(implode("\n", $errors)) . '</pre>';
         if (function_exists('flash')) {
             flash($message, 'danger');
+        } else {
+            $this->wiki->SetMessage($message);
+        }
+    }
+
+    private function warn(string $message): void
+    {
+        if (function_exists('flash')) {
+            flash($message, 'warning');
         } else {
             $this->wiki->SetMessage($message);
         }

@@ -143,7 +143,10 @@ class CustomAside
             return $target;
         }
 
-        throw new \RuntimeException(_t('FERME_CLI_CANNOT_MOVE') . ' ' . $custom);
+        $summary = $this->files->failureSummary();
+        $this->files->remove($target);
+
+        throw new \RuntimeException(trim(_t('FERME_CLI_CANNOT_MOVE') . ' ' . $custom . ' ' . $summary));
     }
 
     /**

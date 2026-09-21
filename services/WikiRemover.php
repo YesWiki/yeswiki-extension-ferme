@@ -3,16 +3,23 @@
 namespace YesWiki\Ferme\Service;
 
 use YesWiki\Bazar\Service\EntryManager;
+use YesWiki\Ferme\Exception\FolderBusyException;
 use YesWiki\Wiki;
 
 class WikiRemover
 {
+    public const SLOW_MS = 1000;
+    public const LOG_FILE = 'private/logs/ferme-delete.log';
+
     protected $wiki;
     protected $config;
     protected $files;
     protected $entryManager;
     protected $stats;
     protected $mattermost;
+    protected $lock;
+    protected $plan;
+    protected $timings = [];
 
     public function __construct(
         Wiki $wiki,
@@ -20,7 +27,8 @@ class WikiRemover
         FileSystem $files,
         EntryManager $entryManager,
         WikiStatsStore $stats,
-        MattermostNotifier $mattermost
+        MattermostNotifier $mattermost,
+        FolderLock $lock
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -28,41 +36,74 @@ class WikiRemover
         $this->entryManager = $entryManager;
         $this->stats = $stats;
         $this->mattermost = $mattermost;
+        $this->lock = $lock;
     }
 
     public function deleteForApi(string $idFiche): array
     {
-        $folder = $this->resolveFolder($idFiche);
-        if (!is_string($folder)) {
-            return $folder;
+        return $this->deleteMany([$idFiche])[0];
+    }
+
+    /**
+     * Delete several wikis in one go. What was paid per wiki and is now paid once:
+     * reading the farm's entries to know which folders are claimed twice, and the
+     * dictionary work of dropping tables, which the server charges per statement.
+     *
+     * @param array<int,string> $idFiches
+     *
+     * @return array<int,array<string,mixed>> one result per entry, in the same order
+     */
+    public function deleteMany(array $idFiches): array
+    {
+        $results = [];
+        foreach ($idFiches as $idFiche) {
+            $results[] = $this->deleteOne(trim((string)$idFiche));
         }
 
-        $entry = $this->entryManager->getOne($idFiche) ?? [];
-        $kept = $this->deleteWikiData($folder, $idFiche);
-
-        try {
-            $this->entryManager->delete($idFiche, true);
-        } catch (\Throwable $th) {
-            return ['success' => false, 'error' => 'Entry deletion failed: ' . $th->getMessage()];
-        }
-
-        $this->mattermost->deleted($entry, $folder, $kept !== []);
-
-        return $kept === []
-            ? ['success' => true]
-            : ['success' => true, 'output' => _t('FERME_WIKI_KEPT_FOR') . ' ' . implode(', ', $kept)];
+        return $results;
     }
 
     public function deleteFromEntry(string $idFiche): void
     {
+        $this->deleteOne($idFiche);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function deleteOne(string $idFiche): array
+    {
+        $this->timings = [];
+        $started = microtime(true);
         $folder = $this->resolveFolder($idFiche);
         if (!is_string($folder)) {
-            return;
+            return array_merge(['id_fiche' => $idFiche], $folder);
         }
 
         $entry = $this->entryManager->getOne($idFiche) ?? [];
-        $kept = $this->deleteWikiData($folder, $idFiche);
+
+        try {
+            $kept = $this->deleteWikiData($folder, $idFiche);
+        } catch (FolderBusyException $busy) {
+            return ['id_fiche' => $idFiche, 'success' => false, 'error' => $busy->getMessage()];
+        }
+
+        try {
+            $this->timed('entry', function () use ($idFiche) {
+                $this->entryManager->delete($idFiche, true);
+            });
+        } catch (\Throwable $th) {
+            return ['id_fiche' => $idFiche, 'success' => false, 'error' => 'Entry deletion failed: ' . $th->getMessage()];
+        }
+
+        $this->plan()->forget($idFiche);
         $this->mattermost->deleted($entry, $folder, $kept !== []);
+
+        $timings = $this->report($folder, $started);
+
+        return $kept === []
+            ? ['id_fiche' => $idFiche, 'success' => true, 'timings' => $timings]
+            : ['id_fiche' => $idFiche, 'success' => true, 'timings' => $timings, 'output' => _t('FERME_WIKI_KEPT_FOR') . ' ' . implode(', ', $kept)];
     }
 
     private function resolveFolder(string $idFiche)
@@ -102,28 +143,37 @@ class WikiRemover
             return $claimedElsewhere;
         }
 
-        $this->stats->forget($folder);
-
         $dir = $this->config->wikiDir($folder);
-        if (!is_dir($dir)) {
+
+        return $this->lock->during($dir, _t('FERME_LOCK_DELETE'), function () use ($folder, $dir) {
+            $this->timed('stats', function () use ($folder) {
+                $this->stats->forget($folder);
+            });
+
+            if (!is_dir($dir)) {
+                return [];
+            }
+
+            $prefix = (string)($this->config->readWikiConfig($folder)['table_prefix'] ?? '');
+
+            $this->timed('files', function () use ($dir) {
+                $this->files->rrmdir($dir);
+            });
+
+            if ($prefix === '') {
+                return [];
+            }
+
+            $tables = array_map(function ($table) use ($prefix) {
+                return '`' . $prefix . $table . '`';
+            }, WikiRepository::WIKI_TABLES);
+
+            $this->timed('tables', function () use ($tables) {
+                $this->wiki->Query('DROP TABLE IF EXISTS ' . implode(', ', $tables) . ';');
+            });
+
             return [];
-        }
-
-        $prefix = $this->config->readWikiConfig($folder)['table_prefix'] ?? '';
-
-        $this->files->rrmdir($dir);
-
-        if (empty($prefix)) {
-            return [];
-        }
-
-        $tables = array_map(function ($table) use ($prefix) {
-            return '`' . $prefix . $table . '`';
-        }, WikiRepository::WIKI_TABLES);
-
-        $this->wiki->Query('DROP TABLE IF EXISTS ' . implode(', ', $tables) . ';');
-
-        return [];
+        });
     }
 
     /**
@@ -131,19 +181,72 @@ class WikiRemover
      */
     public function otherEntriesClaiming(string $folder, string $idFiche): array
     {
-        $farmId = (string)($this->wiki->config['bazar_farm_id'] ?? '1100');
+        return $this->plan()->others($folder, $idFiche);
+    }
 
-        $others = [];
-        foreach ($this->entryManager->search(['formsIds' => [$farmId]]) as $entry) {
-            if ((string)($entry['bf_dossier-wiki'] ?? '') !== $folder) {
-                continue;
-            }
-            if ((string)($entry['id_fiche'] ?? '') === $idFiche) {
-                continue;
-            }
-            $others[] = (string)$entry['id_fiche'];
+    /**
+     * The farm's entries, read once and kept for the rest of the request.
+     */
+    private function plan(): DeletionPlan
+    {
+        if ($this->plan === null) {
+            $this->timed('claims', function () {
+                $farmId = (string)($this->wiki->config['bazar_farm_id'] ?? '1100');
+                $this->plan = new DeletionPlan();
+                $this->plan->index($this->entryManager->search(['formsIds' => [$farmId]]));
+            });
         }
 
-        return $others;
+        return $this->plan;
+    }
+
+    /**
+     * @return mixed whatever the work returns
+     */
+    private function timed(string $phase, callable $work)
+    {
+        $started = microtime(true);
+
+        try {
+            return $work();
+        } finally {
+            $this->timings[$phase] = (int)round((microtime(true) - $started) * 1000);
+        }
+    }
+
+    /**
+     * Where a deletion spent its time, and a line in the log for the slow ones: on a
+     * farm of thousands, the difference between a minute and an hour is one phase.
+     *
+     * @return array<string,int> milliseconds per phase
+     */
+    private function report(string $folder, float $started): array
+    {
+        $timings = $this->timings;
+        $timings['total'] = (int)round((microtime(true) - $started) * 1000);
+
+        if ($timings['total'] >= self::SLOW_MS && $this->logDir() !== null) {
+            $parts = [];
+            foreach ($timings as $phase => $ms) {
+                $parts[] = $phase . ' ' . $ms;
+            }
+            @file_put_contents(
+                self::LOG_FILE,
+                date('c') . ' ' . $folder . ' ' . implode(' ', $parts) . PHP_EOL,
+                FILE_APPEND
+            );
+        }
+
+        return $timings;
+    }
+
+    private function logDir(): ?string
+    {
+        $dir = dirname(self::LOG_FILE);
+        if (is_dir($dir) || @mkdir($dir, 0700, true) || is_dir($dir)) {
+            return $dir;
+        }
+
+        return null;
     }
 }

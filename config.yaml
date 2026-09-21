@@ -123,7 +123,8 @@ parameters:
     - 'yeswiki-farm-prefix'
     - 'yeswiki-farm-homepage'
     - 'yeswiki-farm-bg-img'
-    - 'contact_wikis[default_template]'
+    - contact_wikis:
+        - default_template
     - 'yeswiki-farm-mattermost-webhook'
 services:
   _defaults:

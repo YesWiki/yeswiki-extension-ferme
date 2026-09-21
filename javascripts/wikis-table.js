@@ -24,11 +24,11 @@ $(document).ready(function() {
   var tableI18n = {
     see: $table.data('i18n-see'),
     edit: $table.data('i18n-edit'),
-    backup: $table.data('i18n-backup'),
-    del: $table.data('i18n-delete'),
-    confirmDelete: $table.data('i18n-confirm-delete')
+    del: $table.data('i18n-delete')
   };
 
+  var DELETE_CHUNK = 5;
+  var DELETE_PARALLEL = 5;
   var selectedWikis = {};
   var activeFilter = '';
   var chips = [
@@ -244,6 +244,11 @@ $(document).ready(function() {
             + ' data-admin-wiki="' + esc(row.admin.folder) + '">'
             + '<i class="fas fa-user-' + (row.admin.present ? 'minus' : 'plus') + ' fa-fw"></i> '
             + esc(row.admin.present ? i18n.i18nAdminRemove : i18n.i18nAdminAdd) + '</a></li>';
+        }
+        if (row.delete_url) {
+          items += '<li role="separator" class="divider"></li>'
+            + '<li><a href="' + esc(row.delete_url) + '" class="text-danger" target="_blank" rel="noopener">'
+            + '<i class="fa fa-trash fa-fw"></i> ' + esc(tableI18n.del) + '</a></li>';
         }
         return '<div class="btn-group">'
           + '<button type="button" class="btn btn-default btn-xs ferme-detail-toggle" title="' + esc(i18n.i18nDetail) + '">'
@@ -688,47 +693,107 @@ $(document).ready(function() {
     });
     $('#delete-progress-stage').show();
     $('#delete-footer-progress').show();
-    deleteSequential(wikis, 0);
+    deleteAll(wikis);
   });
 
-  function deleteSequential(wikis, index, done) {
-    done = done || { ok: 0, failed: 0 };
-
-    if (index >= wikis.length) {
-      summarise($('#delete-wikis-list'), done.ok, done.failed);
-      $('#delete-selected-modal').find('.ferme-progress').text('');
-      $('#btn-close-delete-modal').prop('disabled', false);
-      wikisTable.ajax.reload(null, false);
-      return;
+  function deleteAll(wikis) {
+    var chunks = [];
+    for (var i = 0; i < wikis.length; i += DELETE_CHUNK) {
+      chunks.push(wikis.slice(i, i + DELETE_CHUNK));
     }
 
-    var wiki = wikis[index];
-    var $item = $('#delete-item-' + wiki.folder);
-    follow('#delete-selected-modal', '#delete-wikis-list', $item, index, wikis.length);
+    var done = { ok: 0, failed: 0 };
+    var next = 0;
+    var running = 0;
 
-    $item.find('.delete-icon').attr('class', 'fas fa-spinner fa-spin delete-icon text-info');
-    $item.find('.delete-badge').text(i18n.deleting).css('background-color', '#5bc0de');
-
-    postWithToken(deleteUrl, { id_fiche: wiki.idFiche }).done(function(response) {
-      if (response.success) {
-        done.ok++;
-        $item.find('.delete-icon').attr('class', 'fas fa-check delete-icon text-success');
-        $item.find('.delete-badge').text(i18n.deleteSuccess).css('background-color', '#5cb85c');
-        if (response.output) {
-          $item.find('.delete-output pre').text(response.output);
-          $item.find('.delete-output').show();
-        }
-        delete selectedWikis[wiki.folder];
-        updateBulkBtns();
-      } else {
-        done.failed++;
-        $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
-        $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
-        $item.find('.delete-output pre').text(response.error || '');
-        $item.find('.delete-output').show();
+    function pump() {
+      while (running < DELETE_PARALLEL && next < chunks.length) {
+        send(chunks[next]);
+        next++;
       }
-      deleteSequential(wikis, index + 1, done);
-    });
+      if (running === 0 && next >= chunks.length) {
+        summarise($('#delete-wikis-list'), done.ok, done.failed);
+        $('#delete-selected-modal').find('.ferme-progress').text('');
+        $('#btn-close-delete-modal').prop('disabled', false);
+        wikisTable.ajax.reload(null, false);
+      }
+    }
+
+    function send(chunk) {
+      running++;
+      var byIdFiche = {};
+
+      chunk.forEach(function (wiki) {
+        byIdFiche[wiki.idFiche] = wiki;
+        var $item = $('#delete-item-' + wiki.folder);
+        $item.find('.delete-icon').attr('class', 'fas fa-spinner fa-spin delete-icon text-info');
+        $item.find('.delete-badge').text(i18n.deleting).css('background-color', '#5bc0de');
+      });
+
+      postWithToken(deleteUrl, {
+        id_fiches: chunk.map(function (wiki) {
+          return wiki.idFiche;
+        })
+      }).done(function (response) {
+        var results = (response && response.results) || [];
+        var seen = {};
+
+        results.forEach(function (result) {
+          var wiki = byIdFiche[result.id_fiche];
+          if (!wiki) {
+            return;
+          }
+          seen[result.id_fiche] = true;
+          showDeleted(wiki, result, done);
+        });
+
+        chunk.forEach(function (wiki) {
+          if (!seen[wiki.idFiche]) {
+            showDeleted(wiki, { success: false, error: (response && response.error) || i18n.deleteError }, done);
+          }
+        });
+
+        running--;
+        follow('#delete-selected-modal', '#delete-wikis-list', firstPending(wikis), done.ok + done.failed, wikis.length);
+        pump();
+      });
+    }
+
+    follow('#delete-selected-modal', '#delete-wikis-list', $('#delete-item-' + wikis[0].folder), 0, wikis.length);
+    pump();
+  }
+
+  function firstPending(wikis) {
+    for (var i = 0; i < wikis.length; i++) {
+      var $item = $('#delete-item-' + wikis[i].folder);
+      if ($item.find('.fa-spinner, .fa-clock').length) {
+        return $item;
+      }
+    }
+
+    return $('#delete-item-' + wikis[wikis.length - 1].folder);
+  }
+
+  function showDeleted(wiki, result, done) {
+    var $item = $('#delete-item-' + wiki.folder);
+
+    if (result.success) {
+      done.ok++;
+      $item.find('.delete-icon').attr('class', 'fas fa-check delete-icon text-success');
+      $item.find('.delete-badge').text(i18n.deleteSuccess).css('background-color', '#5cb85c');
+      delete selectedWikis[wiki.folder];
+      updateBulkBtns();
+    } else {
+      done.failed++;
+      $item.find('.delete-icon').attr('class', 'fas fa-times delete-icon text-danger');
+      $item.find('.delete-badge').text(i18n.deleteError).css('background-color', '#d9534f');
+    }
+
+    var output = result.success ? result.output : result.error;
+    if (output) {
+      $item.find('.delete-output pre').text(output);
+      $item.find('.delete-output').show();
+    }
   }
 
   function adminAjax(folder, action) {
