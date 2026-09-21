@@ -257,6 +257,7 @@ class WikiRepository
             return $fiche;
         }
 
+        $fiche['custom_aside'] = file_exists($this->config->wikiDir($folder) . CustomAside::ASIDE);
         $fiche['url'] = $wakkaConfig['base_url'] . $wakkaConfig['root_page'];
         $fiche['version'] = $this->describeVersion($wakkaConfig, $folder);
         $fiche['admin'] = $this->describeAdmin($folder);

@@ -78,10 +78,76 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Wiki folder not found: ' . $wikiFolder], Response::HTTP_NOT_FOUND);
         }
 
-        set_time_limit(300);
+        set_time_limit(0);
+        ignore_user_abort(true);
 
         try {
             $result = $farm->updateWiki($wikiFolder);
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse(['success' => true, 'output' => implode("\n", $result['messages'])]);
+    }
+
+    /**
+     * Bring one wiki's own extensions up, without touching its core.
+     *
+     * @Route("/api/ferme/wikis/upgrade-extensions", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function upgradeWikiExtensions(Request $request)
+    {
+        $wikiFolder = trim($request->request->get('folder', ''));
+
+        if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $farm = $this->getService(FarmService::class);
+        if (!is_dir($farm->getWikiPath($wikiFolder))) {
+            return new ApiResponse(['success' => false, 'error' => 'Wiki folder not found: ' . $wikiFolder], Response::HTTP_NOT_FOUND);
+        }
+
+        set_time_limit(0);
+        ignore_user_abort(true);
+
+        try {
+            $result = $farm->updateWikiExtensions($wikiFolder);
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse(['success' => true, 'output' => implode("\n", $result['messages'])]);
+    }
+
+    /**
+     * Put back the custom/ folder an interrupted update left aside.
+     *
+     * @Route("/api/ferme/wikis/recover-custom", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function recoverWikiCustom(Request $request)
+    {
+        $wikiFolder = trim($request->request->get('folder', ''));
+
+        if (empty($wikiFolder) || !preg_match('/^[a-zA-Z0-9_\-]+$/', $wikiFolder)) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid wiki folder name'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $farm = $this->getService(FarmService::class);
+        if (!is_dir($farm->getWikiPath($wikiFolder))) {
+            return new ApiResponse(['success' => false, 'error' => 'Wiki folder not found: ' . $wikiFolder], Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $result = $farm->recoverWikiCustom($wikiFolder);
         } catch (\Throwable $th) {
             return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
         }
@@ -289,6 +355,10 @@ class ApiController extends YesWikiController
             'error' => isset($fiche['error'])
                 ? '<div class="alert alert-danger">' . htmlspecialchars($fiche['error']) . '</div>'
                 : null,
+            'custom_warning' => empty($fiche['custom_aside'])
+                ? null
+                : '<div><span class="label label-warning"><i class="fas fa-exclamation-triangle"></i> '
+                    . htmlspecialchars(_t('FERME_CUSTOM_BROKEN')) . '</span></div>',
         ];
     }
 

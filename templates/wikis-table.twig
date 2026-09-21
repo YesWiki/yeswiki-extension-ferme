@@ -42,38 +42,47 @@
             <span>{{ _t("FERME_SELECT_ALL") }}</span>
         </label>
     </div>
-    <button id="btn-upgrade-selected"
-            type="button"
-            class="btn btn-warning"
-            disabled>
-        <i class="fas fa-sync-alt"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}
-        <span id="upgrade-selected-count" class="badge" style="display:none;"></span>
-    </button>
-    <button id="btn-admin-add-selected"
-            type="button"
-            class="btn btn-success"
-            disabled>
-        <i class="fas fa-user-plus"></i> {{ _t("FERME_ADMIN_ADD_SELECTED") }}
-        <span id="admin-add-selected-count" class="badge" style="display:none;"></span>
-    </button>
-    <button id="btn-admin-remove-selected"
-            type="button"
-            class="btn btn-default"
-            disabled>
-        <i class="fas fa-user-minus"></i> {{ _t("FERME_ADMIN_REMOVE_SELECTED") }}
-        <span id="admin-remove-selected-count" class="badge" style="display:none;"></span>
-    </button>
-    <button id="btn-delete-selected"
-            type="button"
-            class="btn btn-danger"
-            disabled>
-        <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}
-        <span id="delete-selected-count" class="badge" style="display:none;"></span>
-    </button>
+    <div class="btn-group">
+        <button id="btn-bulk-actions"
+                type="button"
+                class="btn btn-primary dropdown-toggle"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+                disabled>
+            {{ _t("FERME_SELECTION_ACTIONS") }}
+            <span id="bulk-selected-count" class="badge" style="display:none;"></span>
+            <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="btn-bulk-actions">
+            <li>
+                <a href="#" id="btn-upgrade-selected"><i class="fas fa-sync-alt fa-fw"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}</a>
+            </li>
+            <li>
+                <a href="#" id="btn-upgrade-extensions-selected"><i class="fas fa-puzzle-piece fa-fw"></i> {{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}</a>
+            </li>
+            <li>
+                <a href="#" id="btn-recover-custom-selected"><i class="fas fa-undo fa-fw"></i> {{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}</a>
+            </li>
+            <li role="separator" class="divider"></li>
+            <li>
+                <a href="#" id="btn-admin-add-selected"><i class="fas fa-user-plus fa-fw"></i> {{ _t("FERME_ADMIN_ADD_SELECTED") }}</a>
+            </li>
+            <li>
+                <a href="#" id="btn-admin-remove-selected"><i class="fas fa-user-minus fa-fw"></i> {{ _t("FERME_ADMIN_REMOVE_SELECTED") }}</a>
+            </li>
+            <li role="separator" class="divider"></li>
+            <li>
+                <a href="#" id="btn-delete-selected" class="text-danger"><i class="fas fa-trash fa-fw"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}</a>
+            </li>
+        </ul>
+    </div>
 </div>
 <div id="upgrade-wikis-config"
      style="display:none"
      data-upgrade-url="{{ upgrade_api_url }}"
+     data-upgrade-extensions-url="{{ upgrade_extensions_api_url }}"
+     data-recover-custom-url="{{ recover_custom_api_url }}"
      data-delete-url="{{ delete_api_url }}"
      data-search-url="{{ search_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
@@ -103,7 +112,13 @@
      data-admin-remove-intro="{{ _t("FERME_ADMIN_REMOVE_SELECTED_INTRO") }}"
      data-admin-added="{{ _t("FERME_ADMIN_ADDED_STATUS") }}"
      data-admin-removed="{{ _t("FERME_ADMIN_REMOVED_STATUS") }}"
-     data-admin-error="{{ _t("FERME_ADMIN_ERROR_STATUS") }}"></div>
+     data-admin-error="{{ _t("FERME_ADMIN_ERROR_STATUS") }}"
+     data-upgrade-title="{{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}"
+     data-upgrade-intro="{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}"
+     data-upgrade-ext-title="{{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}"
+     data-upgrade-ext-intro="{{ _t("FERME_UPGRADE_EXTENSIONS_INTRO") }}"
+     data-recover-title="{{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}"
+     data-recover-intro="{{ _t("FERME_RECOVER_CUSTOM_INTRO") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
 {# Upgrade modal #}
 <div class="modal fade"
@@ -117,11 +132,12 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h4 class="modal-title" id="upgrade-selected-modal-label">
-                    <i class="fas fa-sync-alt"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}
+                    <i id="upgrade-selected-modal-icon" class="fas fa-sync-alt"></i>
+                    <span id="upgrade-selected-modal-label-text">{{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}</span>
                 </h4>
             </div>
             <div class="modal-body">
-                <p class="text-muted">{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}</p>
+                <p class="text-muted" id="upgrade-selected-intro">{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}</p>
                 <div id="upgrade-wikis-list"
                      class="list-group"
                      style="max-height:400px;

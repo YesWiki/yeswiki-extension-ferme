@@ -33,7 +33,7 @@ Quand vous installez la ferme, à partir de "Gestion ferme à wikis" dans molett
 {{attach file="Accueil.png" desc="image tousleswiki.png (0.2MB)" size="large" class="center"}}
  - c'est dans cette page que vous retrouverez tous les wiki créés
 Si l'on liste les informations disponibles, vous obtenez :
- -  **Titre du wiki** : pas besoin de plus d'explications...
+ -  **Titre du wiki** : pas besoin de plus d'explications... Une étiquette orange "custom mis de côté" s'y affiche quand une mise à jour interrompue a laissé le wiki sans son dossier custom
  -  **Personne référente**	: vous devriez comprendre
  -  **Mail référent** : pas trop dur
  -  **Derniers changements** : La date du dernier changements sur ce wiki, pratique pour suivre l'activité. Quand on clique dessus, un pop-up avec les derniers changements du site s'affiche.
@@ -46,8 +46,13 @@ Si l'on liste les informations disponibles, vous obtenez :
  -  <i class="fa fa-trash"></i> de supprimer ce wiki ainsi que la fiche liée
 
 {{attach file="basdepagebis.png" desc="image basdepage.png (0.1MB)" size="big" class="center"}}
-En bas de cette page 
- - le bouton à droite déjà évoqué concernant les mises en page de masse 
+En bas de cette page
+ - une case "Tout sélectionner", et un menu déroulant "Actions sur la sélection" qui porte le nombre de wikis cochés. Il réunit :
+   -  **Mettre à jour les wikis sélectionnés** : fichiers, migrations, et les extensions propres à chaque wiki
+   -  **Mettre à jour seulement les extensions** : les extensions propres au wiki passent à la version publiée pour la version de YesWiki qu'il fait tourner, puis leurs migrations sont lancées. Le cœur n'est pas touché
+   -  **Rétablir les dossiers custom** : une mise à jour interrompue peut laisser un wiki sans son dossier custom, mis de côté sous le nom custom.temp. Les wikis dans ce cas portent l'étiquette "custom mis de côté" sous leur titre, et cette entrée les remet en place
+   -  **Ajouter** ou **Retirer le compte admin** sur les wikis sélectionnés
+   -  **Supprimer les wikis sélectionnés**, après confirmation
  - un bouton "Rechercher d'autres wikis sur ce serveur" permettant de retrouver des wiki déjà installés et de pouvoir les gérer ensuite au travers de la ferme.
 
 ### La page de création d'un nouveau wiki

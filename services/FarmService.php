@@ -12,6 +12,7 @@ class FarmService
     protected $remover;
     protected $repository;
     protected $modelAssets;
+    protected $aside;
 
     public function __construct(
         FarmConfig $config,
@@ -21,7 +22,8 @@ class FarmService
         WikiUpdater $updater,
         WikiRemover $remover,
         WikiRepository $repository,
-        ModelAssets $modelAssets
+        ModelAssets $modelAssets,
+        CustomAside $aside
     ) {
         $this->config = $config;
         $this->files = $files;
@@ -31,6 +33,7 @@ class FarmService
         $this->remover = $remover;
         $this->repository = $repository;
         $this->modelAssets = $modelAssets;
+        $this->aside = $aside;
     }
 
     public function initFarmConfig()
@@ -91,6 +94,23 @@ class FarmService
     public function updateWiki($wiki, array $options = [])
     {
         return $this->updater->update($this->config->wikiDir($wiki), $options);
+    }
+
+    public function updateWikiExtensions($wiki, array $options = [])
+    {
+        return $this->updater->updateExtensions($this->config->wikiDir($wiki), $options);
+    }
+
+    /**
+     * @return array{status:string,messages:array<int,string>}
+     */
+    public function recoverWikiCustom($wiki): array
+    {
+        $recovered = $this->aside->recover($this->config->wikiDir($wiki));
+
+        return $recovered === null
+            ? ['status' => 'nothing', 'messages' => [_t('FERME_CUSTOM_NOTHING_TO_RECOVER')]]
+            : ['status' => 'recovered', 'messages' => [$recovered]];
     }
 
     public function deleteWikiForApi(string $idFiche): array

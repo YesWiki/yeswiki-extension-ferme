@@ -18,7 +18,6 @@ class WikiUpdater
 {
     private const REMOVED_TOOLS = ['tools/despam', 'tools/hashcash', 'tools/ipblock', 'tools/nospam'];
     private const CONSOLE = 'includes/commands/console';
-    private const CUSTOM_ASIDE = 'custom.temp';
     private const PROCESS_TIMEOUT = 600;
 
     protected $wiki;
@@ -26,23 +25,29 @@ class WikiUpdater
     protected $files;
     protected $editor;
     protected $database;
+    protected $aside;
+    protected $extensions;
 
     public function __construct(
         Wiki $wiki,
         FarmConfig $config,
         FileSystem $files,
         WikiConfigEditor $editor,
-        WikiDatabase $database
+        WikiDatabase $database,
+        CustomAside $aside,
+        ExtensionVersions $extensions
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->files = $files;
         $this->editor = $editor;
         $this->database = $database;
+        $this->aside = $aside;
+        $this->extensions = $extensions;
     }
 
     /**
-     * @param array{sourceDir?:string,backup?:bool,dryRun?:bool} $options
+     * @param array{sourceDir?:string,backup?:bool,dryRun?:bool,ignoreExtensions?:bool} $options
      *
      * @return array{status:string,messages:array<int,string>}
      */
@@ -62,14 +67,23 @@ class WikiUpdater
         $replace = $this->entriesToReplace();
         $symlink = $this->symlinkedEntries();
         $extras = $this->extraExtensions($sourceDir, $wikiDir);
+        [$version, $release] = $this->sourceVersion($sourceDir);
+        $sameVersion = strtolower((string)($wakkaConfig['yeswiki_version'] ?? '')) === strtolower($version);
+        $skipExtensions = $options['ignoreExtensions'] ?? false;
+        $toUpgrade = $skipExtensions ? [] : $this->extensions->toUpgrade($wikiDir, $extras, $version, (string)($wakkaConfig['yeswiki_version'] ?? ''));
+        $unpublished = $skipExtensions ? [] : $this->extensions->unpublished($extras, $version);
 
         if ($dryRun) {
-            return ['status' => 'updated', 'messages' => $this->plan($wikiDir, $sourceDir, $replace, $symlink, $extras, $backup)];
+            return ['status' => 'updated', 'messages' => $this->plan($wikiDir, $sourceDir, $replace, $symlink, $toUpgrade, $unpublished, $backup)];
         }
 
-        $recovered = $this->recoverCustom($wikiDir);
-        if ($recovered) {
-            $messages[] = _t('FERME_CLI_CUSTOM_RECOVERED');
+        foreach ($unpublished as $extension) {
+            $messages[] = $extension . ' ' . _t('FERME_CLI_EXT_NOT_PUBLISHED') . ' ' . $version;
+        }
+
+        $recovered = $this->aside->recover($wikiDir);
+        if ($recovered !== null) {
+            $messages[] = $recovered;
         }
 
         $backupDir = null;
@@ -86,6 +100,10 @@ class WikiUpdater
             }
         }
 
+        if ($sameVersion) {
+            $messages = array_merge($messages, $this->upgradeExtensions($wikiDir, $toUpgrade));
+        }
+
         foreach (self::REMOVED_TOOLS as $entry) {
             $this->displace($wikiDir, $entry, $backupDir);
         }
@@ -100,20 +118,19 @@ class WikiUpdater
         $messages[] = _t('FERME_CLI_FILES_REPLACED') . ' ' . (count($replace) + count($symlink));
 
         $hibernating = ($wakkaConfig['wiki_status'] ?? '') === 'hibernate';
-        if ($hibernating) {
-            $this->patch($wikiDir, ['wiki_status' => 'running']);
-        }
+        $this->patch($wikiDir, $hibernating
+            ? ['wiki_status' => 'running', 'yeswiki_version' => $version]
+            : ['yeswiki_version' => $version]);
 
         try {
-            $messages = array_merge($messages, $this->runMigrations($wikiDir, $extras));
+            $messages = array_merge($messages, $this->runMigrations($wikiDir, $sameVersion ? [] : $toUpgrade));
         } finally {
             if ($hibernating) {
                 $this->patch($wikiDir, ['wiki_status' => 'hibernate']);
             }
         }
 
-        [$version, $release] = $this->sourceVersion($sourceDir);
-        $this->patch($wikiDir, ['yeswiki_version' => $version, 'yeswiki_release' => $release]);
+        $this->patch($wikiDir, ['yeswiki_release' => $release]);
         $messages[] = _t('FERME_CLI_STAMPED') . ' ' . $version . ' ' . $release;
 
         if ($backupDir !== null) {
@@ -121,6 +138,54 @@ class WikiUpdater
         }
 
         return ['status' => 'updated', 'messages' => $messages];
+    }
+
+    /**
+     * Bring a wiki's own extensions to the release published for the version it
+     * runs, and run the migrations they carry. The core is left alone.
+     *
+     * @param array{sourceDir?:string} $options
+     *
+     * @return array{status:string,messages:array<int,string>}
+     */
+    public function updateExtensions(string $wikiDir, array $options = []): array
+    {
+        $wikiDir = rtrim($wikiDir, DIRECTORY_SEPARATOR);
+        $sourceDir = rtrim($options['sourceDir'] ?? getcwd(), DIRECTORY_SEPARATOR);
+
+        if ($wikiDir === rtrim((string)realpath(getcwd()), DIRECTORY_SEPARATOR)) {
+            throw new \RuntimeException(_t('FERME_CLI_MASTER_EXCLUDED'));
+        }
+
+        $wakkaConfig = $this->editor->load($wikiDir);
+        $version = (string)($wakkaConfig['yeswiki_version'] ?? '');
+        if ($version === '') {
+            $version = (string)$this->wiki->config['yeswiki_version'];
+        }
+
+        $extras = $this->extraExtensions($sourceDir, $wikiDir);
+        $toUpgrade = $this->extensions->toUpgrade($wikiDir, $extras, $version, $version);
+
+        $messages = [];
+        foreach ($this->extensions->unpublished($extras, $version) as $extension) {
+            $messages[] = $extension . ' ' . _t('FERME_CLI_EXT_NOT_PUBLISHED') . ' ' . $version;
+        }
+
+        if (empty($toUpgrade)) {
+            $messages[] = _t('FERME_EXT_ALL_CURRENT');
+
+            return ['status' => 'uptodate', 'messages' => $messages];
+        }
+
+        $recovered = $this->aside->recover($wikiDir);
+        if ($recovered !== null) {
+            $messages[] = $recovered;
+        }
+
+        return [
+            'status' => 'updated',
+            'messages' => array_merge($messages, $this->runMigrations($wikiDir, $toUpgrade)),
+        ];
     }
 
     /**
@@ -288,21 +353,24 @@ class WikiUpdater
     }
 
     /**
+     * The extensions come first so their own migrations are on disk when migrate runs.
+     *
      * @return array<int,string>
      */
-    private function runMigrations(string $wikiDir, array $extras): array
+    private function runMigrations(string $wikiDir, array $extensions): array
     {
         $messages = [];
-        $moved = $this->moveCustomAside($wikiDir);
+        $hidden = $this->aside->hide($wikiDir);
 
         try {
+            $messages = array_merge($messages, $this->upgradeExtensions($wikiDir, $extensions));
             $messages[] = $this->runConsole($wikiDir, ['migrate']);
-            foreach ($extras as $extension) {
-                $messages[] = $this->runConsole($wikiDir, ['upgrade', $extension]);
-            }
         } finally {
-            if ($moved) {
-                $this->restoreCustom($wikiDir);
+            if ($hidden) {
+                $displaced = $this->aside->reveal($wikiDir);
+                if ($displaced !== null) {
+                    $messages[] = _t('FERME_CLI_CUSTOM_CONFLICT_MOVED') . ' ' . $displaced;
+                }
             }
         }
 
@@ -323,44 +391,18 @@ class WikiUpdater
     }
 
     /**
-     * Migrations trip over what a wiki keeps in custom/, so it waits next door.
+     * @param array<int,string> $extensions
+     *
+     * @return array<int,string>
      */
-    private function moveCustomAside(string $wikiDir): bool
+    private function upgradeExtensions(string $wikiDir, array $extensions): array
     {
-        $custom = $wikiDir . DIRECTORY_SEPARATOR . 'custom';
-        if (!file_exists($custom) && !is_link($custom)) {
-            return false;
+        $messages = [];
+        foreach ($extensions as $extension) {
+            $messages[] = $this->runConsole($wikiDir, ['upgrade', $extension]);
         }
 
-        return rename($custom, $wikiDir . DIRECTORY_SEPARATOR . self::CUSTOM_ASIDE);
-    }
-
-    private function restoreCustom(string $wikiDir): void
-    {
-        $aside = $wikiDir . DIRECTORY_SEPARATOR . self::CUSTOM_ASIDE;
-        if (!file_exists($aside) && !is_link($aside)) {
-            return;
-        }
-        $custom = $wikiDir . DIRECTORY_SEPARATOR . 'custom';
-        if (file_exists($custom) || is_link($custom)) {
-            $this->files->remove($custom);
-        }
-        rename($aside, $custom);
-    }
-
-    /**
-     * A run that died between the two renames left the wiki with no custom/ at
-     * all, which takes the site down. Put it back before doing anything else.
-     */
-    private function recoverCustom(string $wikiDir): bool
-    {
-        $aside = $wikiDir . DIRECTORY_SEPARATOR . self::CUSTOM_ASIDE;
-        if (!file_exists($aside) && !is_link($aside)) {
-            return false;
-        }
-        $this->restoreCustom($wikiDir);
-
-        return true;
+        return $messages;
     }
 
     private function patch(string $wikiDir, array $set): void
@@ -379,7 +421,8 @@ class WikiUpdater
         string $sourceDir,
         array $replace,
         array $symlink,
-        array $extras,
+        array $toUpgrade,
+        array $unpublished,
         bool $backup
     ): array {
         [$version, $release] = $this->sourceVersion($sourceDir);
@@ -392,8 +435,14 @@ class WikiUpdater
             $messages[] = _t('FERME_CLI_WOULD_BACKUP') . ' ' . $this->config->backupDir();
         }
         $messages[] = _t('FERME_CLI_WOULD_MIGRATE')
-            . (empty($extras) ? '' : ' + ' . _t('FERME_CLI_WOULD_UPGRADE') . ' ' . implode(', ', $extras));
+            . (empty($toUpgrade) ? '' : ' + ' . _t('FERME_CLI_WOULD_UPGRADE') . ' ' . implode(', ', $toUpgrade));
         $messages[] = _t('FERME_CLI_WOULD_STAMP') . ' ' . $version . ' ' . $release;
+        foreach ($unpublished as $extension) {
+            $messages[] = $extension . ' ' . _t('FERME_CLI_EXT_NOT_PUBLISHED') . ' ' . $version;
+        }
+        if ($this->aside->isAside($wikiDir)) {
+            $messages[] = _t('FERME_CLI_WOULD_RECOVER_CUSTOM');
+        }
 
         return $messages;
     }

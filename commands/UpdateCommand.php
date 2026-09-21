@@ -9,6 +9,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\Process\Process;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
+use YesWiki\Ferme\Service\CustomAside;
 use YesWiki\Ferme\Service\WikiUpdater;
 use YesWiki\Wiki;
 
@@ -20,11 +21,13 @@ class UpdateCommand extends AbstractFarmCommand
     private const DEV_VERSIONS = ['doryphore-dev', 'doryphore_dev'];
 
     protected $updater;
+    protected $aside;
 
     public function __construct(Wiki &$wiki)
     {
         parent::__construct($wiki);
         $this->updater = $wiki->services->get(WikiUpdater::class);
+        $this->aside = $wiki->services->get(CustomAside::class);
     }
 
     protected function configure()
@@ -40,6 +43,8 @@ class UpdateCommand extends AbstractFarmCommand
             ->addOption('force', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_FORCE'))
             ->addOption('nobackup', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_NOBACKUP_UPDATE'))
             ->addOption('continue-on-error', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_CONTINUE'))
+            ->addOption('ignore-extensions', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_IGNORE_EXTENSIONS'))
+            ->addOption('recover-only', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_RECOVER_ONLY'))
             ->addOption('migratecerco', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATECERCO'))
             ->addOption('migratedev', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATEDEV'))
             ->addWikiSelectionOptions()
@@ -50,6 +55,10 @@ class UpdateCommand extends AbstractFarmCommand
     {
         $started = microtime(true);
         $temporarySource = null;
+
+        if ($input->getOption('recover-only')) {
+            return $this->recoverOnly($input, $output, $started);
+        }
 
         try {
             [$sourceDir, $temporarySource] = $this->resolveSource($input, $output);
@@ -72,6 +81,8 @@ class UpdateCommand extends AbstractFarmCommand
             if (!$worker) {
                 $output->writeln(_t('FERME_CLI_SOURCE_IS') . ' ' . $sourceDir . ' (' . $version . ' ' . $release . ')');
             }
+
+            $this->sweepAsides($input, $output, $wikis);
 
             [$todo, $wrongVersion, $upToDate] = $this->triage($input, $output, $wikis, $version, $release);
 
@@ -104,6 +115,66 @@ class UpdateCommand extends AbstractFarmCommand
                 $this->wiki->services->get(\YesWiki\Ferme\Service\FileSystem::class)->remove($temporarySource);
             }
         }
+    }
+
+    /**
+     * Put back the custom/ folders left aside by interrupted runs, and stop there.
+     */
+    private function recoverOnly(InputInterface $input, OutputInterface $output, float $started): int
+    {
+        $wikis = $this->selectWikis($input);
+        if (empty($wikis)) {
+            $this->warnNothingFound($input, $output);
+
+            return Command::SUCCESS;
+        }
+
+        [$recovered, $failed] = $this->sweepAsides($input, $output, $wikis);
+
+        return $this->renderSummary(
+            $output,
+            _t('FERME_CLI_RECOVER_SUMMARY'),
+            [
+                _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+                _t('FERME_CLI_CUSTOM_RECOVERED_COUNT') => $recovered,
+                _t('FERME_CLI_FAILED') => count($failed),
+                _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+            ],
+            $failed,
+            $this->isDryRun($input)
+        );
+    }
+
+    /**
+     * @return array{0:int,1:array<int,string>}
+     */
+    private function sweepAsides(InputInterface $input, OutputInterface $output, array $wikis): array
+    {
+        $recovered = 0;
+        $failed = [];
+
+        foreach ($wikis as $wiki) {
+            if (!$this->aside->isAside($wiki['PATH'])) {
+                continue;
+            }
+
+            $label = $this->label($wiki);
+            if ($this->isDryRun($input)) {
+                $output->writeln($this->dryRunPrefix($input) . $label . ': ' . _t('FERME_CLI_WOULD_RECOVER_CUSTOM'));
+                $recovered++;
+                continue;
+            }
+
+            try {
+                $output->writeln('  <info>' . $label . '</info>: ' . $this->aside->recover($wiki['PATH']));
+                $recovered++;
+            } catch (\Throwable $th) {
+                $failed[] = $label;
+                $output->writeln('<error>  ' . $label . ': ' . $th->getMessage() . '</error>');
+            }
+        }
+
+        return [$recovered, $failed];
     }
 
     /**
@@ -223,6 +294,7 @@ class UpdateCommand extends AbstractFarmCommand
             'sourceDir' => $sourceDir,
             'backup' => !$input->getOption('nobackup'),
             'dryRun' => $this->isDryRun($input),
+            'ignoreExtensions' => (bool)$input->getOption('ignore-extensions'),
         ];
 
         $updated = 0;
@@ -342,6 +414,9 @@ class UpdateCommand extends AbstractFarmCommand
         ];
         if ($input->getOption('nobackup')) {
             $command[] = '--nobackup';
+        }
+        if ($input->getOption('ignore-extensions')) {
+            $command[] = '--ignore-extensions';
         }
         if ($this->isDryRun($input)) {
             $command[] = '--dry-run';

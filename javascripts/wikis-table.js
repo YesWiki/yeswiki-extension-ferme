@@ -6,12 +6,16 @@ $(document).ready(function() {
   var $config = $('#upgrade-wikis-config');
   var apiUrl = $table.data('api-url');
   var upgradeUrl = $config.data('upgrade-url');
+  var upgradeExtensionsUrl = $config.data('upgrade-extensions-url');
+  var recoverCustomUrl = $config.data('recover-custom-url');
   var deleteUrl = $config.data('delete-url');
   var searchUrl = $config.data('search-url');
   var adminAddUrl = $config.data('admin-add-url');
   var adminRemoveUrl = $config.data('admin-remove-url');
   var csrfToken = $config.data('csrf-token');
   var i18n = $config.data();
+  var runModes = {};
+  var runMode = null;
   var tableI18n = {
     see: $table.data('i18n-see'),
     edit: $table.data('i18n-edit'),
@@ -49,6 +53,9 @@ $(document).ready(function() {
         var html = '<strong class="wiki-title"><a href="' + esc(row.url) + '">' + esc(row.title) + '</a></strong>';
         if (row.description) {
           html += '<div class="wiki-desc">' + esc(row.description) + '</div>';
+        }
+        if (row.custom_warning) {
+          html += row.custom_warning; // already safe HTML from server
         }
         if (row.error) {
           html += row.error; // already safe HTML from server
@@ -139,23 +146,29 @@ $(document).ready(function() {
       .prop('checked', total > 0 && checked === total);
   }
 
-  var bulkButtons = [
-    { btn: '#btn-upgrade-selected', badge: '#upgrade-selected-count' },
-    { btn: '#btn-delete-selected', badge: '#delete-selected-count' },
-    { btn: '#btn-admin-add-selected', badge: '#admin-add-selected-count' },
-    { btn: '#btn-admin-remove-selected', badge: '#admin-remove-selected-count' }
-  ];
+  function selectionCount() {
+    return Object.keys(selectedWikis).length;
+  }
+
+  function selectedList() {
+    return Object.keys(selectedWikis).map(function(folder) {
+      return {
+        folder: folder,
+        title: selectedWikis[folder].title,
+        idFiche: selectedWikis[folder].idFiche
+      };
+    });
+  }
 
   function updateBulkBtns() {
-    var count = Object.keys(selectedWikis).length;
-    bulkButtons.forEach(function(b) {
-      $(b.btn).prop('disabled', count === 0);
-      if (count > 0) {
-        $(b.badge).text(count).show();
-      } else {
-        $(b.badge).hide();
-      }
-    });
+    var count = selectionCount();
+    $('#btn-bulk-actions').prop('disabled', count === 0);
+    if (count > 0) {
+      $('#bulk-selected-count').text(count).show();
+    } else {
+      $('#bulk-selected-count').hide();
+      $('#btn-bulk-actions').closest('.btn-group').removeClass('open');
+    }
   }
 
   // Select/deselect all wikis on the current page
@@ -189,16 +202,40 @@ $(document).ready(function() {
     updateBulkBtns();
   });
 
-  $('#btn-upgrade-selected').on('click', function() {
-    if (!$(this).prop('disabled')) {
-      $('#upgrade-selected-modal').modal('show');
-    }
+  runModes = {
+    core: { url: upgradeUrl, icon: 'fas fa-sync-alt', title: i18n.upgradeTitle, intro: i18n.upgradeIntro },
+    extensions: { url: upgradeExtensionsUrl, icon: 'fas fa-puzzle-piece', title: i18n.upgradeExtTitle, intro: i18n.upgradeExtIntro },
+    recover: { url: recoverCustomUrl, icon: 'fas fa-undo', title: i18n.recoverTitle, intro: i18n.recoverIntro }
+  };
+  runMode = runModes.core;
+
+  $('#btn-upgrade-selected').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('core');
   });
 
+  $('#btn-upgrade-extensions-selected').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('extensions');
+  });
+
+  $('#btn-recover-custom-selected').on('click', function(event) {
+    event.preventDefault();
+    openUpgradeModal('recover');
+  });
+
+  function openUpgradeModal(mode) {
+    if (selectionCount() === 0) { return; }
+    runMode = runModes[mode];
+    $('#upgrade-selected-modal-label-text').text(runMode.title);
+    $('#upgrade-selected-modal-icon').attr('class', runMode.icon);
+    $('#upgrade-selected-intro').text(runMode.intro);
+    $('#btn-close-upgrade-modal').prop('disabled', true);
+    $('#upgrade-selected-modal').modal('show');
+  }
+
   $('#upgrade-selected-modal').on('shown.bs.modal', function() {
-    var wikis = Object.keys(selectedWikis).map(function(folder) {
-      return { folder: folder, title: selectedWikis[folder].title };
-    });
+    var wikis = selectedList();
 
     var $list = $('#upgrade-wikis-list').empty();
     wikis.forEach(function(wiki) {
@@ -218,11 +255,10 @@ $(document).ready(function() {
     upgradeSequential(wikis, 0);
   });
 
-  $('#btn-delete-selected').on('click', function() {
-    if ($(this).prop('disabled')) { return; }
-    var wikis = Object.keys(selectedWikis).map(function(folder) {
-      return { folder: folder, title: selectedWikis[folder].title, idFiche: selectedWikis[folder].idFiche };
-    });
+  $('#btn-delete-selected').on('click', function(event) {
+    event.preventDefault();
+    if (selectionCount() === 0) { return; }
+    var wikis = selectedList();
     // Populate confirmation preview
     var $preview = $('#delete-wikis-preview').empty();
     wikis.forEach(function(wiki) {
@@ -238,9 +274,7 @@ $(document).ready(function() {
   });
 
   $('#btn-start-delete').on('click', function() {
-    var wikis = Object.keys(selectedWikis).map(function(folder) {
-      return { folder: folder, title: selectedWikis[folder].title, idFiche: selectedWikis[folder].idFiche };
-    });
+    var wikis = selectedList();
     // Switch to progress stage
     $('#delete-confirm-stage').hide();
     $('#delete-footer-confirm').hide();
@@ -344,17 +378,13 @@ $(document).ready(function() {
       });
   });
 
-  $('#btn-admin-add-selected').on('click', function() { openAdminModal('add'); });
-  $('#btn-admin-remove-selected').on('click', function() { openAdminModal('remove'); });
+  $('#btn-admin-add-selected').on('click', function(event) { event.preventDefault(); openAdminModal('add'); });
+  $('#btn-admin-remove-selected').on('click', function(event) { event.preventDefault(); openAdminModal('remove'); });
 
   function openAdminModal(action) {
-    if ($(action === 'add' ? '#btn-admin-add-selected' : '#btn-admin-remove-selected').prop('disabled')) {
-      return;
-    }
+    if (selectionCount() === 0) { return; }
 
-    var wikis = Object.keys(selectedWikis).map(function(folder) {
-      return { folder: folder, title: selectedWikis[folder].title };
-    });
+    var wikis = selectedList();
 
     $('#admin-selected-modal-label-text').text(action === 'add' ? i18n.adminAddSelected : i18n.adminRemoveSelected);
     $('#admin-selected-modal-icon').attr('class', action === 'add' ? 'fas fa-user-plus' : 'fas fa-user-minus');
@@ -509,6 +539,7 @@ $(document).ready(function() {
   function upgradeSequential(wikis, index) {
     if (index >= wikis.length) {
       $('#btn-close-upgrade-modal').prop('disabled', false);
+      wikisTable.ajax.reload(null, false);
       return;
     }
 
@@ -519,7 +550,7 @@ $(document).ready(function() {
     $item.find('.upgrade-badge').text(i18n.inProgress).css('background-color', '#5bc0de');
 
     $.ajax({
-      url: upgradeUrl,
+      url: runMode.url,
       method: 'POST',
       data: { folder: wiki.folder, 'csrf-token': csrfToken },
       dataType: 'json',

@@ -204,11 +204,31 @@ commande ne peut pas écrire est signalé en échec : il n'y a pas de `sudo` ici
   et l'ajoute au groupe voulu, avec les valeurs `yeswiki-farm-admin-*` par défaut.
   `--remove` fait l'inverse.
 - **`ferme:update`** met les wikis à l'état du wiki maître : sauvegarde des
-  fichiers remplacés et de la base, copie, migrations, mise à niveau des
-  extensions que le wiki a en plus, puis effacement de la sauvegarde si tout
-  s'est bien passé. `--workers` en traite plusieurs à la fois, `--force` refait
-  un wiki déjà à jour, `--archive-url` part d'une archive zip plutôt que du wiki
-  maître.
+  fichiers remplacés et de la base, mise à niveau des extensions que le wiki a en
+  plus, copie, migrations, puis effacement de la sauvegarde si tout s'est bien
+  passé. `--workers` en traite plusieurs à la fois, `--force` refait un wiki déjà
+  à jour, `--archive-url` part d'une archive zip plutôt que du wiki maître.
+
+Personne n'a à mettre les extensions à jour à la main : la commande va chercher
+au dépôt la version publiée pour la version de YesWiki visée, et ne télécharge
+que les extensions qui en ont besoin. Elles passent toujours avant `migrate`,
+pour que leurs fichiers et leurs migrations soient en place quand il tourne :
+avant le remplacement du cœur quand le wiki garde sa version, juste après quand
+il en change, parce que le dépôt ne répond pour la nouvelle version qu'une fois
+le wiki inscrit dessus. Une extension que la version visée ne publie pas est
+gardée telle quelle et signalée dans le compte rendu. `--ignore-extensions` ne
+touche à aucune.
+
+Le temps des migrations, le `custom/` du wiki est mis de côté sous le nom
+`custom.temp` pour que le nouveau noyau travaille sur un wiki standard, puis il
+est remis en place, y compris si le processus est tué ou arrêté au clavier. Une
+exécution qui n'a rien pu remettre laisserait le wiki sans `custom/` :
+`ferme:update` remet d'abord en place les `custom.temp` des wikis qu'il vise, et
+`./yeswicli ferme:update --recover-only` ne fait que ça, sans rien mettre à jour.
+La page AdminWikis signale les wikis dans ce cas et propose la même remise en place
+dans son menu d'actions.
+Un `custom/` réapparu entre-temps part dans le dossier de sauvegarde, jamais à la
+poubelle.
 
 Trois réglages s'ajoutent au `wakka.config.php`, modifiables depuis `{{editconfig}}` :
 
