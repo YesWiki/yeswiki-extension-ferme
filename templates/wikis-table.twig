@@ -110,6 +110,15 @@
     margin-top: 12px;
     font-weight: bold;
 }
+.ferme-spam-pages {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    max-height: 240px;
+    overflow-y: auto;
+}
+.ferme-spam-pages li {
+    line-height: 1.7;
+}
 .ferme-calendar {
     margin-top: 4px;
     max-width: 780px;
@@ -275,6 +284,7 @@
      data-archive-url="{{ archive_api_url }}"
      data-select-url="{{ select_api_url }}"
      data-clean-spam-url="{{ clean_spam_api_url }}"
+     data-spam-pages-url="{{ spam_pages_api_url }}"
      data-hibernate-url="{{ hibernate_api_url }}"
      data-wake-url="{{ wake_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"

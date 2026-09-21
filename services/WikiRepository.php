@@ -288,6 +288,7 @@ class WikiRepository
                 'pages' => $measured === null ? null : (int)($measured['pages'] ?? 0),
                 'entries' => $measured === null ? null : (int)($measured['entries'] ?? 0),
                 'users' => $measured === null ? null : (int)($measured['users'] ?? 0),
+                'spamPages' => $measured === null ? null : (int)($measured['spamPages'] ?? 0),
                 'lastActivity' => $measured['lastActivity'] ?? null,
             ];
         }

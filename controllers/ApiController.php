@@ -238,6 +238,63 @@ class ApiController extends YesWikiController
     }
 
     /**
+     * The pages a wiki is marked for, with a link to each: the figure in the table
+     * says how many, this says which, and lets somebody go and look before asking
+     * for a cleaning.
+     *
+     * @Route("/api/ferme/wikis/spam-pages", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function spamPages(Request $request)
+    {
+        $wikiFolder = $this->askedFolder($request);
+        if (!is_string($wikiFolder)) {
+            return $wikiFolder;
+        }
+
+        try {
+            $found = $this->getService(SpamCleaner::class)->inspect($wikiFolder);
+        } catch (\Throwable $throwable) {
+            return new ApiResponse(['success' => false, 'error' => $throwable->getMessage()]);
+        }
+
+        $wakkaConfig = $this->getService(FarmConfig::class)->readWikiConfig($wikiFolder);
+        $base = (string)($wakkaConfig['base_url'] ?? '');
+
+        $pages = [];
+        foreach ($found as $page) {
+            $why = [];
+            if ($page['words'] >= SpamCleaner::WORDS_FOR_SPAM) {
+                $why[] = $page['words'] . ' ' . _t('FERME_SPAM_WHY_WORDS');
+            }
+            if ($page['links'] >= SpamCleaner::LINKS_FOR_SPAM) {
+                $why[] = $page['links'] . ' ' . _t('FERME_SPAM_WHY_LINKS');
+            }
+            if ($page['campaign']) {
+                $why[] = _t('FERME_SPAM_WHY_CAMPAIGN');
+            }
+            if ($page['host']) {
+                $why[] = _t('FERME_SPAM_WHY_HOST');
+            }
+
+            $pages[] = [
+                'tag' => $page['tag'],
+                'url' => $base . $page['tag'],
+                'why' => implode(' + ', $why),
+                'action' => _t($page['action'] === 'delete' ? 'FERME_SPAM_WOULD_DELETE' : 'FERME_SPAM_WOULD_STRIP'),
+                'cleanable' => $page['action'] === 'delete' || $page['cleanable'],
+            ];
+        }
+
+        return new ApiResponse([
+            'success' => true,
+            'title' => _t('FERME_SPAM_PAGES_TITLE'),
+            'stuck' => _t('FERME_SPAM_STUCK'),
+            'none' => _t('FERME_CLEAN_NOTHING'),
+            'pages' => $pages,
+        ]);
+    }
+
+    /**
      * The folder a request names, or the answer to send back when it names none
      * we can act on.
      *

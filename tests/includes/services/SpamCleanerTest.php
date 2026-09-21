@@ -146,6 +146,14 @@ class SpamCleanerTest extends YesWikiTestCase
         $this->assertSame($body, SpamCleaner::strip($body));
     }
 
+    public function testALineOfTheLexiconGoesAndTheRestOfThePageStays()
+    {
+        $this->assertSame(
+            'Bonjour',
+            SpamCleaner::strip("Bonjour\nBest escort services in Kolkata\ncasino jackpot ouvert")
+        );
+    }
+
     public function testASleepingWikiIsWokenForTheCleaningAndPutBackToSleepEvenOnAFailure()
     {
         $hibernator = $this->createMock(WikiHibernator::class);

@@ -409,7 +409,8 @@ class SpamCleaner
             $body = (string)($row['body'] ?? '');
             $words = preg_match_all(WikiStats::SPAM_VOCABULARY, $body);
             $links = preg_match_all('#https?://#i', $body);
-            if (!self::isSpamPage($body, (int)$words, (int)$links, $hosts, $this->fingerprints->isCampaignPage($body))) {
+            $campaign = $this->fingerprints->isCampaignPage($body);
+            if (!self::isSpamPage($body, (int)$words, (int)$links, $hosts, $campaign)) {
                 continue;
             }
 
@@ -421,6 +422,9 @@ class SpamCleaner
                 'links' => (int)$links,
                 'revisions' => (int)$row['revisions'],
                 'owner' => (string)($row['owner'] ?? ''),
+                'campaign' => $campaign,
+                'host' => $hosts !== '' && @preg_match('#(' . $hosts . ')#i', $body) === 1,
+                'cleanable' => self::strip($body, $hosts, $this->fingerprints) !== trim($body),
             ];
         }
 

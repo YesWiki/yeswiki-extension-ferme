@@ -17,6 +17,7 @@ $(document).ready(function() {
   var archiveUrl = $config.data('archive-url');
   var selectUrl = $config.data('select-url');
   var cleanSpamUrl = $config.data('clean-spam-url');
+  var spamPagesUrl = $config.data('spam-pages-url');
   var hibernateUrl = $config.data('hibernate-url');
   var wakeUrl = $config.data('wake-url');
   var adminAddUrl = $config.data('admin-add-url');
@@ -404,6 +405,7 @@ $(document).ready(function() {
     $tr.addClass('ferme-open');
     $icon.attr('class', 'fas fa-chevron-up');
     loadCalendar($detail);
+    loadSpamPages($detail);
   }
 
   // anywhere in the row opens it, except what is already something to click
@@ -437,6 +439,48 @@ $(document).ready(function() {
         $slot.empty()
           .append($('<div class="ferme-detail-title">').text(response.title || ''))
           .append(response.calendar);
+      },
+      error: function(xhr, status, error) {
+        $slot.text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
+      }
+    });
+  }
+
+  function loadSpamPages($detail) {
+    var $slot = $detail.find('.ferme-spam-slot').addBack('.ferme-spam-slot');
+    if (!$slot.length || !spamPagesUrl || $slot.data('loaded')) { return; }
+    $slot.data('loaded', true);
+
+    $.ajax({
+      url: spamPagesUrl,
+      method: 'POST',
+      data: { folder: $slot.data('folder'), 'csrf-token': csrfToken },
+      dataType: 'json',
+      success: function(response) {
+        if (!response || !response.success) {
+          $slot.text((response && response.error) || '');
+
+          return;
+        }
+        $slot.empty().append($('<div class="ferme-detail-title">').text(response.title || ''));
+        if (!response.pages.length) {
+          $slot.append($('<span class="ferme-muted">').text(response.none || ''));
+
+          return;
+        }
+        var $list = $('<ul class="ferme-spam-pages">');
+        response.pages.forEach(function(page) {
+          var $line = $('<li>')
+            .append($('<a target="_blank" rel="noopener">').attr('href', page.url).text(page.tag))
+            .append(' ')
+            .append($('<span class="ferme-muted">').text(page.why))
+            .append(' ')
+            .append($('<span class="label">')
+              .addClass(page.cleanable ? 'label-warning' : 'label-default')
+              .text(page.cleanable ? page.action : response.stuck));
+          $list.append($line);
+        });
+        $slot.append($list);
       },
       error: function(xhr, status, error) {
         $slot.text((xhr.responseJSON && xhr.responseJSON.error) || ('HTTP error: ' + error));
@@ -489,6 +533,11 @@ $(document).ready(function() {
 
     if (row.stats.failed && row.stats.error) {
       html += '<div class="alert alert-danger" style="margin:8px 0 0;"><code>' + esc(row.stats.error) + '</code></div>';
+    }
+
+    if (row.stats.spammed) {
+      html += '<div class="ferme-spam-slot" data-folder="' + esc(row.folder) + '">'
+        + '<span class="ferme-muted">' + esc(i18n.i18nLoading) + '</span></div>';
     }
 
     html += '<div class="ferme-calendar-slot" data-folder="' + esc(row.folder) + '">'
@@ -1128,6 +1177,9 @@ $(document).ready(function() {
             + figure('address-card', wiki.entries, i18n.totalEntries)
             + figure('user', wiki.users, i18n.totalUsers)
           ));
+          if (wiki.spamPages) {
+            $item.append($('<span class="label label-warning">').text(i18n.chipSpammed + ' ' + wiki.spamPages));
+          }
           $item.append($('<small class="ferme-muted">').text(wiki.lastActivity ? wiki.lastActivity.slice(0, 10) : ''));
         }
         $list.append($item);

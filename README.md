@@ -256,6 +256,15 @@ autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
   condamnées qu'aucune règle ne sait nettoyer, avec les hôtes vers lesquels elles
   pointent : c'est la boucle de sortie du dernier reliquat, un hôte ajouté à
   `yeswiki-farm-spam-hosts` et le nettoyage relancé.
+
+`yeswiki-farm-spam-hosts` est un fragment d'expression régulière, `|` entre les
+motifs, cherché dans le corps de la page : un hôte qui s'y trouve condamne la page
+si courte soit-elle, et le nettoyage retire toutes les lignes qui le portent. Un
+nom de domaine se préfixe donc de `[/.]` — `passion\.com` seul attraperait
+`mapassion.com`. Un motif peut couvrir toute une campagne d'un coup :
+`\.blogspot\.com\.au` retire soixante blogs pornographiques collés dans la même
+page. Sur CoopTools, les cinquante-deux motifs en place condamnent cinq pages que
+rien d'autre ne voyait, et pas une honnête.
 - **`ferme:spam-index`** recense les lignes porteuses de liens que plusieurs wikis
   affichent. Une même ferme donne le même modèle à tous ses wikis : une ligne n'est
   donc retenue que si elle vient d'une page déjà condamnée **et** qu'aucune page
