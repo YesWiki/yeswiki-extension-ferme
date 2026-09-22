@@ -38,7 +38,16 @@ $(document).ready(function() {
   var DELETE_PARALLEL = 5;
   var selectedWikis = {};
   var filteredCount = 0;
-  var activeFilter = '';
+  // which way each column reads when you first sort on it: names from A, numbers from the top
+  var SORT_WAY = {
+    title: 'asc', referent: 'asc', lastActivity: 'desc', activity: 'desc',
+    entries: 'desc', pages: 'desc', users: 'desc', forms: 'desc', diskBytes: 'desc'
+  };
+  var sortField = SORT_WAY[urlParam('ferme_sort')] ? urlParam('ferme_sort') : 'title';
+  var sortWay = urlParam('ferme_way') === 'desc' || urlParam('ferme_way') === 'asc'
+    ? urlParam('ferme_way')
+    : SORT_WAY[sortField];
+  var activeFilter = urlParam('ferme_filter');
   var chips = [
     { key: 'toUpdate', label: 'chipToUpdate', kind: 'danger', icon: 'sync-alt' },
     { key: 'dormant', label: 'chipDormant', kind: 'default', icon: 'moon' },
@@ -53,6 +62,63 @@ $(document).ready(function() {
 
   function esc(str) {
     return $('<span>').text(str || '').html();
+  }
+
+  /**
+   * The table's state travels in the address bar, so a link to a chip and a sort
+   * opens on the same list. Our four parameters are read and written by hand:
+   * YesWiki carries its page name as a bare token in the query string, and
+   * rebuilding that string from URLSearchParams would turn it into "PageName=".
+   */
+  function urlParam(name) {
+    var found = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
+
+    return found ? decodeURIComponent(found[1].replace(/\+/g, ' ')) : '';
+  }
+
+  function writeUrl() {
+    if (!window.history || !window.history.replaceState) { return; }
+    var kept = window.location.search.replace(/^\?/, '').split('&').filter(function(part) {
+      return part !== '' && !/^ferme_(sort|way|filter|search)=/.test(part);
+    });
+    var mine = {};
+    if (sortField !== 'title' || sortWay !== 'asc') {
+      mine.ferme_sort = sortField;
+      mine.ferme_way = sortWay;
+    }
+    mine.ferme_filter = activeFilter;
+    mine.ferme_search = searchTerm();
+    Object.keys(mine).forEach(function(name) {
+      if (mine[name] !== '') { kept.push(name + '=' + encodeURIComponent(mine[name])); }
+    });
+    var query = kept.join('&');
+    window.history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+  }
+
+  function searchTerm() {
+    return wikisTable ? String(wikisTable.search() || '') : '';
+  }
+
+  /** The select, the direction button and the column arrow all say the same thing. */
+  function showSort() {
+    $('#ferme-sort').val(sortField);
+    $('#ferme-direction-label').text(sortWay === 'asc' ? i18n.i18nSortAsc : i18n.i18nSortDesc);
+    $('#ferme-direction').find('i').attr('class', 'fas fa-arrow-' + (sortWay === 'asc' ? 'up' : 'down'));
+    $table.find('thead th.ferme-sortable').each(function() {
+      var $th = $(this);
+      $th.find('.ferme-sort-arrow').remove();
+      if ($th.data('sort') === sortField) {
+        $th.append(' <i class="fas fa-arrow-' + (sortWay === 'asc' ? 'up' : 'down') + ' ferme-sort-arrow"></i>');
+      }
+    });
+  }
+
+  function sortBy(field, way) {
+    sortField = SORT_WAY[field] ? field : 'title';
+    sortWay = way === 'asc' || way === 'desc' ? way : SORT_WAY[sortField];
+    showSort();
+    writeUrl();
+    wikisTable.ajax.reload();
   }
 
   function isCsrfFailure(answer) {
@@ -297,12 +363,12 @@ $(document).ready(function() {
       url: apiUrl,
       type: 'POST',
       data: function(data) {
-        var sort = String($('#ferme-sort').val() || 'title|asc').split('|');
-        data.sort = sort[0];
-        data.direction = sort[1] || 'asc';
+        data.sort = sortField;
+        data.direction = sortWay;
         data.filter = activeFilter;
       }
     },
+    search: { search: urlParam('ferme_search') },
     ordering: false,
     columns: columns,
     dom: (dtBase.dom ? dtBase.dom : "<'row'<'col-sm-6'l><'col-sm-6'f>><'row'<'col-sm-12'tr>><'row'<'col-sm-6'i><'col-sm-6'<'pull-right'B>>>")
@@ -376,18 +442,32 @@ $(document).ready(function() {
   $(document).on('click', '.ferme-total-filter', function() {
     var wanted = $(this).data('filter');
     activeFilter = activeFilter === wanted ? '' : wanted;
+    writeUrl();
     wikisTable.ajax.reload();
   });
 
   $(document).on('click', '.ferme-chip', function() {
     var wanted = $(this).data('filter');
     activeFilter = activeFilter === wanted ? '' : wanted;
+    writeUrl();
     wikisTable.ajax.reload();
   });
 
   $('#ferme-sort').on('change', function() {
-    wikisTable.ajax.reload();
+    sortBy(String($(this).val()));
   });
+
+  $('#ferme-direction').on('click', function() {
+    sortBy(sortField, sortWay === 'asc' ? 'desc' : 'asc');
+  });
+
+  $table.on('click', 'thead th.ferme-sortable', function() {
+    var wanted = String($(this).data('sort'));
+    sortBy(wanted, wanted === sortField ? (sortWay === 'asc' ? 'desc' : 'asc') : undefined);
+  });
+
+  wikisTable.on('search.dt', writeUrl);
+  showSort();
 
   function toggleDetail($tr) {
     var row = wikisTable.row($tr);
@@ -558,6 +638,7 @@ $(document).ready(function() {
       ['paperclip', i18n.i18nFiles, row.stats.files + ' · ' + row.stats.disk],
       ['clock', i18n.i18nMeasuredAt, row.stats.computed_age],
       ['seedling', i18n.i18nInstalledAt, row.stats.installed_age],
+      ['pen', i18n.i18nEditedPages, row.stats.edited_pages],
       statusFigure(row),
       ['link', i18n.i18nSpamWords, row.stats.spam_words + ' · ' + row.stats.spam_links + ' ' + i18n.i18nSpamLinks]
     ];

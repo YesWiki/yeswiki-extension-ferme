@@ -43,7 +43,7 @@ class WikiStatsTest extends YesWikiTestCase
         ];
 
         $this->db = (new WikiDatabase())->connect($this->wakkaConfig);
-        $this->db->query('CREATE TABLE `' . $this->prefix . 'pages` (id int unsigned NOT NULL AUTO_INCREMENT, tag varchar(191) NOT NULL, time datetime NOT NULL, body longtext NOT NULL, latest enum(\'Y\',\'N\') NOT NULL DEFAULT \'N\', comment_on varchar(191) NOT NULL DEFAULT \'\', PRIMARY KEY (id)) ENGINE=InnoDB');
+        $this->db->query('CREATE TABLE `' . $this->prefix . 'pages` (id int unsigned NOT NULL AUTO_INCREMENT, tag varchar(191) NOT NULL, time datetime NOT NULL, body longtext NOT NULL, user varchar(191) NOT NULL DEFAULT \'\', latest enum(\'Y\',\'N\') NOT NULL DEFAULT \'N\', comment_on varchar(191) NOT NULL DEFAULT \'\', PRIMARY KEY (id)) ENGINE=InnoDB');
         $this->db->query('CREATE TABLE `' . $this->prefix . 'users` (name varchar(191) NOT NULL, PRIMARY KEY (name)) ENGINE=InnoDB');
         $this->db->query('CREATE TABLE `' . $this->prefix . 'nature` (bn_id_nature int unsigned NOT NULL AUTO_INCREMENT, PRIMARY KEY (bn_id_nature)) ENGINE=InnoDB');
         $this->db->query('CREATE TABLE `' . $this->prefix . 'triples` (id int unsigned NOT NULL AUTO_INCREMENT, resource varchar(255) NOT NULL, property varchar(255) NOT NULL, value text NOT NULL, PRIMARY KEY (id)) ENGINE=InnoDB');
@@ -82,6 +82,36 @@ class WikiStatsTest extends YesWikiTestCase
         $this->insertPage('Commentaire1', 'Y', 'PageAccueil');
 
         $this->assertSame(1, $this->stats()->fromDatabase('monwiki')['pages']);
+    }
+
+    public function testWhatSomebodyWroteSinceTheInstallIsToldApartFromTheInstallItself()
+    {
+        $install = date('Y-m-d H:i:s', strtotime('-2 years'));
+        foreach (['PagePrincipale', 'ListeType', 'BacASable'] as $tag) {
+            $this->insertPage($tag, 'Y', '', 'modèle', $install, 'WikiAdmin');
+        }
+        $visit = date('Y-m-d H:i:s', strtotime('-14 months'));
+        $this->insertPage('PagePrincipale', 'N', '', 'un essai', $visit, '82.64.1.1');
+        $this->insertPage('PagePrincipale', 'Y', '', 'un essai relu', $visit, '82.64.1.1');
+        $this->insertPage('ListeType', 'Y', '', 'réécrite par une migration', date('Y-m-d H:i:s'), '');
+
+        $stats = $this->stats()->fromDatabase('monwiki');
+
+        $this->assertSame($install, $stats['firstActivity']);
+        $this->assertSame(1, $stats['editedPages'], 'une seule page touchée, ses deux révisions comptent pour une');
+        $this->assertSame($visit, $stats['lastEdit'], 'la migration de la ferme ne compte pas comme une écriture');
+    }
+
+    public function testAWikiNobodyTouchedHasNothingWrittenSinceItsInstall()
+    {
+        $install = date('Y-m-d H:i:s', strtotime('-1 year'));
+        $this->insertPage('PagePrincipale', 'Y', '', 'modèle', $install, 'WikiAdmin');
+        $this->insertPage('ListeType', 'Y', '', 'modèle', $install, 'WikiAdmin');
+
+        $stats = $this->stats()->fromDatabase('monwiki');
+
+        $this->assertSame(0, $stats['editedPages']);
+        $this->assertNull($stats['lastEdit']);
     }
 
     public function testEntriesAreCountedOnTheirTripleNotOnTheirBody()
@@ -274,11 +304,11 @@ class WikiStatsTest extends YesWikiTestCase
         file_put_contents($this->tmp . '/monwiki/private/backups/dump.sql', str_repeat('x', 500));
     }
 
-    private function insertPage(string $tag, string $latest, string $commentOn, string $body = 'texte', ?string $time = null): void
+    private function insertPage(string $tag, string $latest, string $commentOn, string $body = 'texte', ?string $time = null, string $user = ''): void
     {
         $time = $time ?? date('Y-m-d H:i:s');
-        $statement = $this->db->prepare('INSERT INTO `' . $this->prefix . 'pages` (tag, time, body, latest, comment_on) VALUES (?, ?, ?, ?, ?)');
-        $statement->bind_param('sssss', $tag, $time, $body, $latest, $commentOn);
+        $statement = $this->db->prepare('INSERT INTO `' . $this->prefix . 'pages` (tag, time, body, user, latest, comment_on) VALUES (?, ?, ?, ?, ?, ?)');
+        $statement->bind_param('ssssss', $tag, $time, $body, $user, $latest, $commentOn);
         $statement->execute();
         $statement->close();
     }

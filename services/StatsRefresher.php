@@ -139,7 +139,7 @@ class StatsRefresher
             return true;
         }
         // a wiki last measured before the farm kept install dates owes one more count
-        if (!isset($known['firstActivity']) && (int)($known['pages'] ?? 0) > 0) {
+        if (!isset($known['editedPages']) && (int)($known['pages'] ?? 0) > 0) {
             return true;
         }
 

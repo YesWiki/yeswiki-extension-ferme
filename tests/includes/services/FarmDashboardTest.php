@@ -393,18 +393,11 @@ class FarmDashboardTest extends YesWikiTestCase
 
     public function testAWikiNobodyWroteInSinceItsInstallIsCountedAndFiltered()
     {
-        $installed = date('Y-m-d H:i:s', strtotime('-3 months'));
         $page = $this->select(
             [$this->fiche('neuf'), $this->fiche('vivant')],
             [
-                'neuf' => $this->stats([
-                    'firstActivity' => $installed,
-                    'lastActivity' => date('Y-m-d H:i:s', strtotime($installed . ' +2 minutes')),
-                ]),
-                'vivant' => $this->stats([
-                    'firstActivity' => $installed,
-                    'lastActivity' => date('Y-m-d H:i:s', strtotime($installed . ' +1 hour')),
-                ]),
+                'neuf' => $this->stats(['editedPages' => 0]),
+                'vivant' => $this->stats(['editedPages' => 12, 'lastEdit' => date('Y-m-d H:i:s')]),
             ],
             [],
             '',
@@ -417,12 +410,48 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertTrue($page['fiches'][0]['stats']['neverEdited']);
     }
 
+    public function testAWikiSomebodyTriedOutAndLeftCountsAsUntouched()
+    {
+        $long = date('Y-m-d H:i:s', strtotime('-8 months'));
+
+        $this->assertTrue(
+            $this->dashboard->wasNeverEdited($this->stats(['editedPages' => 5, 'lastEdit' => $long])),
+            'cinq pages touchées il y a huit mois, et plus rien'
+        );
+        $this->assertFalse(
+            $this->dashboard->wasNeverEdited($this->stats(['editedPages' => 6, 'lastEdit' => $long])),
+            'une page de plus et ce n\'est plus un essai'
+        );
+        $this->assertFalse(
+            $this->dashboard->wasNeverEdited($this->stats([
+                'editedPages' => 2,
+                'lastEdit' => date('Y-m-d H:i:s', strtotime('-2 months')),
+            ])),
+            'quelqu\'un y est revenu ce semestre'
+        );
+    }
+
+    public function testAWikiIsGivenAMonthBeforeBeingCalledUntouched()
+    {
+        $this->assertFalse(
+            $this->dashboard->wasNeverEdited($this->stats([
+                'firstActivity' => date('Y-m-d H:i:s', strtotime('-3 days')),
+                'editedPages' => 0,
+            ])),
+            'installé cette semaine, il n\'a pas encore eu sa chance'
+        );
+    }
+
     public function testAWikiNobodyMeasuredIsNotClaimedUntouched()
     {
         $this->assertFalse($this->dashboard->wasNeverEdited([]));
         $this->assertFalse(
             $this->dashboard->wasNeverEdited(['lastActivity' => date('Y-m-d H:i:s')]),
             'sans date d\'installation on ne sait rien'
+        );
+        $this->assertFalse(
+            $this->dashboard->wasNeverEdited(['firstActivity' => date('Y-m-d H:i:s', strtotime('-2 years'))]),
+            'mesuré avant que la ferme compte les pages écrites'
         );
     }
 
@@ -495,6 +524,9 @@ class FarmDashboardTest extends YesWikiTestCase
             'version' => 'doryphore',
             'release' => '4.6.7',
             'activity' => array_fill(0, 12, 0),
+            'firstActivity' => date('Y-m-d H:i:s', strtotime('-2 years')),
+            'editedPages' => 30,
+            'lastEdit' => date('Y-m-d H:i:s'),
         ], $override);
     }
 }

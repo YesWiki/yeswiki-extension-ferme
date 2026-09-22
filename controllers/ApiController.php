@@ -934,6 +934,8 @@ class ApiController extends YesWikiController
             'never_edited' => !empty($stats['neverEdited']),
             'installed_at' => $stats['firstActivity'] ?? null,
             'installed_age' => $presenter->age($stats['firstActivity'] ?? null),
+            'edited_pages' => (int)($stats['editedPages'] ?? 0),
+            'last_edit' => $stats['lastEdit'] ?? null,
             'last_activity' => $stats['lastActivity'] ?? null,
             'last_activity_age' => $presenter->age($stats['lastActivity'] ?? null),
             'computed_at' => $stats['computedAt'] ?? null,

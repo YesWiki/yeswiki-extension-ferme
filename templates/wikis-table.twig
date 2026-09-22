@@ -123,6 +123,17 @@
     margin-top: 4px;
     max-width: 780px;
 }
+#wikis-table thead th.ferme-sortable {
+    cursor: pointer;
+    white-space: nowrap;
+}
+#wikis-table thead th.ferme-sortable:hover {
+    text-decoration: underline;
+}
+.ferme-sort-arrow {
+    opacity: 0.6;
+    margin-left: 4px;
+}
 .ferme-bulk {
     margin-top: 10px;
     padding: 10px 14px 12px;
@@ -190,17 +201,20 @@
     <label class="ferme-muted" style="font-weight:normal;">
         {{ _t("FERME_SORT_BY") }}
         <select id="ferme-sort" class="form-control input-sm" style="display:inline-block; width:auto;">
-            <option value="title|asc">{{ _t("FERME_SORT_TITLE") }}</option>
-            <option value="referent|asc">{{ _t("FERME_WIKI_OWNER") }}</option>
-            <option value="lastActivity|desc">{{ _t("FERME_SORT_ACTIVITY") }}</option>
-            <option value="activity|desc">{{ _t("FERME_SORT_TOTAL_ACTIVITY") }}</option>
-            <option value="entries|desc">{{ _t("FERME_SORT_ENTRIES") }}</option>
-            <option value="pages|desc">{{ _t("FERME_SORT_PAGES") }}</option>
-            <option value="users|desc">{{ _t("FERME_SORT_USERS") }}</option>
-            <option value="forms|desc">{{ _t("FERME_SORT_FORMS") }}</option>
-            <option value="diskBytes|desc">{{ _t("FERME_SORT_DISK") }}</option>
+            <option value="title">{{ _t("FERME_SORT_TITLE") }}</option>
+            <option value="referent">{{ _t("FERME_WIKI_OWNER") }}</option>
+            <option value="lastActivity">{{ _t("FERME_SORT_ACTIVITY") }}</option>
+            <option value="activity">{{ _t("FERME_SORT_TOTAL_ACTIVITY") }}</option>
+            <option value="entries">{{ _t("FERME_SORT_ENTRIES") }}</option>
+            <option value="pages">{{ _t("FERME_SORT_PAGES") }}</option>
+            <option value="users">{{ _t("FERME_SORT_USERS") }}</option>
+            <option value="forms">{{ _t("FERME_SORT_FORMS") }}</option>
+            <option value="diskBytes">{{ _t("FERME_SORT_DISK") }}</option>
         </select>
     </label>
+    <button type="button" id="ferme-direction" class="btn btn-default btn-sm">
+        <i class="fas fa-arrow-up"></i> <span id="ferme-direction-label"></span>
+    </button>
 </div>
 <div class="table-responsive">
     <table id="wikis-table"
@@ -212,10 +226,10 @@
         <thead>
             <tr>
                 <th data-orderable="false" data-sortable="false"></th>
-                <th>{{ _t("FERME_WIKI_NAME") }}</th>
-                <th>{{ _t("FERME_STATS_CONTENT") }}</th>
-                <th>{{ _t("FERME_SORT_ACTIVITY") }}</th>
-                <th>{{ _t("FERME_STATS_DISK") }}</th>
+                <th class="ferme-sortable" data-sort="title">{{ _t("FERME_WIKI_NAME") }}</th>
+                <th class="ferme-sortable" data-sort="entries">{{ _t("FERME_STATS_CONTENT") }}</th>
+                <th class="ferme-sortable" data-sort="lastActivity">{{ _t("FERME_SORT_ACTIVITY") }}</th>
+                <th class="ferme-sortable" data-sort="diskBytes">{{ _t("FERME_STATS_DISK") }}</th>
                 <th data-orderable="false" data-sortable="false">{{ _t("FERME_WIKI_ACTION") }}</th>
             </tr>
         </thead>
@@ -360,6 +374,9 @@
      data-i18n-never-measured="{{ _t("FERME_STATS_NEVER_MEASURED") }}"
      data-i18n-measured-at="{{ _t("FERME_STATS_MEASURED_AT") }}"
      data-i18n-installed-at="{{ _t("FERME_STATS_INSTALLED_AT") }}"
+     data-i18n-edited-pages="{{ _t("FERME_STATS_EDITED_PAGES") }}"
+     data-i18n-sort-asc="{{ _t("FERME_SORT_ASC") }}"
+     data-i18n-sort-desc="{{ _t("FERME_SORT_DESC") }}"
      data-i18n-admin-present="{{ _t("FERME_ADMIN_PRESENT") }}"
      data-i18n-admin-absent="{{ _t("FERME_ADMIN_ABSENT") }}"
      data-i18n-admin-none="{{ _t("FERME_ADMIN_NONE") }}"

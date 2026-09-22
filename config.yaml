@@ -41,7 +41,7 @@ parameters:
   # what the farm lends to its wikis as symbolic links, entry by entry, instead of
   # copying it: the code is the same in every wiki and weighs 112 Mo each. Empty by
   # default — 'ferme:symlink' is what puts them in place, wiki by wiki.
-  yeswiki-farm-lent-files:
+  yeswiki-farm-lent-files: &sharedFiles
     - 'javascripts'
     - 'vendor'
     - 'styles'
@@ -71,10 +71,10 @@ parameters:
     - 'tools/tags'
     - 'tools/templates'
     - 'tools/toc'
-  yeswiki_symlinked_files:
-  # this can remplace files and folders from yeswiki_empty_folders and yeswiki_files
-  # by symlinking from the main wiki folder
-  # - 'custom'
+  # what a new wiki links to the farm instead of copying, which is the same list:
+  # the code is identical in every wiki and weighs 112 Mo each. Set this to [] to go
+  # back to a full copy per wiki.
+  yeswiki_symlinked_files: *sharedFiles
   yeswiki_empty_folders:
     - 'cache'
     - 'custom'

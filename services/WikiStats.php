@@ -15,6 +15,7 @@ class WikiStats
 {
     public const MONTHS = 12;
     public const PAGES_READ = 8;
+    public const INSTALL_MINUTES = 5;
 
     public const SPAM_VOCABULARY = '/(casino|jackpot|escort|call.?girl|camgirl|viagra|cialis|sattamatka|porn|\bnude\b|hookup|adultfriend|backlink|payday.?loan|\bbet\b|\bslots?\b|\bpoker\b|\bseo\b|\bessays?\b|\bhomework\b|\bdating\b|keonhacai|nhacai|taixiu|soikeo|bongda|cacuoc|sunwin|togel|judi)/i';
 
@@ -35,7 +36,7 @@ class WikiStats
     }
 
     /**
-     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,firstActivity:?string,activity:array<int,int>,files:int,filesBytes:int,customBytes:int,privateBytes:int}
+     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,firstActivity:?string,editedPages:int,lastEdit:?string,activity:array<int,int>,files:int,filesBytes:int,customBytes:int,privateBytes:int}
      */
     public function compute(string $folder): array
     {
@@ -43,7 +44,7 @@ class WikiStats
     }
 
     /**
-     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,firstActivity:?string,activity:array<int,int>,version:string,release:string,name:string,description:string}
+     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,firstActivity:?string,editedPages:int,lastEdit:?string,activity:array<int,int>,version:string,release:string,name:string,description:string}
      */
     public function fromDatabase(string $folder): array
     {
@@ -263,18 +264,32 @@ class WikiStats
         return trim((string)($this->wiki->config['yeswiki-farm-spam-hosts'] ?? ''));
     }
 
-    /** The first and the last page write: a wiki nobody edited has them a minute apart. */
+    /**
+     * When the wiki was installed, when it was last written to, and what somebody
+     * has written in it since. A model is inserted by one statement, so all its
+     * pages carry the same second: anything five minutes later was written by hand.
+     * The farm's own updates rewrite pages too, with no user on the row, and those
+     * are not what we are after here.
+     */
     private function latest(\mysqli $db, string $prefix): array
     {
+        $table = '`' . $this->database->table($prefix, 'pages') . '`';
+        $written = 'user <> \'\' AND time > (SELECT DATE_ADD(MIN(time), INTERVAL '
+            . self::INSTALL_MINUTES . ' MINUTE) FROM ' . $table . ')';
+
         $row = $db->query(
-            'SELECT MAX(id) AS id, MAX(time) AS time, MIN(time) AS started FROM `'
-            . $this->database->table($prefix, 'pages') . '`'
+            'SELECT MAX(id) AS id, MAX(time) AS time, MIN(time) AS started,'
+            . ' COUNT(DISTINCT CASE WHEN ' . $written . ' THEN tag END) AS edited,'
+            . ' MAX(CASE WHEN ' . $written . ' THEN time END) AS lastEdit'
+            . ' FROM ' . $table
         )->fetch_assoc();
 
         return [
             'lastPageId' => (int)($row['id'] ?? 0),
             'lastActivity' => $row['time'] ?? null,
             'firstActivity' => $row['started'] ?? null,
+            'editedPages' => (int)($row['edited'] ?? 0),
+            'lastEdit' => $row['lastEdit'] ?? null,
         ];
     }
 

@@ -10,7 +10,9 @@ namespace YesWiki\Ferme\Service;
 class FarmDashboard
 {
     public const DORMANT_AFTER = '-6 months';
-    public const INSTALL_WINDOW = 300;
+    public const SETTLE_AFTER = '-1 month';
+    public const QUIET_AFTER = '-6 months';
+    public const FEW_PAGES = 5;
     public const HEAVY_ARCHIVES = 1073741824;
 
     public const FILTERS = ['toUpdate', 'dormant', 'neverEdited', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating', 'running'];
@@ -65,22 +67,37 @@ class FarmDashboard
     }
 
     /**
-     * Nothing was written since the wiki was installed. The pages of a model are
-     * inserted with the time of the installation, so a wiki whose last write is
-     * that same moment holds exactly what it was given and nothing else. The five
-     * minutes of slack are for a big model, not for someone's first edit.
+     * A wiki still holding what its model gave it. Either nobody ever wrote in it,
+     * or somebody tried it out — a page or three, a file dropped in — and never came
+     * back. A month of grace before a wiki can be called that, since a wiki created
+     * last week has not had its chance yet.
+     *
+     * Read on the farm of 3 029 wikis: 131 were never written in at all, and 533
+     * more had at most five pages touched, the last of them over six months ago.
      *
      * @param array<string,mixed> $stats
      */
     public function wasNeverEdited(array $stats): bool
     {
         $installed = strtotime((string)($stats['firstActivity'] ?? '')) ?: null;
-        $last = strtotime((string)($stats['lastActivity'] ?? '')) ?: null;
-        if ($installed === null || $last === null) {
+        if ($installed === null || $installed > strtotime(self::SETTLE_AFTER)) {
+            return false;
+        }
+        if (!isset($stats['editedPages'])) {
             return false;
         }
 
-        return $last - $installed <= self::INSTALL_WINDOW;
+        $pages = (int)$stats['editedPages'];
+        if ($pages === 0) {
+            return true;
+        }
+        if ($pages > self::FEW_PAGES) {
+            return false;
+        }
+
+        $written = strtotime((string)($stats['lastEdit'] ?? '')) ?: null;
+
+        return $written !== null && $written < strtotime(self::QUIET_AFTER);
     }
 
     /**

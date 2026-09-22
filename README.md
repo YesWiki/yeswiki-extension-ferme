@@ -184,11 +184,20 @@ Si, dans le cas de notre exemple, vous saisissez `'yeswiki-farm-root-folder' => 
   // ajouter des valeurs dans le fichier de configuration des wikis créés
   'yeswiki-farm-extra-config' => ['BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'],
 
-  // dossiers a mettre en lien symbolique dans les wikis créés
+  // dossiers mis en lien symbolique vers la ferme dans les wikis créés, au lieu
+  // d'être copiés. Par défaut, c'est la même liste que `yeswiki-farm-lent-files` :
+  // le code est le même dans tous les wikis et pèse 112 Mo chacun. Mettre `[]` pour
+  // revenir à une copie complète par wiki.
   'yeswiki_symlinked_files' => [
-    'custom', // pour avoir le meme custom de partout, et ne changer qu'a un endroit
+    'javascripts', 'vendor', 'styles', 'includes', 'lang', 'tools/bazar', // ...
   ]
 ```
+
+Un wiki dont les fichiers pointent vers la ferme suit la version de la ferme : c'est
+`ferme:update` sur la ferme qui les met à jour tous d'un coup, et un wiki ne peut plus
+rester sur une version plus ancienne que les autres. Les wikis déjà installés ne sont
+pas touchés par ce réglage ; `ferme:symlink` remplace leurs copies par des liens, wiki
+par wiki, et `ferme:symlink --undo` refait des copies.
 
 ## Les commandes en ligne
 
@@ -246,10 +255,14 @@ règlent la sévérité et le vocabulaire.
 Un wiki qui sort du modèle et que personne n'a touché a une signature reconnaissable,
 autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
 `--min-users=2` écartent. `--never-edited` répond à la même question sans seuil à
-deviner : il ne garde que les wikis où rien n'a été écrit depuis l'installation. Les
-pages d'un modèle portent l'heure de l'installation, donc un wiki dont la dernière
-écriture est encore celle-là tient exactement ce qu'on lui a donné. La puce
-« contenu d'origine » montre les mêmes wikis dans la page d'admin. Pour se faire une
+deviner : il ne garde que les wikis qui tiennent encore ce que leur modèle leur a
+donné, c'est-à-dire ceux où personne n'a jamais rien écrit, et ceux où quelqu'un a
+touché cinq pages au plus sans revenir depuis six mois. Un wiki installé il y a moins
+d'un mois n'y figure jamais. Les pages d'un modèle sont écrites en une fois : tout ce
+qui arrive cinq minutes plus tard a été tapé par quelqu'un, et les réécritures que les
+mises à jour de la ferme laissent derrière elles, sans nom d'utilisateur, ne comptent
+pas — sur la ferme de 3 029 wikis elles touchaient presque tous les wikis le même jour.
+La puce « contenu d'origine » montre les mêmes wikis dans la page d'admin. Pour se faire une
 idée avant de choisir les seuils, `ferme:list --format=csv` sort une colonne par
 chiffre, qui se trie dans un tableur.
 - **`ferme:clean-spam`** retire des wikis ce que les robots y ont écrit : une page
