@@ -73,10 +73,10 @@ class WikiUpdater
         }
 
         if (!$dryRun) {
-            $this->hibernator->refuseIfAsleepIn($wikiDir);
+            $this->hibernator->refuseIfBusyIn($wikiDir);
         }
 
-        return $this->lock->during($wikiDir, _t('FERME_LOCK_UPDATE'), function () use ($wikiDir, $sourceDir, $backup, $dryRun, $options) {
+        return $this->lock->during($wikiDir, _t('FERME_LOCK_UPDATE'), function () use ($wikiDir, $sourceDir, $backup, $dryRun, $migrateOnly, $options) {
             $messages = [];
             $wakkaConfig = $this->editor->load($wikiDir);
             $replace = $migrateOnly ? [] : $this->entriesToReplace();

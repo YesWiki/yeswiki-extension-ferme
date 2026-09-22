@@ -124,12 +124,14 @@ four columns: update, content, accounts and contact, wiki life.
   download button appears per wiki, and the archive leaves the wiki once downloaded.
 - **Put into hibernation**: the chosen wikis stay readable but refuse every write, pages,
   entries, accounts, comments. That is what you do with a wiki nobody maintains any more,
-  rather than delete it. **While a wiki sleeps the farm no longer changes it**: no update,
-  no admin account. Lending the code as symbolic links is the exception, like cleaning the
-  spam: the wiki is woken for the swap and put back to sleep after, even when the swap
-  fails. It then serves code identical to the code it held. It can still be deleted, since
-  hibernation protects a wiki from being changed, not from being thrown away, and the
-  deletion page recalls that it was asleep.
+  rather than delete it. **While a wiki sleeps the farm no longer opens it to writing**: no
+  admin account, and a visitor's page is still refused. What touches its code goes through
+  all the same, and the same way everywhere. Updating it, lending it the code as symbolic
+  links and cleaning its spam all wake the wiki for the work and put it back to sleep
+  after, even when the work fails. The core migrations refuse to run on a sleeping wiki,
+  and that waking is what lets them through. It can still be deleted, since hibernation
+  protects a wiki from being changed, not from being thrown away, and the deletion page
+  recalls that it was asleep.
 - **Wake from hibernation**: they become writable again.
 - **Delete the selected wikis**, after confirmation. Deleting an entry from bazar also
   erases the wiki: the deletion page says so in red and recalls what the wiki holds before
