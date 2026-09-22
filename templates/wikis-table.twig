@@ -123,6 +123,35 @@
     margin-top: 4px;
     max-width: 780px;
 }
+.ferme-bulk {
+    margin-top: 10px;
+    padding: 10px 14px 12px;
+    border: 1px solid rgba(127, 127, 127, 0.3);
+    border-radius: 4px;
+}
+.ferme-bulk-head {
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+.ferme-bulk-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px 24px;
+}
+.ferme-bulk-title {
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.6;
+    margin-bottom: 3px;
+}
+.ferme-bulk-action {
+    display: block;
+    padding: 3px 0;
+}
+.ferme-bulk-action i {
+    opacity: 0.55;
+}
 #wikis-table tbody tr {
     cursor: pointer;
 }
@@ -208,65 +237,38 @@
     <button id="btn-select-none" type="button" class="btn btn-link btn-sm" style="display:none; margin-right:10px;">
         {{ _t("FERME_SELECT_NONE") }}
     </button>
-    <div class="btn-group">
-        <button id="btn-bulk-actions"
-                type="button"
-                class="btn btn-primary dropdown-toggle"
-                data-toggle="dropdown"
-                aria-haspopup="true"
-                aria-expanded="false"
-                disabled>
-            {{ _t("FERME_SELECTION_ACTIONS") }}
-            <span id="bulk-selected-count" class="badge" style="display:none;"></span>
-            <span class="caret"></span>
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="btn-bulk-actions">
-            <li>
-                <a href="#" id="btn-upgrade-selected"><i class="fas fa-sync-alt fa-fw"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}</a>
-            </li>
-            <li>
-                <a href="#" id="btn-upgrade-extensions-selected"><i class="fas fa-puzzle-piece fa-fw"></i> {{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}</a>
-            </li>
-            <li>
-                <a href="#" id="btn-refresh-stats-selected"><i class="fas fa-chart-bar fa-fw"></i> {{ _t("FERME_REFRESH_STATS_SELECTED") }}</a>
-            </li>
-            <li>
-                <a href="#" id="btn-recover-custom-selected"><i class="fas fa-undo fa-fw"></i> {{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}</a>
-            </li>
-            <li role="separator" class="divider"></li>
-            <li>
-                <a href="#" id="btn-archive-selected"><i class="fas fa-file-archive fa-fw"></i> {{ _t("FERME_ARCHIVE_SELECTED") }}</a>
-            </li>
-            <li role="separator" class="divider"></li>
-            <li>
-                <a href="#" id="btn-clean-spam-dry"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_DRY_SELECTED") }}</a>
-            </li>
-            <li>
-                <a href="#" id="btn-clean-spam"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_SELECTED") }}</a>
-            </li>
-            <li role="separator" class="divider"></li>
-            <li>
-                <a href="#" id="btn-hibernate-selected"><i class="fas fa-moon fa-fw"></i> {{ _t("FERME_HIBERNATE_SELECTED") }}</a>
-            </li>
-            <li>
-                <a href="#" id="btn-wake-selected"><i class="fas fa-sun fa-fw"></i> {{ _t("FERME_WAKE_SELECTED") }}</a>
-            </li>
-            <li role="separator" class="divider"></li>
-            <li>
-                <a href="#" id="btn-mail-selected"><i class="fas fa-envelope fa-fw"></i> {{ _t("FERME_MAIL_SELECTED") }}</a>
-            </li>
-            <li role="separator" class="divider"></li>
-            <li>
-                <a href="#" id="btn-admin-add-selected"><i class="fas fa-user-plus fa-fw"></i> {{ _t("FERME_ADMIN_ADD_SELECTED") }}</a>
-            </li>
-            <li>
-                <a href="#" id="btn-admin-remove-selected"><i class="fas fa-user-minus fa-fw"></i> {{ _t("FERME_ADMIN_REMOVE_SELECTED") }}</a>
-            </li>
-            <li role="separator" class="divider"></li>
-            <li>
-                <a href="#" id="btn-delete-selected" class="text-danger"><i class="fas fa-trash fa-fw"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}</a>
-            </li>
-        </ul>
+</div>
+<div id="ferme-bulk" class="ferme-bulk" style="display:none;">
+    <div class="ferme-bulk-head">
+        {{ _t("FERME_SELECTION_ACTIONS") }}
+        <span id="bulk-selected-count" class="badge"></span>
+    </div>
+    <div class="ferme-bulk-groups">
+        <div>
+            <div class="ferme-bulk-title">{{ _t("FERME_BULK_UPDATE") }}</div>
+            <a href="#" class="ferme-bulk-action" id="btn-upgrade-selected"><i class="fas fa-sync-alt fa-fw"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-upgrade-extensions-selected"><i class="fas fa-puzzle-piece fa-fw"></i> {{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-recover-custom-selected"><i class="fas fa-undo fa-fw"></i> {{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-refresh-stats-selected"><i class="fas fa-chart-bar fa-fw"></i> {{ _t("FERME_REFRESH_STATS_SELECTED") }}</a>
+        </div>
+        <div>
+            <div class="ferme-bulk-title">{{ _t("FERME_BULK_CONTENT") }}</div>
+            <a href="#" class="ferme-bulk-action" id="btn-clean-spam-dry"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_DRY_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-clean-spam"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_SELECTED") }}</a>
+        </div>
+        <div>
+            <div class="ferme-bulk-title">{{ _t("FERME_BULK_PEOPLE") }}</div>
+            <a href="#" class="ferme-bulk-action" id="btn-admin-add-selected"><i class="fas fa-user-plus fa-fw"></i> {{ _t("FERME_ADMIN_ADD_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-admin-remove-selected"><i class="fas fa-user-minus fa-fw"></i> {{ _t("FERME_ADMIN_REMOVE_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-mail-selected"><i class="fas fa-envelope fa-fw"></i> {{ _t("FERME_MAIL_SELECTED") }}</a>
+        </div>
+        <div>
+            <div class="ferme-bulk-title">{{ _t("FERME_BULK_LIFE") }}</div>
+            <a href="#" class="ferme-bulk-action" id="btn-archive-selected"><i class="fas fa-file-archive fa-fw"></i> {{ _t("FERME_ARCHIVE_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-hibernate-selected"><i class="fas fa-moon fa-fw"></i> {{ _t("FERME_HIBERNATE_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action" id="btn-wake-selected"><i class="fas fa-sun fa-fw"></i> {{ _t("FERME_WAKE_SELECTED") }}</a>
+            <a href="#" class="ferme-bulk-action text-danger" id="btn-delete-selected"><i class="fas fa-trash fa-fw"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}</a>
+        </div>
     </div>
 </div>
 <div id="upgrade-wikis-config"

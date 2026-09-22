@@ -623,13 +623,8 @@ $(document).ready(function() {
 
   function updateBulkBtns() {
     var count = selectionCount();
-    $('#btn-bulk-actions').prop('disabled', count === 0);
-    if (count > 0) {
-      $('#bulk-selected-count').text(count).show();
-    } else {
-      $('#bulk-selected-count').hide();
-      $('#btn-bulk-actions').closest('.btn-group').removeClass('open');
-    }
+    $('#ferme-bulk').toggle(count > 0);
+    $('#bulk-selected-count').text(count);
     $('#btn-select-none').toggle(count > 0);
   }
 
