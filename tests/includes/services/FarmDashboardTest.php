@@ -4,6 +4,7 @@ namespace YesWiki\Test\Ferme\Service;
 
 use PHPUnit\Framework\Attributes\CoversMethod;
 use YesWiki\Ferme\Service\FarmDashboard;
+use YesWiki\Ferme\Service\SpamApprovals;
 use YesWiki\Ferme\Service\WikiStatsStore;
 use YesWiki\Test\Core\YesWikiTestCase;
 
@@ -387,6 +388,26 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(2, $page['counts']['hibernating']);
         $this->assertSame(1, $page['counts']['failed']);
         $this->assertSame(1, $page['counts']['unmeasured']);
+    }
+
+    public function testAWikiWhoseSpamWasAllApprovedStillCarriesTheApprovals()
+    {
+        $page = $this->select(
+            [$this->fiche('propre'), $this->fiche('sale')],
+            [
+                'propre' => $this->stats([
+                    'spamPages' => 0,
+                    SpamApprovals::KEY => json_encode(['Ressources' => 'abcd', 'LiensUtiles' => 'efgh']),
+                ]),
+                'sale' => $this->stats(['spamPages' => 2]),
+            ]
+        );
+
+        $propre = $page['fiches'][0]['stats'];
+        $this->assertFalse($propre['spammed'], 'il ne reste rien à nettoyer');
+        $this->assertSame(2, $propre['approvedPages'], 'de quoi revenir sur la validation');
+        $this->assertSame(0, $page['fiches'][1]['stats']['approvedPages']);
+        $this->assertSame(1, $page['counts']['spammed']);
     }
 
     private function select(

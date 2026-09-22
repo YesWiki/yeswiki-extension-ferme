@@ -921,6 +921,7 @@ class ApiController extends YesWikiController
             'spam_links' => (int)($stats['spamLinks'] ?? 0),
             'spam_hosts' => (string)($stats['spamHosts'] ?? ''),
             'spammed' => !empty($stats['spammed']),
+            'spam_approved' => (int)($stats['approvedPages'] ?? 0),
             'heavy_archives' => !empty($stats['heavyArchives']),
             'dormant' => !empty($stats['dormant']),
             'suspect' => !empty($stats['suspect']),

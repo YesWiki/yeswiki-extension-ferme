@@ -201,10 +201,6 @@ class FarmConfig
         if (is_null($this->wiki->config['yeswiki_symlinked_files'])) {
             $this->wiki->config['yeswiki_symlinked_files'] = [];
         }
-
-        if (!isset($this->wiki->config['yeswiki-farm-bg-img'])) {
-            $this->wiki->config['yeswiki-farm-bg-img'] = '';
-        }
     }
 
     private function applyThemeDefaults(): void

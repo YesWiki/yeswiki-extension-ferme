@@ -140,31 +140,31 @@ parameters:
     - 'vendor'
   # for edit config action
   ferme_editable_config_params:
+    # la ferme et son compte super-administrateur
     - 'bazar_farm_id'
     - 'yeswiki-farm-root-folder'
     - 'yeswiki-farm-root-url'
     - 'yeswiki-farm-admin-name'
     - 'yeswiki-farm-admin-pass'
     - 'yeswiki-farm-admin-email'
+    # ce que reçoit chaque wiki créé
     - 'yeswiki-farm-extra-themes'
-    - 'yeswiki-farm-archive-url'
-    - 'yeswiki-farm-backup-dir'
+    - 'yeswiki-farm-extra-tools'
+    - 'yeswiki-farm-homepage'
+    - 'yeswiki-farm-default-WikiAdmin'
+    - 'yeswiki-farm-password-WikiAdmin'
+    - 'yeswiki-farm-email-WikiAdmin'
+    # spam et statistiques
+    - 'yeswiki-farm-spam-words'
+    - 'yeswiki-farm-spam-hosts'
     - 'yeswiki-farm-stats-on-visit'
     - 'yeswiki-farm-stats-interval'
     - 'yeswiki-farm-stats-per-visit'
     - 'yeswiki-farm-spam-threshold'
-    - 'yeswiki-farm-spam-words'
-    - 'yeswiki-farm-spam-hosts'
-    - 'yeswiki-farm-archive-keep'
-    # comptes créés dans chaque wiki
-    - 'yeswiki-farm-create-user'
-    - 'yeswiki-farm-default-WikiAdmin'
-    - 'yeswiki-farm-password-WikiAdmin'
-    - 'yeswiki-farm-email-WikiAdmin'
     # le reste de la ferme
+    - 'yeswiki-farm-archive-keep'
+    - 'yeswiki-farm-create-user'
     - 'yeswiki-farm-prefix'
-    - 'yeswiki-farm-homepage'
-    - 'yeswiki-farm-bg-img'
     - contact_wikis:
         - default_template
     - 'yeswiki-farm-mattermost-webhook'

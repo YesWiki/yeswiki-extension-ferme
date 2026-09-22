@@ -116,6 +116,7 @@ class FarmDashboard
                 $measured['failed'] = ($measured['status'] ?? '') === WikiStatsStore::STATUS_ERROR;
                 $measured['suspect'] = (int)($measured['suspect'] ?? 0) >= $spamThreshold;
                 $measured['spammed'] = (int)($measured['spamPages'] ?? 0) > 0;
+                $measured['approvedPages'] = $this->approvedPages($measured);
                 $measured['suspectWhy'] = array_values(array_filter(explode(',', (string)($measured['suspectWhy'] ?? ''))));
             }
 
@@ -123,6 +124,19 @@ class FarmDashboard
         }
 
         return $fiches;
+    }
+
+    /**
+     * How many of a wiki's pages somebody vouched for, so a wiki whose spam is all
+     * approved still has something to show and the approval can be taken back.
+     *
+     * @param array<string,mixed> $measured
+     */
+    private function approvedPages(array $measured): int
+    {
+        $decoded = json_decode((string)($measured[SpamApprovals::KEY] ?? ''), true);
+
+        return is_array($decoded) ? count($decoded) : 0;
     }
 
     /**

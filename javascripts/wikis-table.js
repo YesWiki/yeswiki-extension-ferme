@@ -576,7 +576,7 @@ $(document).ready(function() {
       html += '<div class="alert alert-danger" style="margin:8px 0 0;"><code>' + esc(row.stats.error) + '</code></div>';
     }
 
-    if (row.stats.spammed) {
+    if (row.stats.spammed || row.stats.spam_approved) {
       html += '<div class="ferme-spam-slot" data-folder="' + esc(row.folder) + '">'
         + '<span class="ferme-muted">' + esc(i18n.i18nLoading) + '</span></div>';
     }

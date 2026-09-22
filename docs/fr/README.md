@@ -37,7 +37,7 @@ Quand vous installez la ferme, à partir de "Gestion ferme à wikis" dans molett
 En haut de la page, un bandeau donne les totaux de la ferme — dont le nombre de wikis en service et en hibernation, sur lesquels on clique pour ne voir que ceux-là — et des étiquettes qui filtrent la liste d'un clic : à mettre à jour, dormants, archives lourdes, suspects, contenu spammé, en erreur, jamais mesurés, en hibernation. Un wiki mis en hibernation n'est pas compté parmi les dormants : il se tait parce qu'on l'a voulu. Un menu "Trier par" range les wiki par titre, personne référente, dernière activité, activité totale, fiches, pages, comptes, formulaires ou espace disque.
 
 Le tableau tient en cinq colonnes :
- -  Le détail dépliable d'un wiki marqué "contenu spammé" liste ses pages en cause, chacune avec un lien qui l'ouvre dans un nouvel onglet, la raison pour laquelle elle est marquée, et ce que le nettoyage en ferait — ou, quand aucune règle ne sait la nettoyer, qu'elle est à regarder à la main. Chaque page porte un lien « ce n'est pas du spam » : une liste de ressources honnête est faite de liens et rien d'autre, aucune règle ne saura jamais l'en distinguer, alors vous tranchez une fois et la ferme s'en souvient. Ce dont elle se souvient est la page telle que vous l'avez validée : si le robot y revient, elle redevient du spam toute seule. Un lien « remettre en spam » annule la validation
+ -  Le détail dépliable d'un wiki marqué "contenu spammé" liste ses pages en cause, chacune avec un lien qui l'ouvre dans un nouvel onglet, la raison pour laquelle elle est marquée, et ce que le nettoyage en ferait — ou, quand aucune règle ne sait la nettoyer, qu'elle est à regarder à la main. Chaque page porte un lien « ce n'est pas du spam » : une liste de ressources honnête est faite de liens et rien d'autre, aucune règle ne saura jamais l'en distinguer, alors vous tranchez une fois et la ferme s'en souvient. Ce dont elle se souvient est la page telle que vous l'avez validée : si le robot y revient, elle redevient du spam toute seule. Un lien « remettre en spam » annule la validation, et le détail garde la liste des pages validées même quand le wiki a quitté l'étiquette « contenu spammé » : sans cela, une page validée par erreur serait hors d'atteinte
  -  **Nom du wiki** : son titre, qui mène à sa fiche bazar sur le wiki maître, une flèche à côté pour ouvrir le wiki lui-même dans un nouvel onglet, la personne référente et son mail, sa version et son compte super admin s'il en a un. S'y ajoutent, quand il y a lieu, une étiquette "custom mis de côté" laissée par une mise à jour interrompue, "suspect" quand le nom sent le spam, "en hibernation" quand le wiki n'accepte plus d'écriture, ou l'erreur rencontrée à la dernière mesure. Le détail dépliable dit toujours le statut, même pour un wiki jamais mesuré
  -  **Contenu** : ce que le wiki contient — fiches, pages, formulaires, comptes. Un point d'interrogation tant qu'il n'a jamais été mesuré
  -  **Dernière activité** : un petit graphe des douze derniers mois, et "il y a 5 j" en dessous — la date elle-même au-delà de trois mois
@@ -148,8 +148,8 @@ adresse : un fichier absent est simplement ignoré, le thème reste proposé san
 ```
 
 ### Tools activables
-{{label class="label-danger" }}Activable uniquement dans "wakka.config.php"{{end elem="label"}}
-tools supplémentaires (doivent etre présents dans le dossier tools du wiki source)
+{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
+extensions supplémentaires, copiées dans chaque wiki créé en plus de celles du cœur. Elles doivent être présentes dans le dossier `tools` du wiki de la ferme.
 ```
 'yeswiki-farm-extra-tools' => [],
 ```
@@ -214,19 +214,13 @@ ajouter des valeurs dans le fichier de configuration des wikis créés
 'yeswiki-farm-extra-config' => ['BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'],
 ```
 
-### Image de fond
-{{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
-image de fond de la page de demande de wiki
-```
-'yeswiki-farm-bg-img' => '',
-```
-
 ### Les autres réglages
 {{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
 Le reste se règle dans "gestion du site" / "Fichier de conf" / "Ferme à wikis", où
 chaque ligne porte son explication : où sont rangés les wiki et sous quelle adresse,
-le préfixe de leurs tables, le dossier des sauvegardes, la fréquence des mesures
-d'activité, le seuil à partir duquel un wiki est signalé comme suspect et les mots
-qui le déclenchent, le modèle du mail envoyé aux personnes référentes, et l'adresse
-d'un webhook Mattermost prévenu à chaque wiki créé ou supprimé.
+les thèmes et les extensions copiés dans chaque wiki créé, le compte administrateur
+qu'il reçoit, le préfixe de leurs tables, la fréquence des mesures d'activité, le
+seuil à partir duquel un wiki est signalé comme suspect et les mots qui le déclenchent,
+le modèle du mail envoyé aux personnes référentes, et l'adresse d'un webhook Mattermost
+prévenu à chaque wiki créé ou supprimé.
   
