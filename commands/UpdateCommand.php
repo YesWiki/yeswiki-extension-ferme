@@ -45,6 +45,7 @@ class UpdateCommand extends AbstractFarmCommand
             ->addOption('stop-on-error', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_STOP_ON_ERROR'))
             ->addOption('ignore-extensions', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_IGNORE_EXTENSIONS'))
             ->addOption('recover-only', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_RECOVER_ONLY'))
+            ->addOption('migrate-only', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATE_ONLY'))
             ->addOption('migratecerco', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATECERCO'))
             ->addOption('migratedev', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATEDEV'))
             ->addWikiSelectionOptions()
@@ -295,6 +296,7 @@ class UpdateCommand extends AbstractFarmCommand
             'backup' => !$input->getOption('nobackup'),
             'dryRun' => $this->isDryRun($input),
             'ignoreExtensions' => (bool)$input->getOption('ignore-extensions'),
+            'migrateOnly' => (bool)$input->getOption('migrate-only'),
         ];
 
         $updated = 0;
@@ -417,6 +419,9 @@ class UpdateCommand extends AbstractFarmCommand
         }
         if ($input->getOption('ignore-extensions')) {
             $command[] = '--ignore-extensions';
+        }
+        if ($input->getOption('migrate-only')) {
+            $command[] = '--migrate-only';
         }
         if ($this->isDryRun($input)) {
             $command[] = '--dry-run';

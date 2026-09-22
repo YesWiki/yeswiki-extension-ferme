@@ -56,7 +56,7 @@ class WikiUpdater
     }
 
     /**
-     * @param array{sourceDir?:string,backup?:bool,dryRun?:bool,ignoreExtensions?:bool} $options
+     * @param array{sourceDir?:string,backup?:bool,dryRun?:bool,ignoreExtensions?:bool,migrateOnly?:bool} $options
      *
      * @return array{status:string,messages:array<int,string>}
      */
@@ -66,6 +66,7 @@ class WikiUpdater
         $sourceDir = rtrim($options['sourceDir'] ?? getcwd(), DIRECTORY_SEPARATOR);
         $backup = $options['backup'] ?? true;
         $dryRun = $options['dryRun'] ?? false;
+        $migrateOnly = $options['migrateOnly'] ?? false;
 
         if ($wikiDir === rtrim((string)realpath(getcwd()), DIRECTORY_SEPARATOR)) {
             throw new \RuntimeException(_t('FERME_CLI_MASTER_EXCLUDED'));
@@ -78,26 +79,28 @@ class WikiUpdater
         return $this->lock->during($wikiDir, _t('FERME_LOCK_UPDATE'), function () use ($wikiDir, $sourceDir, $backup, $dryRun, $options) {
             $messages = [];
             $wakkaConfig = $this->editor->load($wikiDir);
-            $replace = $this->entriesToReplace();
-            $symlink = $this->symlinkedEntries();
+            $replace = $migrateOnly ? [] : $this->entriesToReplace();
+            $symlink = $migrateOnly ? [] : $this->symlinkedEntries();
             $extras = $this->extraExtensions($sourceDir, $wikiDir);
             [$version, $release] = $this->sourceVersion($sourceDir);
             $sameVersion = strtolower((string)($wakkaConfig['yeswiki_version'] ?? '')) === strtolower($version);
-            $skipExtensions = $options['ignoreExtensions'] ?? false;
+            $skipExtensions = $migrateOnly || ($options['ignoreExtensions'] ?? false);
             $toUpgrade = $skipExtensions ? [] : $this->extensions->toUpgrade($wikiDir, $extras, $version, (string)($wakkaConfig['yeswiki_version'] ?? ''));
             $unpublished = $skipExtensions ? [] : $this->extensions->unpublished($extras, $version);
 
             if ($dryRun) {
-                return ['status' => 'updated', 'messages' => $this->plan($wikiDir, $sourceDir, $replace, $symlink, $toUpgrade, $unpublished, $backup)];
+                return ['status' => 'updated', 'messages' => $this->plan($wikiDir, $sourceDir, $replace, $symlink, $toUpgrade, $unpublished, $backup, $migrateOnly)];
             }
 
             foreach ($unpublished as $extension) {
                 $messages[] = $extension . ' ' . _t('FERME_CLI_EXT_NOT_PUBLISHED') . ' ' . $version;
             }
 
-            $recovered = $this->aside->recover($wikiDir);
-            if ($recovered !== null) {
-                $messages[] = $recovered;
+            if (!$migrateOnly) {
+                $recovered = $this->aside->recover($wikiDir);
+                if ($recovered !== null) {
+                    $messages[] = $recovered;
+                }
             }
 
             $backupDir = null;
@@ -118,7 +121,7 @@ class WikiUpdater
                 $messages = array_merge($messages, $this->upgradeExtensions($wikiDir, $toUpgrade));
             }
 
-            foreach (self::REMOVED_TOOLS as $entry) {
+            foreach ($migrateOnly ? [] : self::REMOVED_TOOLS as $entry) {
                 $this->displace($wikiDir, $entry, $backupDir);
             }
             $copied = 0;
@@ -139,7 +142,9 @@ class WikiUpdater
                 $this->displace($wikiDir, $entry, $backupDir);
                 symlink($sourceDir . DIRECTORY_SEPARATOR . $entry, $wikiDir . DIRECTORY_SEPARATOR . $entry);
             }
-            $messages[] = _t('FERME_CLI_FILES_REPLACED') . ' ' . ($copied + count($symlink));
+            if (!$migrateOnly) {
+                $messages[] = _t('FERME_CLI_FILES_REPLACED') . ' ' . ($copied + count($symlink));
+            }
 
             $hibernating = ($wakkaConfig['wiki_status'] ?? '') === 'hibernate';
             $this->patch($wikiDir, $hibernating
@@ -405,7 +410,12 @@ class WikiUpdater
 
     private function runConsole(string $wikiDir, array $arguments): string
     {
-        $process = new Process(array_merge([PHP_BINARY, self::CONSOLE], $arguments), $wikiDir);
+        // a wiki migrating on its own must not set the whole farm migrating again
+        $process = new Process(
+            array_merge([PHP_BINARY, self::CONSOLE], $arguments),
+            $wikiDir,
+            [FarmMigrationWatch::RUNNING => '1']
+        );
         $process->setTimeout(self::PROCESS_TIMEOUT);
         $process->run();
 
@@ -449,11 +459,15 @@ class WikiUpdater
         array $symlink,
         array $toUpgrade,
         array $unpublished,
-        bool $backup
+        bool $backup,
+        bool $migrateOnly = false
     ): array {
         [$version, $release] = $this->sourceVersion($sourceDir);
 
-        $messages = [_t('FERME_CLI_WOULD_COPY') . ' ' . count($replace) . ' ' . _t('FERME_CLI_FROM') . ' ' . $sourceDir];
+        $messages = [];
+        if (!$migrateOnly) {
+            $messages[] = _t('FERME_CLI_WOULD_COPY') . ' ' . count($replace) . ' ' . _t('FERME_CLI_FROM') . ' ' . $sourceDir;
+        }
         if (!empty($symlink)) {
             $messages[] = _t('FERME_CLI_WOULD_SYMLINK') . ' ' . implode(', ', $symlink);
         }
@@ -466,7 +480,7 @@ class WikiUpdater
         foreach ($unpublished as $extension) {
             $messages[] = $extension . ' ' . _t('FERME_CLI_EXT_NOT_PUBLISHED') . ' ' . $version;
         }
-        if ($this->aside->isAside($wikiDir)) {
+        if (!$migrateOnly && $this->aside->isAside($wikiDir)) {
             $messages[] = _t('FERME_CLI_WOULD_RECOVER_CUSTOM');
         }
 

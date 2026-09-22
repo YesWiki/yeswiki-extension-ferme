@@ -32,6 +32,11 @@ parameters:
   # how long an archive nobody downloaded stays in its wiki, in seconds. The
   # statistics sweep throws out what is older. 0 keeps them for ever.
   yeswiki-farm-archive-keep: 604800
+  # start the farm's migrations when the master changes version. A wiki whose files
+  # are symbolic links to the master runs its new code at once, with its own database
+  # left behind, so this closes the gap without waiting for a cron. Set to false on a
+  # farm that runs 'ferme:update --migrate-only' from cron, or where exec() is off.
+  yeswiki-farm-migrate-on-update: true
   # a Mattermost incoming webhook, to be told when a wiki is created or deleted.
   # The message carries a link to the entry's deletion page, which asks for a login
   # and a confirmation like any other, so nothing here is a button that deletes.
@@ -164,6 +169,7 @@ parameters:
     # le reste de la ferme
     - 'yeswiki-farm-archive-keep'
     - 'yeswiki-farm-create-user'
+    - 'yeswiki-farm-migrate-on-update'
     - 'yeswiki-farm-prefix'
     - contact_wikis:
         - default_template

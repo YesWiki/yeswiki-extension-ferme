@@ -22,7 +22,7 @@ class Yeswicli
         chdir($wikiFolder);
         $output = [];
         $status = 0;
-        exec('./yeswicli migrate 2>&1', $output, $status);
+        exec(FarmMigrationWatch::RUNNING . '=1 ./yeswicli migrate 2>&1', $output, $status);
         chdir($currentDir);
 
         return $status === 0 ? [] : $output;

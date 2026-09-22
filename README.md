@@ -330,7 +330,32 @@ chose l'a déjà condamnée.
   passé. `--workers` en traite plusieurs à la fois, `--force` refait un wiki déjà
   à jour, `--archive-url` part d'une archive zip plutôt que du wiki maître. Un wiki
   en échec est signalé et la série continue, comme dans la page d'administration ;
-  `--stop-on-error` arrête tout au premier échec.
+  `--stop-on-error` arrête tout au premier échec. `--migrate-only` ne fait que les
+  migrations et l'estampille de version : ni fichiers remplacés, ni extensions mises
+  à niveau. C'est ce qu'il faut à une ferme dont les wikis pointent vers le maître
+  par des liens symboliques, puisque leur code a déjà changé et qu'il ne reste que
+  leur base à mettre à l'heure.
+
+Quand le wiki maître change de version, la ferme lance ces migrations toute seule,
+aux deux endroits où cette version change :
+
+- la page `{{update}}` du maître, juste après qu'elle a fini son travail. Le visiteur
+  reçoit sa page, puis `ferme:update --migrate-only` démarre dans un processus séparé
+  dont la sortie va dans `private/ferme-migrate.log` : quelques milliers de wikis sont
+  bien plus longs qu'une page ne peut attendre
+- la commande `migrate` du maître, qui enchaîne sur les wikis de la ferme dans la
+  foulée, à l'écran : celui qui tape la commande regarde, autant qu'il voie passer les
+  wikis plutôt que de l'apprendre par un journal
+
+La version trouvée est notée dans `private/ferme-release` avant que le travail
+commence, donc ça n'arrive qu'une fois par version, et une ferme qui n'a encore rien
+noté se contente de noter. La version est relue dans `wakka.config.php` plutôt que
+dans la configuration en mémoire, puisque c'est la requête même qui vient de l'écrire
+qui pose la question. Les migrations que la ferme lance dans ses wikis portent une
+variable d'environnement qui empêche l'une d'elles de relancer toute la ferme.
+
+Le réglage `yeswiki-farm-migrate-on-update` éteint tout ça, ce qu'il faut faire sur un
+hébergement où `exec()` est interdit ou si vous préférez une ligne de cron.
 
 Les statistiques viennent d'une passe `ferme:stats`, à mettre au cron. Toutes les
 quinze minutes suffisent largement, une passe sur 2 700 wikis tenant en quelques
