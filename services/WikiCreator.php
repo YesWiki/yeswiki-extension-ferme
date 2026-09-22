@@ -190,11 +190,14 @@ class WikiCreator
 
                 continue;
             }
+            // a lone file such as tools/README.md needs the folder above it, which
+            // nothing else makes once every tools/ entry is borrowed rather than copied
+            $this->makeDir(dirname($destfolder . $file));
             $this->copyOrFail($srcfolder . $file, $destfolder . $file);
         }
 
         foreach ($symlinked as $file) {
-            symlink($srcfolder . $file, $destfolder . $file);
+            $this->linkOrFail($srcfolder . $file, $destfolder . $file);
         }
 
         foreach (['themes' => 'yeswiki-farm-extra-themes', 'tools' => 'yeswiki-farm-extra-tools'] as $parent => $configKey) {
@@ -231,6 +234,17 @@ class WikiCreator
         }
 
         throw new WikiCreationException(_t('FERME_COPY_INCOMPLETE') . ' ' . $source . ' : ' . $this->files->failureSummary());
+    }
+
+    /** What the wiki borrows from the farm rather than copying, folder above included. */
+    private function linkOrFail(string $source, string $dest): void
+    {
+        $this->makeDir(dirname($dest));
+        if (is_link($dest) || symlink($source, $dest)) {
+            return;
+        }
+
+        throw new WikiCreationException(_t('FERME_SYMLINK_FAILED') . ' ' . $dest);
     }
 
     private function makeDir(string $dir): void

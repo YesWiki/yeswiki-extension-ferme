@@ -266,6 +266,34 @@ be present in the farm wiki's `tools` folder.
 'yeswiki-farm-extra-tools' => [],
 ```
 
+### Files shared with the wikis created
+
+Settable in `wakka.config.php` only.
+
+What a created wiki borrows from the farm through a symbolic link instead of copying
+it. The core's code is the same in every wiki and weighs 112 Mo each; lent, it sits on
+the disk once.
+
+```php
+'yeswiki_symlinked_files' => [
+  'javascripts', 'vendor', 'styles', 'includes', 'lang', 'tools/bazar', // ...
+],
+```
+
+The default is the same list as `yeswiki-farm-lent-files`: the core extensions one by
+one, `tools/bazar`, `tools/attach`, `tools/login`, and `themes/margot`. Never `tools`
+or `themes` as a whole — those two stay real folders in every wiki, otherwise it could
+no longer hold an extension or a theme of its own. An extension installed on the farm
+and missing from the list stays on the farm; to give it to the wikis created, use
+`yeswiki-farm-extra-tools`, which copies it and leaves the wiki its owner. Set this to
+`[]` to go back to a full copy per wiki.
+
+A wiki whose files point at the farm follows the farm's version: `ferme:update` on the
+farm updates them all at once, and that wiki can no longer stay on an older version
+than the others. Wikis already installed are not touched by this setting, which only
+applies at creation; `ferme:symlink` replaces their copies with links, wiki by wiki,
+and `ferme:symlink --undo` copies the code back.
+
 ### Access rights
 
 Settable in `wakka.config.php` only.

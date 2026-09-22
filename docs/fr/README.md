@@ -214,6 +214,30 @@ ajouter des valeurs dans le fichier de configuration des wikis créés
 'yeswiki-farm-extra-config' => ['BAZ_ADRESSE_MAIL_ADMIN' => 'admin@yeswiki.test'],
 ```
 
+### Fichiers partagés avec les wikis créés
+{{label class="label-danger" }}Activable uniquement dans "wakka.config.php"{{end elem="label"}}
+Ce qu'un wiki créé emprunte à la ferme par un lien symbolique au lieu de le copier.
+Le code du cœur est le même dans tous les wikis et pèse 112 Mo chacun ; prêté, il
+n'est sur le disque qu'une fois.
+```
+'yeswiki_symlinked_files' => [
+  'javascripts', 'vendor', 'styles', 'includes', 'lang', 'tools/bazar', // ...
+],
+```
+Par défaut c'est la même liste que `yeswiki-farm-lent-files`, soit les extensions du
+cœur une par une, `tools/bazar`, `tools/attach`, `tools/login`, et `themes/margot`.
+Jamais `tools` ni `themes` en entier : ces deux dossiers restent en dur dans chaque
+wiki, sans quoi il ne pourrait plus avoir d'extension ni de thème à lui. Une extension
+installée sur la ferme et absente de la liste reste sur la ferme ; pour la donner aux
+wikis créés, c'est `yeswiki-farm-extra-tools`, qui la copie et dont le wiki devient
+propriétaire. Mettre `[]` revient à une copie complète par wiki.
+
+Un wiki dont les fichiers pointent vers la ferme suit la version de la ferme : c'est
+`ferme:update` sur la ferme qui les met à jour tous d'un coup, et ce wiki ne peut plus
+rester sur une version plus ancienne que les autres. Les wikis déjà installés ne sont
+pas touchés par ce réglage, qui ne vaut qu'à la création ; `ferme:symlink` remplace
+leurs copies par des liens, wiki par wiki, et `ferme:symlink --undo` refait des copies.
+
 ### Les autres réglages
 {{label class="label-warning" }}Activable dans "Fichier de conf"{{end elem="label"}}
 Le reste se règle dans "gestion du site" / "Fichier de conf" / "Ferme à wikis", où
@@ -410,6 +434,16 @@ chose l'a déjà condamnée.
   à niveau. C'est ce qu'il faut à une ferme dont les wikis pointent vers le maître
   par des liens symboliques, puisque leur code a déjà changé et qu'il ne reste que
   leur base à mettre à l'heure.
+- **`ferme:symlink`** remplace, dans les wikis déjà installés, les dossiers listés par
+  `yeswiki-farm-lent-files` par des liens vers la ferme : sur une ferme de quelques
+  milliers de wikis, c'est des dizaines de gigaoctets rendus au disque. Un dossier
+  n'est remplacé que s'il contient exactement ce que contient le maître, mêmes
+  fichiers et mêmes tailles ; un wiki retouché à la main est signalé et laissé
+  tranquille. `--list` détaille dossier par dossier ce qui a été fait et pourquoi,
+  `--undo` recopie le code dans un wiki qui doit reprendre sa route tout seul, et
+  `--dry-run` montre sans rien toucher — commencez par là. Le résumé dit combien de
+  liens ont été posés et combien de place a été rendue. Les wikis créés ensuite
+  reçoivent leurs liens directement, c'est `yeswiki_symlinked_files` qui le dit.
 
 Quand le wiki maître change de version, la ferme lance ces migrations toute seule,
 aux deux endroits où cette version change :
@@ -501,6 +535,9 @@ jour ou ment sur ce qui est installé : `yeswiki_files`, `yeswiki_empty_folders`
 (`yeswiki-farm-themes`, `-acls`, `-options`, `-models`, `-extra-config`,
 `-extra-tools`) en sont aussi, faute d'une interface qui sache éditer des structures
 imbriquées sans les abîmer.
+
+Ce que `yeswiki_symlinked_files` contient est décrit plus haut, dans « Fichiers
+partagés avec les wikis créés ».
 
 Trois réglages s'ajoutent au `wakka.config.php`, modifiables depuis `{{editconfig}}` :
 
