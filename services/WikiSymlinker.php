@@ -9,7 +9,8 @@ namespace YesWiki\Ferme\Service;
  * A copy is only replaced when it holds exactly what the master holds, same paths
  * and same sizes: a wiki somebody has patched keeps its files and is reported. The
  * wiki's own folders — custom, files, private, cache and the extensions it installed
- * itself — are never touched.
+ * itself — are never touched. A hibernating wiki is woken for the swap and put back
+ * to sleep right after, whatever happens in between.
  */
 class WikiSymlinker
 {
@@ -30,8 +31,9 @@ class WikiSymlinker
     private $lock;
     private $hibernator;
     private $refresher;
+    private $editor;
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, FileSystem $files, FolderLock $lock, WikiHibernator $hibernator, StatsRefresher $refresher)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, FileSystem $files, FolderLock $lock, WikiHibernator $hibernator, StatsRefresher $refresher, WikiConfigEditor $editor)
     {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -39,6 +41,7 @@ class WikiSymlinker
         $this->lock = $lock;
         $this->hibernator = $hibernator;
         $this->refresher = $refresher;
+        $this->editor = $editor;
     }
 
     /**
@@ -74,7 +77,7 @@ class WikiSymlinker
     }
 
     /**
-     * @return array{linked:int,freed:int,kept:int,steps:array<int,array<string,mixed>>}
+     * @return array{linked:int,freed:int,kept:int,awoken:bool,steps:array<int,array<string,mixed>>}
      */
     public function link(string $wikiDir, bool $dryRun = true): array
     {
@@ -82,7 +85,7 @@ class WikiSymlinker
     }
 
     /**
-     * @return array{linked:int,freed:int,kept:int,steps:array<int,array<string,mixed>>}
+     * @return array{linked:int,freed:int,kept:int,awoken:bool,steps:array<int,array<string,mixed>>}
      */
     public function unlink(string $wikiDir, bool $dryRun = true): array
     {
@@ -90,7 +93,7 @@ class WikiSymlinker
     }
 
     /**
-     * @return array{linked:int,freed:int,kept:int,steps:array<int,array<string,mixed>>}
+     * @return array{linked:int,freed:int,kept:int,awoken:bool,steps:array<int,array<string,mixed>>}
      */
     private function apply(string $wikiDir, bool $dryRun, string $way): array
     {
@@ -102,7 +105,7 @@ class WikiSymlinker
         }
 
         if (!$dryRun) {
-            $this->hibernator->refuseIfAsleepIn($wikiDir);
+            $this->hibernator->refuseIfBusyIn($wikiDir);
         }
 
         return $this->lock->during($wikiDir, _t('FERME_LOCK_SYMLINK'), function () use ($source, $wikiDir, $dryRun, $way) {
@@ -117,8 +120,23 @@ class WikiSymlinker
                 }
                 $linked++;
                 $freed += $step['bytes'];
-                if (!$dryRun) {
-                    $this->run($source, $wikiDir, $step);
+            }
+
+            $awoken = !$dryRun && $linked > 0
+                && WikiHibernator::statusIn($wikiDir) === WikiHibernator::HIBERNATE;
+            if ($awoken) {
+                $this->patch($wikiDir, WikiHibernator::RUNNING);
+            }
+
+            try {
+                foreach ($steps as $step) {
+                    if (!$dryRun && $step['action'] !== 'keep') {
+                        $this->run($source, $wikiDir, $step);
+                    }
+                }
+            } finally {
+                if ($awoken) {
+                    $this->patch($wikiDir, WikiHibernator::HIBERNATE);
                 }
             }
 
@@ -126,8 +144,19 @@ class WikiSymlinker
                 $this->refresher->remeasure(basename($wikiDir));
             }
 
-            return ['linked' => $linked, 'freed' => $freed, 'kept' => $kept, 'steps' => $steps];
+            return ['linked' => $linked, 'freed' => $freed, 'kept' => $kept, 'awoken' => $awoken, 'steps' => $steps];
         });
+    }
+
+    /**
+     * Write one wiki_status into the wiki's own configuration.
+     */
+    private function patch(string $wikiDir, string $status): void
+    {
+        $config = $this->editor->load($wikiDir);
+        if (!empty($this->editor->apply($config, ['wiki_status' => $status], []))) {
+            $this->editor->write($wikiDir, $config);
+        }
     }
 
     /**

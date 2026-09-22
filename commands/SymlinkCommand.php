@@ -58,6 +58,7 @@ class SymlinkCommand extends AbstractFarmCommand
         $links = 0;
         $freed = 0;
         $kept = 0;
+        $awoken = 0;
         $failed = [];
 
         foreach ($wikis as $wiki) {
@@ -74,6 +75,7 @@ class SymlinkCommand extends AbstractFarmCommand
             $links += $report['linked'];
             $freed += $report['freed'];
             $kept += $report['kept'];
+            $awoken += $report['awoken'] ? 1 : 0;
             if ($report['linked'] === 0) {
                 continue;
             }
@@ -97,6 +99,7 @@ class SymlinkCommand extends AbstractFarmCommand
                 _t('FERME_CLI_SYMLINK_TOUCHED') => $touched,
                 _t('FERME_CLI_SYMLINK_LINKS') => $links,
                 _t('FERME_CLI_SYMLINK_KEPT') => $kept,
+                _t('FERME_CLI_SYMLINK_WOKEN') => $awoken,
                 _t('FERME_CLI_SYMLINK_FREED') => $this->presenter->size($freed),
                 _t('FERME_CLI_FAILED') => count($failed),
                 _t('FERME_CLI_ELAPSED') => $this->elapsed($started),

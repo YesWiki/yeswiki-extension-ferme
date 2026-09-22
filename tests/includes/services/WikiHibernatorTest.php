@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\CoversMethod;
 use YesWiki\Core\Service\ConfigurationService;
 use YesWiki\Ferme\Exception\FolderBusyException;
 use YesWiki\Ferme\Exception\WikiAsleepException;
+use YesWiki\Ferme\Exception\WikiBusyException;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FileSystem;
 use YesWiki\Ferme\Service\FolderLock;
@@ -45,6 +46,22 @@ class WikiHibernatorTest extends YesWikiTestCase
         $this->assertTrue(WikiHibernator::isAsleep('hibernate'));
         $this->assertTrue(WikiHibernator::isAsleep('archiving'), 'core sets this while it works, and writes are refused');
         $this->assertTrue(WikiHibernator::isAsleep('updating'));
+    }
+
+    public function testAHibernatingWikiIsLeftToWhoeverCanPutItBackToSleep()
+    {
+        $this->write('monwiki', "<?php\n\$wakkaConfig = ['wiki_status' => 'hibernate'];\n");
+
+        $this->expectNotToPerformAssertions();
+        $this->hibernator()->refuseIfBusyIn($this->tmp . '/monwiki');
+    }
+
+    public function testAWikiCoreIsWorkingOnIsRefused()
+    {
+        $this->write('monwiki', "<?php\n\$wakkaConfig = ['wiki_status' => 'updating'];\n");
+
+        $this->expectException(WikiBusyException::class);
+        $this->hibernator()->refuseIfBusyIn($this->tmp . '/monwiki');
     }
 
     public function testSendingAWikiToSleepWritesItIntoItsOwnConfiguration()

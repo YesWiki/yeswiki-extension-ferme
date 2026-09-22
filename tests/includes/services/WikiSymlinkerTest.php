@@ -3,10 +3,13 @@
 namespace YesWiki\Test\Ferme\Service;
 
 use PHPUnit\Framework\Attributes\CoversMethod;
+use YesWiki\Core\Entity\ConfigurationFile;
+use YesWiki\Core\Service\ConfigurationService;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FileSystem;
 use YesWiki\Ferme\Service\FolderLock;
 use YesWiki\Ferme\Service\StatsRefresher;
+use YesWiki\Ferme\Service\WikiConfigEditor;
 use YesWiki\Ferme\Service\WikiHibernator;
 use YesWiki\Ferme\Service\WikiSymlinker;
 use YesWiki\Test\Core\YesWikiTestCase;
@@ -44,8 +47,10 @@ class WikiSymlinkerTest extends YesWikiTestCase
             file_put_contents($this->wikiDir . '/' . $file, $body);
         }
         file_put_contents($this->wikiDir . '/custom/custom.css', 'body{}');
+        $this->writeStatus('running');
 
         $this->wikiApp->config['yeswiki-farm-lent-files'] = ['javascripts', 'tools/bazar', 'absent'];
+        class_exists(ConfigurationFile::class);
         chdir($this->master);
     }
 
@@ -167,6 +172,36 @@ class WikiSymlinkerTest extends YesWikiTestCase
         $this->assertFileDoesNotExist($this->wikiDir . '/' . WikiSymlinker::GUARD_LINK);
     }
 
+    public function testAHibernatingWikiIsWokenForTheSwapAndPutBackToSleep()
+    {
+        $this->writeStatus('hibernate');
+
+        $report = $this->linker()->link($this->wikiDir, false);
+
+        $this->assertTrue($report['awoken']);
+        $this->assertSame(3, $report['linked']);
+        $this->assertTrue(is_link($this->wikiDir . '/javascripts'));
+        $this->assertSame('hibernate', $this->readStatus(), 'le wiki se rendort');
+    }
+
+    public function testAnAwakeWikiIsNeverTouchedByTheSleepDance()
+    {
+        $report = $this->linker()->link($this->wikiDir, false);
+
+        $this->assertFalse($report['awoken']);
+        $this->assertSame('running', $this->readStatus());
+    }
+
+    public function testADryRunLeavesAHibernatingWikiAsleep()
+    {
+        $this->writeStatus('hibernate');
+
+        $report = $this->linker()->link($this->wikiDir, true);
+
+        $this->assertFalse($report['awoken']);
+        $this->assertSame('hibernate', $this->readStatus());
+    }
+
     public function testTheMasterIsNeverItsOwnWiki()
     {
         $this->expectException(\RuntimeException::class);
@@ -190,7 +225,29 @@ class WikiSymlinkerTest extends YesWikiTestCase
         $lock = new FolderLock();
         $lock->useDirectory($this->tmp . '/locks');
 
-        return new WikiSymlinker($this->wikiApp, $this->createStub(FarmConfig::class), new FileSystem(), $lock, $this->createStub(WikiHibernator::class), $this->createStub(StatsRefresher::class));
+        $editor = new WikiConfigEditor(
+            $this->wikiApp,
+            $this->createStub(FarmConfig::class),
+            $this->wikiApp->services->get(ConfigurationService::class)
+        );
+
+        return new WikiSymlinker($this->wikiApp, $this->createStub(FarmConfig::class), new FileSystem(), $lock, $this->createStub(WikiHibernator::class), $this->createStub(StatsRefresher::class), $editor);
+    }
+
+    private function writeStatus(string $status): void
+    {
+        file_put_contents(
+            $this->wikiDir . '/wakka.config.php',
+            "<?php\n\$wakkaConfig = [\n  'wakka_name' => 'Mon wiki',\n  'wiki_status' => '" . $status . "',\n];\n"
+        );
+    }
+
+    private function readStatus(): string
+    {
+        $wakkaConfig = [];
+        include $this->wikiDir . '/wakka.config.php';
+
+        return (string)($wakkaConfig['wiki_status'] ?? '');
     }
 
     /**

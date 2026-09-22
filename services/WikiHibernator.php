@@ -3,6 +3,7 @@
 namespace YesWiki\Ferme\Service;
 
 use YesWiki\Ferme\Exception\WikiAsleepException;
+use YesWiki\Ferme\Exception\WikiBusyException;
 
 /**
  * Puts a wiki to sleep, or wakes it up, by the `wiki_status` its own configuration
@@ -14,6 +15,7 @@ class WikiHibernator
     public const RUNNING = 'running';
     public const HIBERNATE = 'hibernate';
     public const ASLEEP = ['hibernate', 'archiving', 'updating'];
+    public const BUSY = ['archiving', 'updating'];
 
     private $config;
     private $editor;
@@ -61,19 +63,38 @@ class WikiHibernator
     }
 
     /**
-     * The same refusal for whoever holds a path rather than a folder name.
+     * The wiki_status of whoever holds a path rather than a folder name.
      */
-    public function refuseIfAsleepIn(string $wikiDir): void
+    public static function statusIn(string $wikiDir): string
     {
-        $wikiDir = rtrim($wikiDir, DIRECTORY_SEPARATOR);
-        $path = $wikiDir . DIRECTORY_SEPARATOR . 'wakka.config.php';
+        $path = rtrim($wikiDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'wakka.config.php';
         $wakkaConfig = [];
         if (is_file($path)) {
             include $path;
         }
 
-        if (self::isAsleep(trim((string)($wakkaConfig['wiki_status'] ?? '')))) {
+        return trim((string)($wakkaConfig['wiki_status'] ?? ''));
+    }
+
+    /**
+     * The same refusal for whoever holds a path rather than a folder name.
+     */
+    public function refuseIfAsleepIn(string $wikiDir): void
+    {
+        if (self::isAsleep(self::statusIn($wikiDir))) {
             throw new WikiAsleepException(basename($wikiDir));
+        }
+    }
+
+    /**
+     * Refuse only what core holds while it works. A hibernating wiki is left to
+     * whoever asks, so a job that can put it back to sleep may go through.
+     */
+    public function refuseIfBusyIn(string $wikiDir): void
+    {
+        $status = self::statusIn($wikiDir);
+        if (in_array($status, self::BUSY, true)) {
+            throw new WikiBusyException(basename($wikiDir), $status);
         }
     }
 
