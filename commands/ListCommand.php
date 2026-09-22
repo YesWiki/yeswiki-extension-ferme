@@ -8,6 +8,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
+use YesWiki\Ferme\Service\FarmDashboard;
 use YesWiki\Ferme\Service\ImportFilter;
 use YesWiki\Ferme\Service\SpamScore;
 use YesWiki\Ferme\Service\WikiRepository;
@@ -19,12 +20,14 @@ class ListCommand extends AbstractFarmCommand
 
     protected $repository;
     protected $filter;
+    protected $dashboard;
 
     public function __construct(Wiki &$wiki)
     {
         parent::__construct($wiki);
         $this->repository = $wiki->services->get(WikiRepository::class);
         $this->filter = $wiki->services->get(ImportFilter::class);
+        $this->dashboard = $wiki->services->get(FarmDashboard::class);
     }
 
     protected function configure()
@@ -42,6 +45,7 @@ class ListCommand extends AbstractFarmCommand
             ->addOption('active-since', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_ACTIVE_SINCE'))
             ->addOption('name-excludes', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_NAME_EXCLUDES'))
             ->addOption('skip-suspect', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_SKIP_SUSPECT'))
+            ->addOption('never-edited', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_NEVER_EDITED'))
             ->addWikiSelectionOptions()
             ->addDryRunOption();
     }
@@ -63,6 +67,9 @@ class ListCommand extends AbstractFarmCommand
         }
 
         $inspected = $this->repository->inspect($wikis);
+        if ($input->getOption('never-edited')) {
+            $inspected = $this->onlyNeverEdited($inspected);
+        }
 
         $missingFromBazar = array_values(array_filter($inspected, function ($wiki) {
             return !$wiki['existsInBazar'];
@@ -112,6 +119,21 @@ class ListCommand extends AbstractFarmCommand
             [],
             $this->isDryRun($input) && $input->getOption('import')
         );
+    }
+
+    /**
+     * The wikis holding exactly what their model gave them. A wiki nobody measured
+     * is left out rather than guessed at, as everywhere else.
+     *
+     * @param array<int,array<string,mixed>> $inspected
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function onlyNeverEdited(array $inspected): array
+    {
+        return array_values(array_filter($inspected, function (array $wiki) {
+            return is_array($wiki['stats'] ?? null) && $this->dashboard->wasNeverEdited($wiki['stats']);
+        }));
     }
 
     /**

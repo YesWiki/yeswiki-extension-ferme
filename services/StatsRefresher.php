@@ -138,6 +138,10 @@ class StatsRefresher
         if ($known === null || !isset($known['lastPageId']) || $this->tooOld($known)) {
             return true;
         }
+        // a wiki last measured before the farm kept install dates owes one more count
+        if (!isset($known['firstActivity']) && (int)($known['pages'] ?? 0) > 0) {
+            return true;
+        }
 
         $probe = $this->stats->probe($folder);
 

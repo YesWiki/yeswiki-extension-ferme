@@ -245,8 +245,13 @@ règlent la sévérité et le vocabulaire.
 
 Un wiki qui sort du modèle et que personne n'a touché a une signature reconnaissable,
 autour de 128 pages, 9 fiches et 1 compte : c'est ce que `--min-entries=15` ou
-`--min-users=2` écartent. Pour se faire une idée avant de choisir les seuils,
-`ferme:list --format=csv` sort une colonne par chiffre, qui se trie dans un tableur.
+`--min-users=2` écartent. `--never-edited` répond à la même question sans seuil à
+deviner : il ne garde que les wikis où rien n'a été écrit depuis l'installation. Les
+pages d'un modèle portent l'heure de l'installation, donc un wiki dont la dernière
+écriture est encore celle-là tient exactement ce qu'on lui a donné. La puce
+« contenu d'origine » montre les mêmes wikis dans la page d'admin. Pour se faire une
+idée avant de choisir les seuils, `ferme:list --format=csv` sort une colonne par
+chiffre, qui se trie dans un tableur.
 - **`ferme:clean-spam`** retire des wikis ce que les robots y ont écrit : une page
   qu'ils ont créée de toutes pièces est supprimée, une page du wiki dont ils ont
   gâché quelques lignes garde son histoire, perd ces lignes-là et passe en écriture

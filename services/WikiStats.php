@@ -35,7 +35,7 @@ class WikiStats
     }
 
     /**
-     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,activity:array<int,int>,files:int,filesBytes:int,customBytes:int,privateBytes:int}
+     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,firstActivity:?string,activity:array<int,int>,files:int,filesBytes:int,customBytes:int,privateBytes:int}
      */
     public function compute(string $folder): array
     {
@@ -43,7 +43,7 @@ class WikiStats
     }
 
     /**
-     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,activity:array<int,int>,version:string,release:string,name:string,description:string}
+     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,firstActivity:?string,activity:array<int,int>,version:string,release:string,name:string,description:string}
      */
     public function fromDatabase(string $folder): array
     {
@@ -263,15 +263,18 @@ class WikiStats
         return trim((string)($this->wiki->config['yeswiki-farm-spam-hosts'] ?? ''));
     }
 
+    /** The first and the last page write: a wiki nobody edited has them a minute apart. */
     private function latest(\mysqli $db, string $prefix): array
     {
         $row = $db->query(
-            'SELECT MAX(id) AS id, MAX(time) AS time FROM `' . $this->database->table($prefix, 'pages') . '`'
+            'SELECT MAX(id) AS id, MAX(time) AS time, MIN(time) AS started FROM `'
+            . $this->database->table($prefix, 'pages') . '`'
         )->fetch_assoc();
 
         return [
             'lastPageId' => (int)($row['id'] ?? 0),
             'lastActivity' => $row['time'] ?? null,
+            'firstActivity' => $row['started'] ?? null,
         ];
     }
 

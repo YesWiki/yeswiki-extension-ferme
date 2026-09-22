@@ -13,6 +13,7 @@ require_once 'tests/YesWikiTestCase.php';
 #[CoversMethod(FarmDashboard::class, 'select')]
 #[CoversMethod(FarmDashboard::class, 'isDormant')]
 #[CoversMethod(FarmDashboard::class, 'isToUpdate')]
+#[CoversMethod(FarmDashboard::class, 'wasNeverEdited')]
 class FarmDashboardTest extends YesWikiTestCase
 {
     private FarmDashboard $dashboard;
@@ -53,7 +54,7 @@ class FarmDashboardTest extends YesWikiTestCase
         );
 
         $this->assertSame(
-            ['toUpdate' => 1, 'dormant' => 1, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0, 'running' => 5],
+            ['toUpdate' => 1, 'dormant' => 1, 'neverEdited' => 0, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0, 'running' => 5],
             $page['counts']
         );
         $this->assertSame(5, $page['total']);
@@ -388,6 +389,41 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(2, $page['counts']['hibernating']);
         $this->assertSame(1, $page['counts']['failed']);
         $this->assertSame(1, $page['counts']['unmeasured']);
+    }
+
+    public function testAWikiNobodyWroteInSinceItsInstallIsCountedAndFiltered()
+    {
+        $installed = date('Y-m-d H:i:s', strtotime('-3 months'));
+        $page = $this->select(
+            [$this->fiche('neuf'), $this->fiche('vivant')],
+            [
+                'neuf' => $this->stats([
+                    'firstActivity' => $installed,
+                    'lastActivity' => date('Y-m-d H:i:s', strtotime($installed . ' +2 minutes')),
+                ]),
+                'vivant' => $this->stats([
+                    'firstActivity' => $installed,
+                    'lastActivity' => date('Y-m-d H:i:s', strtotime($installed . ' +1 hour')),
+                ]),
+            ],
+            [],
+            '',
+            'neverEdited'
+        );
+
+        $this->assertSame(1, $page['counts']['neverEdited']);
+        $this->assertSame(1, $page['filtered']);
+        $this->assertSame('neuf', $page['fiches'][0]['bf_dossier-wiki']);
+        $this->assertTrue($page['fiches'][0]['stats']['neverEdited']);
+    }
+
+    public function testAWikiNobodyMeasuredIsNotClaimedUntouched()
+    {
+        $this->assertFalse($this->dashboard->wasNeverEdited([]));
+        $this->assertFalse(
+            $this->dashboard->wasNeverEdited(['lastActivity' => date('Y-m-d H:i:s')]),
+            'sans date d\'installation on ne sait rien'
+        );
     }
 
     public function testAWikiWhoseSpamWasAllApprovedStillCarriesTheApprovals()

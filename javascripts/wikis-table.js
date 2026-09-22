@@ -42,6 +42,7 @@ $(document).ready(function() {
   var chips = [
     { key: 'toUpdate', label: 'chipToUpdate', kind: 'danger', icon: 'sync-alt' },
     { key: 'dormant', label: 'chipDormant', kind: 'default', icon: 'moon' },
+    { key: 'neverEdited', label: 'chipUnchanged', kind: 'default', icon: 'seedling' },
     { key: 'heavyArchives', label: 'chipHeavyArchives', kind: 'warning', icon: 'archive' },
     { key: 'suspect', label: 'chipSuspect', kind: 'danger', icon: 'ban' },
     { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'exclamation-triangle' },
@@ -556,6 +557,7 @@ $(document).ready(function() {
       ['user', i18n.totalUsers, row.stats.users],
       ['paperclip', i18n.i18nFiles, row.stats.files + ' · ' + row.stats.disk],
       ['clock', i18n.i18nMeasuredAt, row.stats.computed_age],
+      ['seedling', i18n.i18nInstalledAt, row.stats.installed_age],
       statusFigure(row),
       ['link', i18n.i18nSpamWords, row.stats.spam_words + ' · ' + row.stats.spam_links + ' ' + i18n.i18nSpamLinks]
     ];

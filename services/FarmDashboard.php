@@ -10,9 +10,10 @@ namespace YesWiki\Ferme\Service;
 class FarmDashboard
 {
     public const DORMANT_AFTER = '-6 months';
+    public const INSTALL_WINDOW = 300;
     public const HEAVY_ARCHIVES = 1073741824;
 
-    public const FILTERS = ['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating', 'running'];
+    public const FILTERS = ['toUpdate', 'dormant', 'neverEdited', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating', 'running'];
     public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
     public const SORTS = ['title', 'referent', 'lastActivity', 'activity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
@@ -52,16 +53,34 @@ class FarmDashboard
     }
 
     /**
-     * @param array<string,mixed> $stats
-     */
-    /**
      * Quiet for six months and nobody meant it. A wiki someone put to sleep is
      * quiet on purpose, and belongs in its own count rather than in this one.
+     *
+     * @param array<string,mixed> $stats
      */
     public function isDormant(array $stats): bool
     {
         return !empty($stats['lastActivity'])
             && strtotime($stats['lastActivity']) < strtotime(self::DORMANT_AFTER);
+    }
+
+    /**
+     * Nothing was written since the wiki was installed. The pages of a model are
+     * inserted with the time of the installation, so a wiki whose last write is
+     * that same moment holds exactly what it was given and nothing else. The five
+     * minutes of slack are for a big model, not for someone's first edit.
+     *
+     * @param array<string,mixed> $stats
+     */
+    public function wasNeverEdited(array $stats): bool
+    {
+        $installed = strtotime((string)($stats['firstActivity'] ?? '')) ?: null;
+        $last = strtotime((string)($stats['lastActivity'] ?? '')) ?: null;
+        if ($installed === null || $last === null) {
+            return false;
+        }
+
+        return $last - $installed <= self::INSTALL_WINDOW;
     }
 
     /**
@@ -112,6 +131,7 @@ class FarmDashboard
                     + (int)($measured['privateBytes'] ?? 0);
                 $measured['dormant'] = $this->isDormant($measured) && !$this->isAsleep($fiches[$index]);
                 $measured['toUpdate'] = $this->isToUpdate($measured, $current);
+                $measured['neverEdited'] = $this->wasNeverEdited($measured);
                 $measured['heavyArchives'] = (int)($measured['privateBytes'] ?? 0) >= self::HEAVY_ARCHIVES;
                 $measured['failed'] = ($measured['status'] ?? '') === WikiStatsStore::STATUS_ERROR;
                 $measured['suspect'] = (int)($measured['suspect'] ?? 0) >= $spamThreshold;
@@ -166,7 +186,7 @@ class FarmDashboard
                 $counts['unmeasured']++;
                 continue;
             }
-            foreach (['toUpdate', 'dormant', 'heavyArchives', 'suspect', 'spammed', 'failed'] as $flag) {
+            foreach (['toUpdate', 'dormant', 'neverEdited', 'heavyArchives', 'suspect', 'spammed', 'failed'] as $flag) {
                 if (!empty($stats[$flag])) {
                     $counts[$flag]++;
                 }
