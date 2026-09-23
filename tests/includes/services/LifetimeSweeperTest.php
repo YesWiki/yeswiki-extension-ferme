@@ -125,6 +125,25 @@ class LifetimeSweeperTest extends YesWikiTestCase
         $this->assertSame('2026-09-23', $this->saved['FicheAlpha']['ferme_archived_at']);
     }
 
+    public function testASweepWaitsForNobodyAndDoesNothingWhileAnotherOneRuns()
+    {
+        $sweeper = $this->sweeper([$this->entry('alpha', ['ferme_lifetime' => 'long', 'ferme_expires_at' => '2026-10-01'])]);
+        @mkdir(dirname(LifetimeSweeper::LAST_RUN), 0777, true);
+        $other = fopen(LifetimeSweeper::LAST_RUN, 'c');
+        flock($other, LOCK_EX);
+
+        try {
+            $this->assertNull($sweeper->sweepNow($this->today));
+            $this->assertSame([], $this->mails);
+        } finally {
+            flock($other, LOCK_UN);
+            fclose($other);
+        }
+
+        $this->assertSame(['alpha'], $sweeper->sweepNow($this->today)['reminded']);
+        $this->assertCount(1, $this->mails);
+    }
+
     public function testALimitCapsTheDeletionsOfOneSweep()
     {
         $report = $this->sweeper([

@@ -422,21 +422,21 @@ $(document).ready(function() {
       : '';
 
     [
-      ['wikis', i18n.totalWikis, true, ''],
-      ['running', i18n.i18nTotalRunning, true, 'running'],
-      ['hibernating', i18n.i18nTotalHibernating, true, 'hibernating'],
-      ['entries', i18n.totalEntries, false, ''],
-      ['pages', i18n.totalPages, false, ''],
-      ['users', i18n.totalUsers, false, ''],
-      ['disk', i18n.totalDisk, false, '']
+      ['wikis', i18n.totalWikis, true, '', 'globe'],
+      ['running', i18n.i18nTotalRunning, true, 'running', 'play-circle'],
+      ['hibernating', i18n.i18nTotalHibernating, true, 'hibernating', 'moon'],
+      ['entries', i18n.totalEntries, false, '', 'address-card'],
+      ['pages', i18n.totalPages, false, '', 'file-alt'],
+      ['users', i18n.totalUsers, false, '', 'user'],
+      ['disk', i18n.totalDisk, false, '', 'hdd']
     ].forEach(function(entry) {
       if (totals[entry[0]] === undefined) { return; }
       var known = entry[2] || measured > 0;
       var filter = entry[3];
-      var $total = $('<div class="ferme-total">')
+      var $total = $('<div class="ferme-tile">')
         .attr('title', known ? (entry[2] ? '' : partial) : i18n.i18nNeverMeasured)
-        .append($('<strong>').text(known ? totals[entry[0]] : '?'))
-        .append($('<span>').text(entry[1]));
+        .append($('<span class="ferme-tile-label">').append($('<i>').addClass('fas fa-' + entry[4])).append($('<span>').text(entry[1])))
+        .append($('<strong>').text(known ? totals[entry[0]] : '?'));
 
       if (filter) {
         $total
@@ -454,12 +454,13 @@ $(document).ready(function() {
       var count = counts[chip.key] || 0;
       if (count === 0 && activeFilter !== chip.key) { return; }
       $chips.append($('<button type="button">')
-        .addClass('btn btn-xs btn-' + chip.kind + ' ferme-chip')
+        .addClass('ferme-chip ferme-chip-' + chip.kind)
         .toggleClass('active', activeFilter === chip.key)
         .attr('data-filter', chip.key)
         .html('<i class="fas fa-' + chip.icon + '"></i> ' + esc(i18n[chip.label]) + ' <span class="badge">' + count + '</span>'));
     });
 
+    $('#ferme-chips-row').toggleClass('hide', $chips.children().length === 0);
     renderLifetimeChips(counts);
   }
 
@@ -472,11 +473,11 @@ $(document).ready(function() {
       $states.addClass('hide');
       return;
     }
-    $row.removeClass('hide').append($('<span class="ferme-muted">').text(i18n.i18nLifetimeFilter));
-    $states.removeClass('hide').append($('<span class="ferme-muted">').text(i18n.i18nLifetimeStates));
+    $row.removeClass('hide').append($('<span class="ferme-filter-label">').text(i18n.i18nLifetimeFilter));
+    $states.removeClass('hide').append($('<span class="ferme-filter-label">').text(i18n.i18nLifetimeStates));
     lifetimeKinds.forEach(function(kind) {
       $row.append($('<button type="button">')
-        .addClass('btn btn-xs btn-default ferme-lifetime-chip')
+        .addClass('ferme-lifetime-chip ferme-chip-default')
         .toggleClass('active', activeLifetime === kind.key)
         .attr('data-lifetime', kind.key)
         .html('<i class="fas fa-' + kind.icon + '"></i> ' + esc(i18n[kind.label]) + ' <span class="badge">' + (counts[kind.key] || 0) + '</span>'));
@@ -484,7 +485,7 @@ $(document).ready(function() {
     lifetimeStates.forEach(function(state) {
       var count = counts[state.key] || 0;
       $states.append($('<button type="button">')
-        .addClass('btn btn-xs btn-' + state.kind + ' ferme-chip')
+        .addClass('ferme-chip ferme-chip-' + state.kind)
         .toggleClass('active', activeFilter === state.key)
         .attr('data-filter', state.key)
         .html('<i class="fas fa-' + state.icon + '"></i> ' + esc(i18n[state.label]) + ' <span class="badge">' + count + '</span>'));

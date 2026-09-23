@@ -9,51 +9,146 @@
     margin: 0;
     z-index: 1000;
 }
-.ferme-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 24px;
-    align-items: center;
-    margin-bottom: 12px;
+.ferme-dashboard {
+    --ferme-accent: var(--primary-color, #1a89a0);
+    --ferme-line: rgba(127, 127, 127, 0.22);
+    --ferme-soft: rgba(127, 127, 127, 0.07);
+    margin-bottom: 16px;
 }
-.ferme-total {
-    display: inline-flex;
+.ferme-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.ferme-tile {
+    display: flex;
     flex-direction: column;
-    line-height: 1.1;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--ferme-line);
+    border-radius: 10px;
+    background: var(--ferme-soft);
+    line-height: 1.15;
+    transition: border-color .15s, box-shadow .15s;
 }
-.ferme-total strong {
-    font-size: 1.4em;
-}
-.ferme-total span {
-    opacity: 0.7;
-    font-size: 0.85em;
-}
-.ferme-chips {
+.ferme-tile-label {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
-    margin-left: auto;
+    font-size: .8em;
+    opacity: .7;
+}
+.ferme-tile strong {
+    font-size: 1.5em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
 }
 .ferme-total-filter {
     cursor: pointer;
-    border-bottom: 2px solid transparent;
 }
 .ferme-total-filter:hover {
-    border-bottom-color: rgba(127, 127, 127, 0.4);
+    border-color: var(--ferme-accent);
 }
 .ferme-total-filter.active {
-    border-bottom-color: currentColor;
+    border-color: var(--ferme-accent);
+    box-shadow: inset 0 0 0 1px var(--ferme-accent);
 }
-.ferme-lifetime-chips {
+.ferme-total-filter.active .ferme-tile-label {
+    color: var(--ferme-accent);
+    opacity: 1;
+}
+.ferme-toolbar {
+    border: 1px solid var(--ferme-line);
+    border-radius: 10px;
+    padding: 4px 12px;
+}
+.ferme-filter-row {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    margin: 0 0 12px;
+    gap: 6px 8px;
+    padding: 8px 0;
 }
-#ferme-lifetime-chips {
-    margin-bottom: 6px;
+.ferme-filter-row + .ferme-filter-row {
+    border-top: 1px solid var(--ferme-line);
 }
+#ferme-lifetime-chips.ferme-filter-row {
+    border-top: 0;
+}
+.ferme-filter-label {
+    flex: 0 0 110px;
+    font-size: .85em;
+    opacity: .7;
+}
+.ferme-chips {
+    display: contents;
+}
+.ferme-chip,
+.ferme-lifetime-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 1px solid var(--ferme-line);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-size: .85em;
+    line-height: 1.5;
+    transition: background-color .15s, border-color .15s, color .15s;
+}
+.ferme-chip:hover,
+.ferme-lifetime-chip:hover {
+    border-color: var(--ferme-accent);
+}
+.ferme-chip .badge,
+.ferme-lifetime-chip .badge {
+    background: var(--ferme-soft);
+    color: inherit;
+    font-weight: 600;
+}
+.ferme-chip-danger i { color: #c0392b; }
+.ferme-chip-warning i { color: #d68910; }
+.ferme-chip-info i { color: #2e86c1; }
+.ferme-chip-default i { opacity: .6; }
 .ferme-chip.active,
 .ferme-lifetime-chip.active {
-    box-shadow: inset 0 0 0 2px currentColor;
+    background: var(--ferme-accent);
+    border-color: var(--ferme-accent);
+    color: #fff;
+}
+.ferme-chip.active i,
+.ferme-lifetime-chip.active i {
+    color: inherit;
+    opacity: 1;
+}
+.ferme-chip.active .badge,
+.ferme-lifetime-chip.active .badge {
+    background: rgba(255, 255, 255, 0.25);
+}
+.ferme-sort-row select.form-control,
+.ferme-sort-row .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    height: 30px;
+    padding: 3px 12px;
+    border: 1px solid var(--ferme-line);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font-size: .85em;
+    box-shadow: none;
+}
+.ferme-sort-row select.form-control {
+    display: inline-block;
+    padding-right: 28px;
+}
+.ferme-sort-row select.form-control:hover,
+.ferme-sort-row .btn:hover {
+    border-color: var(--ferme-accent);
 }
 .ferme-figures {
     display: flex;
@@ -196,35 +291,38 @@
         border-bottom: 1px solid rgba(127, 127, 127, 0.3);
         padding: 6px 0;
     }
-    .ferme-chips {
-        margin-left: 0;
+    .ferme-filter-label {
+        flex-basis: 100%;
     }
 }
 </style>
-<div class="ferme-summary">
-    <div id="ferme-totals" class="ferme-summary"></div>
-    <div id="ferme-chips" class="ferme-chips"></div>
-</div>
-<div id="ferme-lifetime-chips" class="ferme-chips ferme-lifetime-chips hide"></div>
-<div id="ferme-lifetime-states" class="ferme-chips ferme-lifetime-chips hide"></div>
-<div class="clearfix" style="margin-bottom:8px;">
-    <label class="ferme-muted" style="font-weight:normal;">
-        {{ _t("FERME_SORT_BY") }}
-        <select id="ferme-sort" class="form-control input-sm" style="display:inline-block; width:auto;">
-            <option value="title">{{ _t("FERME_SORT_TITLE") }}</option>
-            <option value="referent">{{ _t("FERME_WIKI_OWNER") }}</option>
-            <option value="lastActivity">{{ _t("FERME_SORT_ACTIVITY") }}</option>
-            <option value="activity">{{ _t("FERME_SORT_TOTAL_ACTIVITY") }}</option>
-            <option value="entries">{{ _t("FERME_SORT_ENTRIES") }}</option>
-            <option value="pages">{{ _t("FERME_SORT_PAGES") }}</option>
-            <option value="users">{{ _t("FERME_SORT_USERS") }}</option>
-            <option value="forms">{{ _t("FERME_SORT_FORMS") }}</option>
-            <option value="diskBytes">{{ _t("FERME_SORT_DISK") }}</option>
-        </select>
-    </label>
-    <button type="button" id="ferme-direction" class="btn btn-default btn-sm">
-        <i class="fas fa-arrow-up"></i> <span id="ferme-direction-label"></span>
-    </button>
+<div class="ferme-dashboard">
+    <div id="ferme-totals" class="ferme-tiles"></div>
+    <div class="ferme-toolbar">
+        <div id="ferme-chips-row" class="ferme-filter-row hide">
+            <span class="ferme-filter-label">{{ _t("FERME_WATCH") }}</span>
+            <div id="ferme-chips" class="ferme-chips"></div>
+        </div>
+        <div id="ferme-lifetime-chips" class="ferme-filter-row hide"></div>
+        <div id="ferme-lifetime-states" class="ferme-filter-row hide"></div>
+        <div class="ferme-filter-row ferme-sort-row">
+            <label for="ferme-sort" class="ferme-filter-label" style="font-weight:normal; margin:0;">{{ _t("FERME_SORT_BY") }}</label>
+            <select id="ferme-sort" class="form-control input-sm">
+                <option value="title">{{ _t("FERME_SORT_TITLE") }}</option>
+                <option value="referent">{{ _t("FERME_WIKI_OWNER") }}</option>
+                <option value="lastActivity">{{ _t("FERME_SORT_ACTIVITY") }}</option>
+                <option value="activity">{{ _t("FERME_SORT_TOTAL_ACTIVITY") }}</option>
+                <option value="entries">{{ _t("FERME_SORT_ENTRIES") }}</option>
+                <option value="pages">{{ _t("FERME_SORT_PAGES") }}</option>
+                <option value="users">{{ _t("FERME_SORT_USERS") }}</option>
+                <option value="forms">{{ _t("FERME_SORT_FORMS") }}</option>
+                <option value="diskBytes">{{ _t("FERME_SORT_DISK") }}</option>
+            </select>
+            <button type="button" id="ferme-direction" class="btn btn-default btn-sm">
+                <i class="fas fa-arrow-up"></i> <span id="ferme-direction-label"></span>
+            </button>
+        </div>
+    </div>
 </div>
 <div class="table-responsive">
     <table id="wikis-table"
@@ -316,8 +414,8 @@
      data-lifetime-url="{{ lifetime_api_url }}"
      data-chip-expiring="{{ _t("FERME_CHIP_EXPIRING") }}"
      data-chip-ongoing="{{ _t("FERME_CHIP_ONGOING") }}"
-     data-i18n-lifetime-filter="{{ _t("FERME_LIFETIME") }} :"
-     data-i18n-lifetime-states="{{ _t("FERME_LIFETIME_STATE") }} :"
+     data-i18n-lifetime-filter="{{ _t("FERME_LIFETIME") }}"
+     data-i18n-lifetime-states="{{ _t("FERME_LIFETIME_STATE") }}"
      data-i18n-lifetime-short="{{ _t("FERME_LIFETIME_SHORT") }}"
      data-i18n-lifetime-long="{{ _t("FERME_LIFETIME_LONG") }}"
      data-i18n-lifetime-permanent="{{ _t("FERME_LIFETIME_PERMANENT") }}"

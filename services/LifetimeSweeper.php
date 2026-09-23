@@ -44,6 +44,23 @@ class LifetimeSweeper
         if (!$this->lifetime->isEnabled()) {
             return null;
         }
+
+        return $this->locked(true, function () use ($limit) {
+            return $this->sweep(new \DateTimeImmutable('today'), false, $limit);
+        });
+    }
+
+    /** Sweep now whenever the last one ran, or return null when another sweep is running. */
+    public function sweepNow(\DateTimeImmutable $today, int $limit = 0): ?array
+    {
+        return $this->locked(false, function () use ($today, $limit) {
+            return $this->sweep($today, false, $limit);
+        });
+    }
+
+    /** Run a sweep under the lock every sweep takes, and stamp the time it ran. */
+    private function locked(bool $onlyIfDue, callable $work): ?array
+    {
         if (!is_dir(dirname(self::LAST_RUN))) {
             @mkdir(dirname(self::LAST_RUN), 0777, true);
         }
@@ -54,12 +71,12 @@ class LifetimeSweeper
 
         try {
             clearstatcache(true, self::LAST_RUN);
-            $size = (int)filesize(self::LAST_RUN);
-            if ($size > 0 && time() - (int)filemtime(self::LAST_RUN) < self::EVERY) {
+            if ($onlyIfDue && (int)filesize(self::LAST_RUN) > 0 && time() - (int)filemtime(self::LAST_RUN) < self::EVERY) {
                 return null;
             }
-            $report = $this->sweep(new \DateTimeImmutable('today'), false, $limit);
+            $report = $work();
             ftruncate($handle, 0);
+            rewind($handle);
             fwrite($handle, date('c'));
             fflush($handle);
 

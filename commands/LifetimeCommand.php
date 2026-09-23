@@ -51,7 +51,12 @@ class LifetimeCommand extends AbstractFarmCommand
         }
 
         $dryRun = $this->isDryRun($input);
-        $report = $this->sweeper->sweep($today, $dryRun);
+        $report = $dryRun ? $this->sweeper->sweep($today, true) : $this->sweeper->sweepNow($today);
+        if ($report === null) {
+            $output->writeln('<comment>' . _t('FERME_CLI_LIFETIME_BUSY') . '</comment>');
+
+            return Command::SUCCESS;
+        }
         foreach (['reminded', 'deleted', 'archived', 'purged'] as $what) {
             foreach ($report[$what] as $name) {
                 $output->writeln($this->dryRunPrefix($input) . _t('FERME_CLI_LIFETIME_' . strtoupper($what)) . ' ' . $name);
