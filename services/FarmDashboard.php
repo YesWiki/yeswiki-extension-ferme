@@ -2,11 +2,7 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * Turns the farm's fiches and their stored stats into what one page of the admin
- * table shows: the counters of the summary bar, the wikis a chip selects, the
- * order they come in, and the slice to display. Pure arrays, no database.
- */
+/** Turns the farm's fiches and their stored stats into what one page of the admin table shows: the counters of the summary bar, the wikis a chip selects, the order they come in, and the slice to display. */
 class FarmDashboard
 {
     public const DORMANT_AFTER = '-6 months';
@@ -15,18 +11,12 @@ class FarmDashboard
     public const FEW_PAGES = 5;
     public const HEAVY_ARCHIVES = 1073741824;
 
-    public const FILTERS = ['toUpdate', 'dormant', 'neverEdited', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating', 'running'];
+    public const FILTERS = ['toUpdate', 'dormant', 'neverEdited', 'heavyArchives', 'suspect', 'spammed', 'failed', 'unmeasured', 'hibernating', 'running', 'expiring', 'archived'];
     public const PROBLEMS = ['missingWiki', 'duplicateFolder', 'noFolder'];
     public const SORTS = ['title', 'referent', 'lastActivity', 'activity', 'users', 'forms', 'entries', 'pages', 'diskBytes'];
 
     private const TEXT_SORTS = ['title', 'referent', 'lastActivity'];
 
-    /**
-     * @param array<int,array<string,mixed>>    $fiches the farm entries, as bazar returns them
-     * @param array<string,array<string,mixed>> $stats  what the store holds, keyed by folder
-     *
-     * @return array{fiches:array<int,array<string,mixed>>,total:int,filtered:int,counts:array<string,int>,totals:array<string,int>}
-     */
     public function select(array $fiches, array $stats, array $context = [], array $query = []): array
     {
         $fiches = $this->attach(
@@ -35,7 +25,8 @@ class FarmDashboard
             $context['current'] ?? [],
             $context['onDisk'] ?? [],
             (int)($context['spamThreshold'] ?? 3),
-            $context['statuses'] ?? []
+            $context['statuses'] ?? [],
+            $context['lifetime'] ?? null
         );
         $total = count($fiches);
         $counts = $this->counts($fiches);
@@ -54,29 +45,14 @@ class FarmDashboard
         ];
     }
 
-    /**
-     * Quiet for six months and nobody meant it. A wiki someone put to sleep is
-     * quiet on purpose, and belongs in its own count rather than in this one.
-     *
-     * @param array<string,mixed> $stats
-     */
+    /** Quiet for six months and nobody meant it. */
     public function isDormant(array $stats): bool
     {
         return !empty($stats['lastActivity'])
             && strtotime($stats['lastActivity']) < strtotime(self::DORMANT_AFTER);
     }
 
-    /**
-     * A wiki still holding what its model gave it. Either nobody ever wrote in it,
-     * or somebody tried it out — a page or three, a file dropped in — and never came
-     * back. A month of grace before a wiki can be called that, since a wiki created
-     * last week has not had its chance yet.
-     *
-     * Read on the farm of 3 029 wikis: 131 were never written in at all, and 533
-     * more had at most five pages touched, the last of them over six months ago.
-     *
-     * @param array<string,mixed> $stats
-     */
+    /** A wiki still holding what its model gave it. */
     public function wasNeverEdited(array $stats): bool
     {
         $installed = strtotime((string)($stats['firstActivity'] ?? '')) ?: null;
@@ -100,10 +76,6 @@ class FarmDashboard
         return $written !== null && $written < strtotime(self::QUIET_AFTER);
     }
 
-    /**
-     * @param array<string,mixed>  $stats
-     * @param array<string,string> $current
-     */
     public function isToUpdate(array $stats, array $current): bool
     {
         if (empty($stats['version']) || empty($stats['release'])) {
@@ -116,16 +88,7 @@ class FarmDashboard
         return $stats['release'] !== ($current['release'] ?? '');
     }
 
-    /**
-     * @param array<int,array<string,mixed>>    $fiches
-     * @param array<string,array<string,mixed>> $stats
-     * @param array<string,string>              $current
-     * @param array<string,bool>                $onDisk
-     * @param array<string,string>              $statuses wiki_status of every wiki, not only the page's
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    private function attach(array $fiches, array $stats, array $current, array $onDisk, int $spamThreshold = 3, array $statuses = []): array
+    private function attach(array $fiches, array $stats, array $current, array $onDisk, int $spamThreshold = 3, array $statuses = [], ?callable $lifetime = null): array
     {
         $claims = array_count_values(array_filter(array_map(function (array $fiche) {
             return (string)($fiche['bf_dossier-wiki'] ?? '');
@@ -135,10 +98,12 @@ class FarmDashboard
             $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
             $measured = $stats[$folder] ?? null;
             $fiches[$index]['status'] = (string)($statuses[$folder] ?? ($fiche['status'] ?? ''));
+            $fiches[$index]['lifetimeState'] = $lifetime === null ? null : $lifetime($fiche);
+            $archived = !empty($fiches[$index]['lifetimeState']['archived']);
 
             $fiches[$index]['problems'] = [
                 'noFolder' => $folder === '',
-                'missingWiki' => $folder !== '' && array_key_exists($folder, $onDisk) && !$onDisk[$folder],
+                'missingWiki' => !$archived && $folder !== '' && array_key_exists($folder, $onDisk) && !$onDisk[$folder],
                 'duplicateFolder' => $folder !== '' && ($claims[$folder] ?? 0) > 1,
             ];
 
@@ -163,12 +128,7 @@ class FarmDashboard
         return $fiches;
     }
 
-    /**
-     * How many of a wiki's pages somebody vouched for, so a wiki whose spam is all
-     * approved still has something to show and the approval can be taken back.
-     *
-     * @param array<string,mixed> $measured
-     */
+    /** How many of a wiki's pages somebody vouched for, so a wiki whose spam is all approved still has something to show and the approval can be taken back. */
     private function approvedPages(array $measured): int
     {
         $decoded = json_decode((string)($measured[SpamApprovals::KEY] ?? ''), true);
@@ -176,14 +136,7 @@ class FarmDashboard
         return is_array($decoded) ? count($decoded) : 0;
     }
 
-    /**
-     * How many wikis each chip of the summary bar would select, counted before any
-     * filter so the numbers do not move as you click.
-     *
-     * @param array<int,array<string,mixed>> $fiches
-     *
-     * @return array<string,int>
-     */
+    /** How many wikis each chip of the summary bar would select, counted before any filter so the numbers do not move as you click. */
     private function counts(array $fiches): array
     {
         $counts = array_fill_keys(self::FILTERS, 0);
@@ -192,6 +145,14 @@ class FarmDashboard
                 $counts['hibernating']++;
             } else {
                 $counts['running']++;
+            }
+            foreach (['expiring', 'archived'] as $flag) {
+                if (!empty($fiche['lifetimeState'][$flag])) {
+                    $counts[$flag]++;
+                }
+            }
+            if (!empty($fiche['lifetimeState']['archived'])) {
+                continue;
             }
             if ($this->hasProblem($fiche)) {
                 $counts['failed']++;
@@ -213,15 +174,7 @@ class FarmDashboard
         return $counts;
     }
 
-    /**
-     * What the farm holds, added up over the wikis that were measured. `measured`
-     * says how many that was, so a sum over none can be shown as unknown rather
-     * than as zero.
-     *
-     * @param array<int,array<string,mixed>> $fiches
-     *
-     * @return array<string,int>
-     */
+    /** What the farm holds, added up over the wikis that were measured. */
     private function totals(array $fiches): array
     {
         $totals = array_fill_keys(['wikis', 'running', 'hibernating', 'measured', 'users', 'forms', 'entries', 'pages', 'files', 'diskBytes'], 0);
@@ -247,18 +200,7 @@ class FarmDashboard
         return $totals;
     }
 
-    /**
-     * @return array<int,array<string,mixed>>
-     */
-    /**
-     * A farm entry whose wiki is not on disk, or whose folder another entry claims
-     * too, is broken whatever its stats say.
-     *
-     * @param array<string,mixed> $fiche
-     */
-    /**
-     * @param array<string,mixed> $fiche
-     */
+    /** A farm entry whose wiki is not on disk, or whose folder another entry claims too, is broken whatever its stats say. */
     private function isAsleep(array $fiche): bool
     {
         return WikiHibernator::isAsleep((string)($fiche['status'] ?? ''));
@@ -284,7 +226,7 @@ class FarmDashboard
             if ($filter === 'failed' && !$this->hasProblem($fiche) && empty($fiche['stats']['failed'])) {
                 return false;
             }
-            if ($filter === 'unmeasured' && ($fiche['stats'] !== null || $this->hasProblem($fiche))) {
+            if ($filter === 'unmeasured' && ($fiche['stats'] !== null || $this->hasProblem($fiche) || !empty($fiche['lifetimeState']['archived']))) {
                 return false;
             }
             if ($filter === 'hibernating' && !$this->isAsleep($fiche)) {
@@ -293,7 +235,11 @@ class FarmDashboard
             if ($filter === 'running' && $this->isAsleep($fiche)) {
                 return false;
             }
-            if ($filter !== '' && !in_array($filter, ['failed', 'unmeasured', 'hibernating', 'running'], true) && empty($fiche['stats'][$filter])) {
+            if (in_array($filter, ['expiring', 'archived'], true)) {
+                if (empty($fiche['lifetimeState'][$filter])) {
+                    return false;
+                }
+            } elseif ($filter !== '' && !in_array($filter, ['failed', 'unmeasured', 'hibernating', 'running'], true) && empty($fiche['stats'][$filter])) {
                 return false;
             }
             if ($needle === '') {
@@ -310,14 +256,7 @@ class FarmDashboard
         }));
     }
 
-    /**
-     * Wikis that were never measured sort last whichever way the column goes, so a
-     * missing number never passes for a small one.
-     *
-     * @param array<int,array<string,mixed>> $fiches
-     *
-     * @return array<int,array<string,mixed>>
-     */
+    /** Wikis that were never measured sort last whichever way the column goes, so a missing number never passes for a small one. */
     private function sort(array $fiches, string $sort, string $direction): array
     {
         $sort = in_array($sort, self::SORTS, true) ? $sort : 'title';
@@ -341,11 +280,6 @@ class FarmDashboard
         return $fiches;
     }
 
-    /**
-     * @param array<string,mixed> $fiche
-     *
-     * @return int|string|null
-     */
     private function sortValue(array $fiche, string $sort)
     {
         if ($sort === 'title') {

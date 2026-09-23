@@ -129,6 +129,32 @@ Les installer d'abord sur la ferme.
 - `mattermost-webhook` : prévient un salon à chaque création ou suppression.
 - `migrate-on-update` : migre les wikis quand le wiki maître est mis à jour.
 
+### Wikis à durée limitée
+
+```php
+'yeswiki-farm-lifetime' => true,
+'yeswiki-farm-lifetime-short' => 90,
+'yeswiki-farm-lifetime-long' => 365,
+'yeswiki-farm-lifetime-grace' => 180,
+'yeswiki-farm-lifetime-reminders' => [30, 7],
+'yeswiki-farm-lifetime-mail-subject' => '',
+'yeswiki-farm-lifetime-mail-body' => '',
+'yeswiki-farm-lifetime-archived-subject' => '',
+'yeswiki-farm-lifetime-archived-body' => '',
+'yeswiki-farm-donate-url' => 'https://exemple.org/dons',
+```
+
+À la création, on choisit entre test rapide et test prolongé. Un admin peut aussi créer un wiki permanent.
+
+- Test rapide : effacé sans sauvegarde à l'échéance.
+- Test prolongé : à l'échéance, le wiki est sauvegardé dans `private/backups/farm/expired/` puis fermé. La sauvegarde et la fiche sont effacées après `grace` jours.
+- Des mails partent `reminders` jours avant l'échéance, avec un lien pour prolonger. Un autre part à l'archivage. Leurs textes sont réglables (`mail-*`, `archived-*`), `\n` pour aller à la ligne.
+- Dans le dernier mois, le bouton "Prolonger" apparaît aussi sur la fiche du wiki.
+- Variables du mail : `{title}` `{url}` `{referent}` `{lifetime}` `{expires}` `{daysLeft}` `{renewUrl}` `{pages}` `{entries}` `{users}` `{files}` `{lastActivity}` `{donateUrl}`.
+- Dans `{{adminwikis}}`, le menu ⋯ d'un wiki permet de le prolonger ou de changer sa durée.
+
+Les wikis existants restent permanents.
+
 ### Fichiers partagés par lien symbolique
 
 ```php
@@ -149,6 +175,7 @@ Depuis la racine de la ferme. `--wiki` vise un seul wiki, `--dry-run` montre san
 - `ferme:clean-spam` : nettoie le spam.
 - `ferme:spam-index` : repère le spam copié sur plusieurs wikis.
 - `ferme:stats` : met à jour les statistiques.
+- `ferme:lifetime` : envoie les rappels, efface et archive les wikis échus. `--list` affiche les échéances.
 
 Commencer par `--dry-run`.
 

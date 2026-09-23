@@ -20,6 +20,8 @@ use YesWiki\Ferme\Service\StatsPresenter;
 use YesWiki\Ferme\Service\StatsRefresher;
 use YesWiki\Ferme\Service\WikiArchiver;
 use YesWiki\Ferme\Service\WikiHibernator;
+use YesWiki\Ferme\Service\WikiLifetime;
+use YesWiki\Ferme\Service\WikiStatsStore;
 
 class ApiController extends YesWikiController
 {
@@ -72,8 +74,7 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * Every wiki the current search and chip keep, name and address only, so the
-     * page can select beyond the hundred rows it shows.
+     * Every wiki the current search and chip keep, name and address only, so the page can select beyond the hundred rows it shows.
      *
      * @Route("/api/ferme/wikis/select", methods={"POST"}, options={"acl":{"@admins"}})
      */
@@ -240,9 +241,7 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * The pages a wiki is marked for, with a link to each: the figure in the table
-     * says how many, this says which, and lets somebody go and look before asking
-     * for a cleaning.
+     * The pages a wiki is marked for, with a link to each: the figure in the table says how many, this says which, and lets somebody go and look before asking for a cleaning.
      *
      * @Route("/api/ferme/wikis/spam-pages", methods={"POST"}, options={"acl":{"@admins"}})
      */
@@ -312,9 +311,7 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * Somebody looked at a page and says it is not spam — or takes that back. What
-     * is remembered is the page as it stands now: let a robot write in it again and
-     * it counts as spam once more, without anybody having to withdraw anything.
+     * Somebody looked at a page and says it is not spam — or takes that back.
      *
      * @Route("/api/ferme/wikis/approve-spam-page", methods={"POST"}, options={"acl":{"@admins"}})
      */
@@ -350,12 +347,7 @@ class ApiController extends YesWikiController
         return new ApiResponse(['success' => true]);
     }
 
-    /**
-     * The folder a request names, or the answer to send back when it names none
-     * we can act on.
-     *
-     * @return string|ApiResponse
-     */
+    /** The folder a request names, or the answer to send back when it names none we can act on. */
     private function askedFolder(Request $request)
     {
         $wikiFolder = trim($request->request->get('folder', ''));
@@ -402,9 +394,7 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * The session's current token, for a page that has been open long enough for
-     * its own to have gone stale. Same origin only, and admins only, so this hands
-     * the token to whoever could already read it off the page.
+     * The session's current token, for a page that has been open long enough for its own to have gone stale.
      *
      * @Route("/api/ferme/csrf-token", methods={"POST"}, options={"acl":{"@admins"}})
      */
@@ -469,9 +459,6 @@ class ApiController extends YesWikiController
 
     /**
      * Delete wikis (folder + DB tables + bazar entry), one or a batch of them.
-     *
-     * The session is closed as soon as the caller is known: PHP holds its file
-     * locked for the whole request, and the browser sends several of these at once.
      *
      * @Route("/api/ferme/wikis/delete", methods={"POST"}, options={"acl":{"@admins"}})
      */
@@ -555,8 +542,7 @@ class ApiController extends YesWikiController
     }
 
     /**
-     * Hand an archive over, and take it out of the wiki once it is handed over:
-     * a farm has no business keeping everybody's backups.
+     * Hand an archive over, and take it out of the wiki once it is handed over: a farm has no business keeping everybody's backups.
      *
      * @Route("/api/ferme/wikis/archive/download", methods={"GET"}, options={"acl":{"@admins"}})
      */
@@ -609,9 +595,6 @@ class ApiController extends YesWikiController
         ]);
     }
 
-    /**
-     * @param array{deleted:int,stripped:int,kept:int,pages:array<int,array<string,mixed>>,dump:?string} $report
-     */
     private function describeCleaning(array $report, bool $dryRun): string
     {
         if ($report['deleted'] === 0 && $report['stripped'] === 0) {
@@ -756,10 +739,6 @@ class ApiController extends YesWikiController
     /**
      * Walk the fetch of a model's files and custom folders one step further.
      *
-     * The source wiki takes minutes to make its backup and this end takes minutes to
-     * download it, so the browser drives the job the way the core backup screen does,
-     * one short request at a time.
-     *
      * @Route("/api/ferme/models/assets", methods={"POST"}, options={"acl":{"@admins"}})
      */
     public function modelAssets(Request $request)
@@ -773,10 +752,8 @@ class ApiController extends YesWikiController
             return new ApiResponse(['success' => false, 'error' => 'Unsupported action: ' . $action], Response::HTTP_BAD_REQUEST);
         }
 
-        // one download slice, or the unpacking of the whole backup, fits well inside this
         set_time_limit(300);
         if (session_status() === PHP_SESSION_ACTIVE) {
-            // the job takes its time; holding the session lock would freeze the whole browser
             session_write_close();
         }
 
@@ -794,6 +771,100 @@ class ApiController extends YesWikiController
             'bytes' => $result['state']['bytes'] ?? 0,
             'total' => $result['state']['total'] ?? 0,
             'messages' => $result['messages'],
+        ]);
+    }
+
+    /**
+     * The page a reminder mail links to: shows the wiki and its deadline, and renews it on a click.
+     *
+     * @Route("/api/ferme/lifetime/renew", methods={"GET","POST"}, options={"acl":{"public"}})
+     */
+    public function renewLifetime(Request $request)
+    {
+        $lifetime = $this->getService(WikiLifetime::class);
+        $idFiche = trim((string)$request->get('id', ''));
+        $token = trim((string)$request->get('token', ''));
+        $today = new \DateTimeImmutable('today');
+
+        try {
+            $entry = $lifetime->entry($idFiche);
+        } catch (\Throwable $th) {
+            $entry = null;
+        }
+        if ($entry === null || !$lifetime->tokenIsValid($entry, $token)) {
+            return $this->page(['error' => _t('FERME_LIFETIME_BAD_LINK')], Response::HTTP_FORBIDDEN);
+        }
+
+        $done = false;
+        $error = null;
+        if ($request->isMethod('POST')) {
+            try {
+                $entry = $lifetime->renew($idFiche, $today);
+                $done = true;
+            } catch (\Throwable $th) {
+                $error = $th->getMessage();
+            }
+        }
+
+        $folder = (string)($entry['bf_dossier-wiki'] ?? '');
+
+        return $this->page([
+            'entry' => $entry,
+            'state' => $lifetime->describe($entry, $today),
+            'label' => $lifetime->label((string)($entry[WikiLifetime::KIND] ?? '')),
+            'stats' => $folder === '' ? null : $this->getService(WikiStatsStore::class)->read($folder),
+            'token' => $token,
+            'action' => $this->wiki->href('', 'api/ferme/lifetime/renew'),
+            'done' => $done,
+            'error' => $error,
+            'donateUrl' => trim((string)($this->wiki->config['yeswiki-farm-donate-url'] ?? '')),
+        ]);
+    }
+
+    /**
+     * Change a wiki's lifetime, or renew it now, from the admin table.
+     *
+     * @Route("/api/ferme/wikis/lifetime", methods={"POST"}, options={"acl":{"@admins"}})
+     */
+    public function changeLifetime(Request $request)
+    {
+        if (!$this->tokenIsValid()) {
+            return new ApiResponse(['success' => false, 'error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
+        }
+
+        $lifetime = $this->getService(WikiLifetime::class);
+        $idFiche = trim((string)$request->request->get('id_fiche', ''));
+        $kind = trim((string)$request->request->get('kind', ''));
+
+        try {
+            if ($kind === 'renew') {
+                $kind = (string)($lifetime->entry($idFiche)[WikiLifetime::KIND] ?? WikiLifetime::LONG);
+            }
+            $entry = $lifetime->change($idFiche, $kind, new \DateTimeImmutable('today'));
+        } catch (\Throwable $th) {
+            return new ApiResponse(['success' => false, 'error' => $th->getMessage()]);
+        }
+
+        return new ApiResponse(['success' => true, 'lifetime' => $this->formatLifetime($entry)]);
+    }
+
+    private function page(array $data, int $status = Response::HTTP_OK): Response
+    {
+        return new Response($this->renderInSquelette('@ferme/lifetime-renew.twig', $data), $status);
+    }
+
+    private function formatLifetime(array $fiche): ?array
+    {
+        $lifetime = $this->getService(WikiLifetime::class);
+        $state = $lifetime->describe($fiche, new \DateTimeImmutable('today'));
+        if ($state === null) {
+            return null;
+        }
+
+        return array_merge($state, [
+            'label' => $lifetime->label($state['kind']),
+            'expires_label' => $state['expiresAt'] === '' ? '' : date('d/m/Y', strtotime($state['expiresAt'])),
+            'purge_label' => $state['purgeAt'] === '' ? '' : date('d/m/Y', strtotime($state['purgeAt'])),
         ]);
     }
 
@@ -882,18 +953,12 @@ class ApiController extends YesWikiController
                 'asleep' => WikiHibernator::isAsleep((string)($fiche['status'] ?? '')),
             ],
             'stats' => $this->formatStats($fiche['stats'] ?? null),
+            'lifetime' => $this->formatLifetime($fiche),
             'problems' => $this->formatProblems($fiche['problems'] ?? []),
         ];
     }
 
-    /**
-     * What a row shows of a wiki's numbers. A wiki nobody measured returns null,
-     * and the page shows dashes rather than zeros.
-     *
-     * @param array<string,mixed>|null $stats
-     *
-     * @return array<string,mixed>|null
-     */
+    /** What a row shows of a wiki's numbers. */
     private function formatStats(?array $stats): ?array
     {
         if ($stats === null) {
@@ -944,13 +1009,7 @@ class ApiController extends YesWikiController
         ];
     }
 
-    /**
-     * What is wrong with a farm entry itself, whatever its wiki holds.
-     *
-     * @param array<string,bool> $problems
-     *
-     * @return array<int,array<string,string>>
-     */
+    /** What is wrong with a farm entry itself, whatever its wiki holds. */
     private function formatProblems(array $problems): array
     {
         $said = [
@@ -969,11 +1028,6 @@ class ApiController extends YesWikiController
         return $found;
     }
 
-    /**
-     * @param array<string,int> $totals
-     *
-     * @return array<string,string|int>
-     */
     private function formatTotals(array $totals): array
     {
         $totals['disk'] = $this->getService(StatsPresenter::class)->size((int)($totals['diskBytes'] ?? 0));
@@ -981,11 +1035,6 @@ class ApiController extends YesWikiController
         return $totals;
     }
 
-    /**
-     * @param array<string,mixed> $version as WikiRepository describes it
-     *
-     * @return array<string,mixed>|null
-     */
     private function describeVersion(array $version): ?array
     {
         if (empty($version)) {
@@ -1001,11 +1050,6 @@ class ApiController extends YesWikiController
         ];
     }
 
-    /**
-     * @param array<string,mixed>|null $admin
-     *
-     * @return array<string,mixed>|null
-     */
     private function describeAdmin(?array $admin): ?array
     {
         if (empty($admin)) {

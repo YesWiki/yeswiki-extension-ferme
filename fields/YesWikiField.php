@@ -4,13 +4,14 @@ namespace YesWiki\Ferme\Field;
 
 use Psr\Container\ContainerInterface;
 use YesWiki\Bazar\Field\BazarField;
+use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Ferme\Exception\WikiCreationException;
 use YesWiki\Ferme\Service\FarmService;
+use YesWiki\Ferme\Service\WikiLifetime;
 use YesWiki\Wiki;
 
 /**
- * add fields to create custom yeswiki instance on a yeswiki farm
- * yeswiki***bf_dossier-wiki***L\'adresse du site wiki***bf_mail***.
+ * add fields to create custom yeswiki instance on a yeswiki farm yeswiki***bf_dossier-wiki***L\'adresse du site wiki***bf_mail***.
  *
  * @Field({"yeswiki"})
  */
@@ -21,7 +22,6 @@ class YesWikiField extends BazarField
 
     protected const FIELD_EMAIL_FIELD = 3;
 
-    /** @var array{message:string,field:?string}|array{} what a failed creation refused, for the render that follows */
     private static $refused = [];
 
     public function __construct(array $values, ContainerInterface $services)
@@ -60,13 +60,65 @@ class YesWikiField extends BazarField
             'farmModels' => $models ?? null,
             'farmAcls' => $this->wiki->config['yeswiki-farm-acls'] ?? null,
             'farmOptions' => $this->wiki->config['yeswiki-farm-options'] ?? null,
+            'lifetimes' => $this->lifetimeChoices(),
         ]);
     }
 
-    /**
-     * The wiki is made once the entry has its tag, so what is told about it — a
-     * Mattermost message, for one — can link back to the entry that owns it.
-     */
+    private function lifetimeChoices(): array
+    {
+        $lifetime = $this->getService(WikiLifetime::class);
+        if (!$lifetime->isEnabled()) {
+            return [];
+        }
+
+        $choices = [];
+        foreach ($lifetime->choices($this->wiki->UserIsAdmin()) as $kind) {
+            $choices[$kind] = $kind === WikiLifetime::PERMANENT
+                ? $lifetime->label($kind)
+                : _t('FERME_LIFETIME_CHOICE_' . strtoupper($kind), ['days' => $lifetime->days($kind)]);
+        }
+
+        return $choices;
+    }
+
+    public function formatValuesBeforeSaveIfEditable($entry)
+    {
+        $terms = $this->lifetimeTerms(is_array($entry) ? $entry : []);
+        $values = parent::formatValuesBeforeSaveIfEditable($entry);
+        $values['fields-to-remove'] = array_merge(
+            $values['fields-to-remove'] ?? [],
+            ['yeswiki-farm-lifetime'],
+            array_values(array_diff(WikiLifetime::KEYS, array_keys($terms)))
+        );
+
+        return array_merge($values, $terms);
+    }
+
+    private function lifetimeTerms(array $entry): array
+    {
+        $idFiche = (string)($entry['id_fiche'] ?? '');
+        $entryManager = $this->getService(EntryManager::class);
+        if ($idFiche !== '' && $entryManager->isEntry($idFiche)) {
+            $previous = $entryManager->getOne($idFiche, false, null, false, true) ?? [];
+
+            return array_filter(array_intersect_key($previous, array_flip(WikiLifetime::KEYS)), 'is_string');
+        }
+
+        $lifetime = $this->getService(WikiLifetime::class);
+        if (!$lifetime->isEnabled()) {
+            return [];
+        }
+
+        $choices = $lifetime->choices($this->wiki->UserIsAdmin());
+        $kind = (string)($_POST['yeswiki-farm-lifetime'] ?? $choices[0]);
+        if (!in_array($kind, $choices, true)) {
+            throw new WikiCreationException(_t('FERME_LIFETIME_INVALID') . ' "' . $kind . '"');
+        }
+
+        return $lifetime->start($kind, new \DateTimeImmutable('today'));
+    }
+
+    /** The wiki is made once the entry has its tag, so what is told about it — a Mattermost message, for one — can link back to the entry that owns it. */
     public function requireIDFiche()
     {
         return true;
@@ -120,14 +172,19 @@ class YesWikiField extends BazarField
     public function renderStatic($entry)
     {
         $value = $this->getValue($entry);
-        if ($value && !empty($this->wiki->config['yeswiki-farm-root-url'])) {
-            $url = $this->wiki->config['yeswiki-farm-root-url'] . $value;
-
-            return $this->render('@ferme/fields/yeswiki.twig', [
-                'url' => $url,
-            ]);
+        if (!$value || empty($this->wiki->config['yeswiki-farm-root-url'])) {
+            return null;
         }
 
-        return null;
+        $lifetime = $this->getService(WikiLifetime::class);
+        $state = is_array($entry) ? $lifetime->describe($entry, new \DateTimeImmutable('today')) : null;
+        $canManage = is_array($entry) && ($this->wiki->UserIsAdmin() || $this->wiki->UserIsOwner($entry['id_fiche'] ?? null));
+
+        return $this->render('@ferme/fields/yeswiki.twig', [
+            'url' => $state !== null && $state['archived'] ? null : $this->wiki->config['yeswiki-farm-root-url'] . $value,
+            'lifetime' => $state,
+            'lifetimeLabel' => $state === null ? '' : $lifetime->label($state['kind']),
+            'renewUrl' => $state !== null && $state['canRenew'] && $canManage ? $lifetime->renewUrl($entry) : null,
+        ]);
     }
 }

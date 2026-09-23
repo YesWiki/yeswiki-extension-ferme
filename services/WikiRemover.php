@@ -47,15 +47,7 @@ class WikiRemover
         return $this->deleteMany([$idFiche])[0];
     }
 
-    /**
-     * Delete several wikis in one go. What was paid per wiki and is now paid once:
-     * reading the farm's entries to know which folders are claimed twice, and the
-     * dictionary work of dropping tables, which the server charges per statement.
-     *
-     * @param array<int,string> $idFiches
-     *
-     * @return array<int,array<string,mixed>> one result per entry, in the same order
-     */
+    /** Delete several wikis in one go. */
     public function deleteMany(array $idFiches): array
     {
         $results = [];
@@ -71,9 +63,29 @@ class WikiRemover
         $this->deleteOne($idFiche);
     }
 
-    /**
-     * @return array<string,mixed>
-     */
+    /** Delete a wiki whose time ran out, entry and all, with no session behind the call. */
+    public function expire(string $idFiche, string $folder): void
+    {
+        $entry = $this->entryManager->getOne($idFiche, false, null, false, true) ?? [];
+        $kept = $folder === '' ? [] : $this->deleteWikiData($folder, $idFiche);
+        $this->entryManager->delete($idFiche, true);
+        $this->plan()->forget($idFiche);
+        $this->mattermost->deleted($entry, $folder, $kept !== []);
+    }
+
+    /** Take a wiki's files and tables away and leave its entry, for an archived wiki. */
+    public function removeWikiOnly(string $idFiche, string $folder): void
+    {
+        $this->deleteWikiData($folder, $idFiche);
+    }
+
+    /** Delete an entry whose wiki is already gone. */
+    public function forgetEntry(string $idFiche): void
+    {
+        $this->entryManager->delete($idFiche, true);
+        $this->plan()->forget($idFiche);
+    }
+
     private function deleteOne(string $idFiche): array
     {
         $this->timings = [];
@@ -132,13 +144,7 @@ class WikiRemover
         return $folder;
     }
 
-    /**
-     * Take the wiki apart, unless another farm entry still points at it: a folder
-     * two entries claim must survive the deletion of one of them, or removing a
-     * duplicate entry would take the wiki with it.
-     *
-     * @return array<int,string> the other entries that kept this wiki alive
-     */
+    /** Take the wiki apart, unless another farm entry still points at it: a folder two entries claim must survive the deletion of one of them, or removing a duplicate entry would take the wiki with it. */
     private function deleteWikiData(string $folder, string $idFiche): array
     {
         $claimedElsewhere = $this->otherEntriesClaiming($folder, $idFiche);
@@ -179,26 +185,18 @@ class WikiRemover
         });
     }
 
-    /**
-     * A wiki put to sleep can still be deleted: hibernation keeps a wiki from being
-     * changed, and disposing of it is the other thing one wants to do with it.
-     */
+    /** A wiki put to sleep can still be deleted: hibernation keeps a wiki from being changed, and disposing of it is the other thing one wants to do with it. */
     public function isAsleep(string $folder): bool
     {
         return WikiHibernator::isAsleep(trim((string)($this->config->readWikiConfig($folder)['wiki_status'] ?? '')));
     }
 
-    /**
-     * @return array<int,string> the farm entries other than this one naming that folder
-     */
     public function otherEntriesClaiming(string $folder, string $idFiche): array
     {
         return $this->plan()->others($folder, $idFiche);
     }
 
-    /**
-     * The farm's entries, read once and kept for the rest of the request.
-     */
+    /** The farm's entries, read once and kept for the rest of the request. */
     private function plan(): DeletionPlan
     {
         if ($this->plan === null) {
@@ -212,9 +210,6 @@ class WikiRemover
         return $this->plan;
     }
 
-    /**
-     * @return mixed whatever the work returns
-     */
     private function timed(string $phase, callable $work)
     {
         $started = microtime(true);
@@ -226,12 +221,7 @@ class WikiRemover
         }
     }
 
-    /**
-     * Where a deletion spent its time, and a line in the log for the slow ones: on a
-     * farm of thousands, the difference between a minute and an hour is one phase.
-     *
-     * @return array<string,int> milliseconds per phase
-     */
+    /** Where a deletion spent its time, and a line in the log for the slow ones: on a farm of thousands, the difference between a minute and an hour is one phase. */
     private function report(string $folder, float $started): array
     {
         $timings = $this->timings;

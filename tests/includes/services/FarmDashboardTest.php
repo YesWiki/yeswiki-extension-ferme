@@ -54,7 +54,7 @@ class FarmDashboardTest extends YesWikiTestCase
         );
 
         $this->assertSame(
-            ['toUpdate' => 1, 'dormant' => 1, 'neverEdited' => 0, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0, 'running' => 5],
+            ['toUpdate' => 1, 'dormant' => 1, 'neverEdited' => 0, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0, 'running' => 5, 'expiring' => 0, 'archived' => 0],
             $page['counts']
         );
         $this->assertSame(5, $page['total']);
@@ -302,10 +302,7 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame('alpha', $page['fiches'][0]['bf_titre']);
     }
 
-    /**
-     * The dashboard's own signature groups its arguments; the tests keep reading
-     * as a list of what varies.
-     */
+    /** The dashboard's own signature groups its arguments; the tests keep reading as a list of what varies. */
     public function testASleepingWikiIsCountedAndCanBeSingledOut()
     {
         $fiches = [

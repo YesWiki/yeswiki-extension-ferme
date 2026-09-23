@@ -26,6 +26,7 @@ class WikiRepository
     protected $dashboard;
     protected $spamScore;
     protected $aside;
+    protected $lifetime;
 
     public function __construct(
         Wiki $wiki,
@@ -40,7 +41,8 @@ class WikiRepository
         WikiStatsStore $statsStore,
         FarmDashboard $dashboard,
         SpamScore $spamScore,
-        CustomAside $aside
+        CustomAside $aside,
+        WikiLifetime $lifetime
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -55,6 +57,7 @@ class WikiRepository
         $this->dashboard = $dashboard;
         $this->spamScore = $spamScore;
         $this->aside = $aside;
+        $this->lifetime = $lifetime;
     }
 
     public function getAll(): array
@@ -71,12 +74,7 @@ class WikiRepository
         return $fiches;
     }
 
-    /**
-     * One page of the admin table: the wikis a chip and a search leave, in the
-     * order asked for, with the summary the page shows above them.
-     *
-     * @return array{total:int,filtered:int,fiches:array,counts:array<string,int>,totals:array<string,int>}
-     */
+    /** One page of the admin table: the wikis a chip and a search leave, in the order asked for, with the summary the page shows above them. */
     public function getPaginated(
         int $start,
         int $length,
@@ -108,13 +106,7 @@ class WikiRepository
         return $page;
     }
 
-    /**
-     * Just enough of every wiki the filter keeps to select them all: the page is
-     * limited to a hundred rows, and an operator cleaning a farm needs the lot.
-     * None of the per-wiki work of a page is done here.
-     *
-     * @return array{wikis:array<int,array<string,string>>,total:int}
-     */
+    /** Just enough of every wiki the filter keeps to select them all: the page is limited to a hundred rows, and an operator cleaning a farm needs the lot. */
     public function listForSelection(string $search, string $filter = ''): array
     {
         $fiches = $this->getAllWikiFiches();
@@ -150,17 +142,11 @@ class WikiRepository
         return ['wikis' => $wikis, 'total' => $page['filtered']];
     }
 
-    /**
-     * What the dashboard needs to know besides the entries and their statistics.
-     * Both the page and the "select them all" button read it from here: built in
-     * two places, the two answered different numbers for the same chip.
-     *
-     * @param array<int,array<string,mixed>> $fiches
-     *
-     * @return array<string,mixed>
-     */
+    /** What the dashboard needs to know besides the entries and their statistics. */
     private function context(array $fiches): array
     {
+        $today = new \DateTimeImmutable('today');
+
         return [
             'current' => [
                 'version' => (string)$this->wiki->config['yeswiki_version'],
@@ -169,18 +155,13 @@ class WikiRepository
             'onDisk' => $this->wikisOnDisk($fiches),
             'statuses' => $this->statuses($fiches),
             'spamThreshold' => $this->spamScore->threshold(),
+            'lifetime' => function (array $fiche) use ($today) {
+                return $this->lifetime->describe($fiche, $today);
+            },
         ];
     }
 
-    /**
-     * The `wiki_status` of every wiki, read from its configuration without including
-     * it. Counting the sleeping ones means knowing it for all of them, not only for
-     * the hundred a page shows — reading three thousand of these costs 60 ms.
-     *
-     * @param array<int,array<string,mixed>> $fiches
-     *
-     * @return array<string,string>
-     */
+    /** The `wiki_status` of every wiki, read from its configuration without including it. */
     private function statuses(array $fiches): array
     {
         $statuses = [];
@@ -202,15 +183,7 @@ class WikiRepository
         return $statuses;
     }
 
-    /**
-     * Which of the farm entries still have a wiki behind them. One stat per entry,
-     * about 4 ms for a farm of 2 700, so an entry left over from a deleted wiki is
-     * counted with the broken ones instead of passing for one nobody measured yet.
-     *
-     * @param array<int,array<string,mixed>> $fiches
-     *
-     * @return array<string,bool>
-     */
+    /** Which of the farm entries still have a wiki behind them. */
     private function wikisOnDisk(array $fiches): array
     {
         $onDisk = [];
@@ -225,7 +198,6 @@ class WikiRepository
         return $onDisk;
     }
 
-    /** @param array<int,array> $wikis as WikiFinder describes them */
     public function inspect(array $wikis): array
     {
         $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
@@ -241,7 +213,6 @@ class WikiRepository
         return $results;
     }
 
-    /** @return array<int,string> the folders that got a farm entry */
     public function import(array $inspected, string $fallbackEmail = ''): array
     {
         $toImport = [];
@@ -256,17 +227,7 @@ class WikiRepository
     }
 
     /** What the AdminWikis search button calls: inspect the farm root, then import. */
-    /**
-     * The wikis sitting on the server that the farm does not list, with what they
-     * hold, so an operator can see what they would be importing.
-     *
-     * It opens no wiki database: on a farm of a few thousand, one connection per
-     * wiki is minutes of work inside a web request, which is what used to make this
-     * time out. The numbers come from the statistics already measured, and nothing
-     * is imported here: that is a separate, deliberate step.
-     *
-     * @return array{wikisInBazar:int,wikisOnServer:int,missing:int,unmeasured:int,results:array<int,array<string,mixed>>}
-     */
+    /** The wikis sitting on the server that the farm does not list, with what they hold, so an operator can see what they would be importing. */
     public function searchOnServer(): array
     {
         $wikis = $this->finder->find();
@@ -306,13 +267,7 @@ class WikiRepository
         ];
     }
 
-    /**
-     * Give a farm entry to the wikis an operator picked, and to nobody else.
-     *
-     * @param array<int,string> $folders
-     *
-     * @return array<int,string> the folders that got one
-     */
+    /** Give a farm entry to the wikis an operator picked, and to nobody else. */
     public function importFolders(array $folders, string $fallbackEmail = ''): array
     {
         $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
@@ -442,6 +397,10 @@ class WikiRepository
         if (!FarmConfig::isSafeName($folder, true)) {
             $fiche['error'] = _t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"';
 
+            return $fiche;
+        }
+
+        if (!empty($fiche['lifetimeState']['archived'])) {
             return $fiche;
         }
 

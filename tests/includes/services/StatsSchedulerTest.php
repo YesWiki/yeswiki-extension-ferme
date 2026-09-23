@@ -3,6 +3,7 @@
 namespace YesWiki\Test\Ferme\Service;
 
 use PHPUnit\Framework\Attributes\CoversMethod;
+use YesWiki\Ferme\Service\LifetimeSweeper;
 use YesWiki\Ferme\Service\StatsRefresher;
 use YesWiki\Ferme\Service\StatsScheduler;
 use YesWiki\Ferme\Service\WikiFinder;
@@ -63,9 +64,6 @@ class StatsSchedulerTest extends YesWikiTestCase
         $this->assertSame([], $this->scheduler([])->due(3));
     }
 
-    /**
-     * @param array<string,array<string,mixed>|null> $wikis folder => its stored stats
-     */
     private function scheduler(array $wikis, $onVisit = null): StatsScheduler
     {
         $wiki = self::getWiki();
@@ -85,6 +83,6 @@ class StatsSchedulerTest extends YesWikiTestCase
             return $stats !== null;
         }));
 
-        return new StatsScheduler($wiki, $finder, $store, $this->createStub(StatsRefresher::class));
+        return new StatsScheduler($wiki, $finder, $store, $this->createStub(StatsRefresher::class), $this->createStub(LifetimeSweeper::class));
     }
 }

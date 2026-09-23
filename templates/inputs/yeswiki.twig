@@ -168,6 +168,23 @@
     {% endif %}
     {% endif %}
 
+    {% if lifetimes|length > 0 %}
+    <div class="yeswiki-farm-section yeswiki-farm-section-lifetime">
+        <h5>{{ _t('FERME_LIFETIME') }}</h5>
+        <div class="input-radio bazar-radio radio_required">
+            {% set selectedLifetime = posted['yeswiki-farm-lifetime'] is defined ? posted['yeswiki-farm-lifetime'] : lifetimes|keys|first %}
+            {% for key, label in lifetimes %}
+                <div class="radio">
+                <label for="yeswiki-farm-lifetime-{{ key }}">
+                    <input id="yeswiki-farm-lifetime-{{ key }}" type="radio" value="{{ key }}" name="yeswiki-farm-lifetime" {% if key == selectedLifetime %}checked{% endif %} />
+                    <span>{{ label }}</span>
+                </label>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if farmOptions|length > 1 %}
     <div class="yeswiki-farm-section yeswiki-farm-section-options">
         <h5>{{ _t('FERME_EXTRA_OPTIONS') }}</h5>
@@ -212,7 +229,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-
   $('.yeswiki-farm-section-themes input[type="radio"]').click(function() {
       console.log($(this).prop('checked'))
     if ($(this).prop('checked')) {

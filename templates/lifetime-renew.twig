@@ -1,0 +1,27 @@
+<div class="ferme-lifetime-renew">
+    <h2>{{ _t('FERME_LIFETIME_RENEW_TITLE') }}</h2>
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    {% if entry is defined and entry %}
+        <p><strong>{{ entry.bf_titre }}</strong> · {{ label }}</p>
+        {% if done %}
+            <div class="alert alert-success">{{ _t('FERME_LIFETIME_RENEWED', {date: state.expiresAt|date('d/m/Y')}) }}</div>
+        {% elseif state and not state.archived %}
+            <p>{{ _t('FERME_LIFETIME_EXPIRES_ON', {date: state.expiresAt|date('d/m/Y')}) }}</p>
+        {% endif %}
+        {% if stats %}
+            <p>{{ _t('FERME_STATS_REFRESHED', {entries: stats.entries|default(0), pages: stats.pages|default(0), users: stats.users|default(0)}) }}</p>
+        {% endif %}
+        {% if not done and state and state.canRenew %}
+            <form method="post" action="{{ action }}">
+                <input type="hidden" name="id" value="{{ entry.id_fiche }}">
+                <input type="hidden" name="token" value="{{ token }}">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-redo"></i> {{ _t('FERME_LIFETIME_RENEW') }}</button>
+            </form>
+        {% endif %}
+        {% if donateUrl %}
+            <p><a class="btn btn-success" href="{{ donateUrl }}" target="_blank" rel="noopener"><i class="fas fa-heart"></i> {{ _t('FERME_LIFETIME_DONATE') }}</a></p>
+        {% endif %}
+    {% endif %}
+</div>

@@ -1,51 +1,30 @@
 parameters:
   bazar_farm_id: 1100
   yeswiki-farm-root-folder: '.'
-  # email put on the bazar entries the CLI imports, when the wiki's own admin has none
   yeswiki-farm-admin-email: ''
-  # release zip used by 'yeswicli ferme:update --archive-url', empty means the master's own files
   yeswiki-farm-archive-url: ''
-  # relative to the farm, so the default lands in the folder YesWiki and nginx deny
   yeswiki-farm-backup-dir: 'private/backups/farm'
-  # keep the statistics moving without a cron line, by measuring wikis after a page of
-  # the master has been served. Set to false on a farm that runs 'ferme:stats' from
-  # cron, which is the better way round on a big farm.
   yeswiki-farm-stats-on-visit: true
-  # seconds between two of those. What the farm gets per hour is 3600 / interval x the
-  # batch below, so these defaults carry 1200 wikis an hour, as long as the master is
-  # visited at least once per interval.
   yeswiki-farm-stats-interval: 300
-  # how many wikis each turn measures. A hundred wikis where nothing moved costs about
-  # 30 ms, spent after the visitor has their page.
   yeswiki-farm-stats-per-visit: 100
-  # from how many points a wiki is called spam. Signals: writing from another alphabet
-  # or gambling/escort/essay vocabulary are 3 points each, a link in the name, a name
-  # in a foreign language, and a wiki that never grew past the model are 2 each. At 3,
-  # a farm of 3735 wikis flagged 500 with two that were not spam.
   yeswiki-farm-spam-threshold: 3
-  # words of your own to add to the ones above, as a regular expression fragment
   yeswiki-farm-spam-words: ''
-  # the hosts a spam campaign keeps pointing at, as a regular expression fragment:
-  # a page linking to one of them is spam however short it is. Used by the cleaning,
-  # which is the only way to catch a one-line page that only carries a link.
   yeswiki-farm-spam-hosts: ''
-  # how long an archive nobody downloaded stays in its wiki, in seconds. The
-  # statistics sweep throws out what is older. 0 keeps them for ever.
   yeswiki-farm-archive-keep: 604800
-  # start the farm's migrations when the master changes version. A wiki whose files
-  # are symbolic links to the master runs its new code at once, with its own database
-  # left behind, so this closes the gap without waiting for a cron. Set to false on a
-  # farm that runs 'ferme:update --migrate-only' from cron, or where exec() is off.
   yeswiki-farm-migrate-on-update: true
-  # a Mattermost incoming webhook, to be told when a wiki is created or deleted.
-  # The message carries a link to the entry's deletion page, which asks for a login
-  # and a confirmation like any other, so nothing here is a button that deletes.
   yeswiki-farm-mattermost-webhook: ''
+  yeswiki-farm-lifetime: false
+  yeswiki-farm-lifetime-short: 90
+  yeswiki-farm-lifetime-long: 365
+  yeswiki-farm-lifetime-grace: 180
+  yeswiki-farm-lifetime-reminders: [30, 7]
+  yeswiki-farm-lifetime-mail-subject: ''
+  yeswiki-farm-lifetime-mail-body: ''
+  yeswiki-farm-lifetime-archived-subject: ''
+  yeswiki-farm-lifetime-archived-body: ''
+  yeswiki-farm-donate-url: ''
   contact_wikis:
     default_template: 'list-email.twig'
-  # what the farm lends to its wikis as symbolic links, entry by entry, instead of
-  # copying it: the code is the same in every wiki and weighs 112 Mo each. Empty by
-  # default — 'ferme:symlink' is what puts them in place, wiki by wiki.
   yeswiki-farm-lent-files: &sharedFiles
     - 'javascripts'
     - 'vendor'
@@ -76,9 +55,6 @@ parameters:
     - 'tools/tags'
     - 'tools/templates'
     - 'tools/toc'
-  # what a new wiki links to the farm instead of copying, which is the same list:
-  # the code is identical in every wiki and weighs 112 Mo each. Set this to [] to go
-  # back to a full copy per wiki.
   yeswiki_symlinked_files: *sharedFiles
   yeswiki_empty_folders:
     - 'cache'
@@ -143,30 +119,25 @@ parameters:
     - 'tools/toc'
     - 'tools/README.md'
     - 'vendor'
-  # for edit config action
   ferme_editable_config_params:
-    # la ferme et son compte super-administrateur
     - 'bazar_farm_id'
     - 'yeswiki-farm-root-folder'
     - 'yeswiki-farm-root-url'
     - 'yeswiki-farm-admin-name'
     - 'yeswiki-farm-admin-pass'
     - 'yeswiki-farm-admin-email'
-    # ce que reçoit chaque wiki créé
     - 'yeswiki-farm-extra-themes'
     - 'yeswiki-farm-extra-tools'
     - 'yeswiki-farm-homepage'
     - 'yeswiki-farm-default-WikiAdmin'
     - 'yeswiki-farm-password-WikiAdmin'
     - 'yeswiki-farm-email-WikiAdmin'
-    # spam et statistiques
     - 'yeswiki-farm-spam-words'
     - 'yeswiki-farm-spam-hosts'
     - 'yeswiki-farm-stats-on-visit'
     - 'yeswiki-farm-stats-interval'
     - 'yeswiki-farm-stats-per-visit'
     - 'yeswiki-farm-spam-threshold'
-    # le reste de la ferme
     - 'yeswiki-farm-archive-keep'
     - 'yeswiki-farm-create-user'
     - 'yeswiki-farm-migrate-on-update'
@@ -174,6 +145,16 @@ parameters:
     - contact_wikis:
         - default_template
     - 'yeswiki-farm-mattermost-webhook'
+    - 'yeswiki-farm-lifetime'
+    - 'yeswiki-farm-lifetime-short'
+    - 'yeswiki-farm-lifetime-long'
+    - 'yeswiki-farm-lifetime-grace'
+    - 'yeswiki-farm-lifetime-reminders'
+    - 'yeswiki-farm-lifetime-mail-subject'
+    - 'yeswiki-farm-lifetime-mail-body'
+    - 'yeswiki-farm-lifetime-archived-subject'
+    - 'yeswiki-farm-lifetime-archived-body'
+    - 'yeswiki-farm-donate-url'
 services:
   _defaults:
     autowire: true

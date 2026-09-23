@@ -1,6 +1,5 @@
 <div class="BAZ_rubrique field-{{ field.type}}" data-id="{{ field.propertyName }}">
     {% block label_container %}
-        {#- No leading/trailing whitespace, see https://twig.symfony.com/doc/3.x/templates.html#templates-whitespace-control-#}
         <span class="BAZ_label">
             {%- block label -%}{{ _t('FERME_ACCESS_WIKI') }} :{%- endblock -%}
         </span>
@@ -8,9 +7,26 @@
     {% block value_container %}
         <span class="BAZ_texte">
             {% block value %}
+            {% if url %}
             <a class="btn btn-primary" href="{{ url }}" target="_blank">
             {{ url }}
             </a>
+            {% endif %}
+            {% if lifetime %}
+            <div class="ferme-lifetime">
+                {% if lifetime.archived %}
+                    <span class="label label-danger">{{ _t('FERME_LIFETIME_ARCHIVED') }}</span>
+                    {{ _t('FERME_LIFETIME_ARCHIVED_ON', {date: lifetime.archivedAt|date('d/m/Y'), purge: lifetime.purgeAt|date('d/m/Y')}) }}
+                {% else %}
+                    <span class="label {{ lifetime.expiring ? 'label-warning' : 'label-default' }}">{{ lifetimeLabel }}</span>
+                    {% if lifetime.renewedAt %}{{ _t('FERME_LIFETIME_RENEWED_ON', {date: lifetime.renewedAt|date('d/m/Y')}) }}{% endif %}
+                    {% if lifetime.expiresAt %}· {{ _t('FERME_LIFETIME_EXPIRES_ON', {date: lifetime.expiresAt|date('d/m/Y')}) }}{% endif %}
+                    {% if renewUrl %}
+                        <a class="btn btn-warning btn-sm" href="{{ renewUrl }}"><i class="fas fa-redo"></i> {{ _t('FERME_LIFETIME_RENEW') }}</a>
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% endif %}
             {% endblock %}
         </span>
     {% endblock %}

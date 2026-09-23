@@ -21,13 +21,6 @@
 // | Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA                            |
 // +------------------------------------------------------------------------------------------------------+
 //
-/*
- * Fichier de traduction en francais de l'extension Ferme
- *
- *@package       ferme
- *@author        Florian Schmitt <mrflos@gmail.com>
- *@copyright     2016 Outils-Réseaux
- */
 
 $GLOBALS['translations'] = array_merge(
     $GLOBALS['translations'],
@@ -162,7 +155,6 @@ $GLOBALS['translations'] = array_merge(
         'FERME_SEARCH_IMPORTED_STATUS' => 'Imported',
         'FERME_SEARCH_NETWORK_ERROR' => 'Error during scan',
 
-        // version / admin status labels
         'FERME_VERSION_DIFFERENT' => 'main version differs from source wiki',
         'FERME_VERSION_UP_TO_DATE' => 'up to date with source wiki',
         'FERME_UPDATE_TO' => 'Update to',
@@ -178,11 +170,9 @@ $GLOBALS['translations'] = array_merge(
         'FERME_ADMIN_REMOVED_STATUS' => 'Removed',
         'FERME_ADMIN_ERROR_STATUS' => 'Error',
 
-        // for edit config
         'EDIT_CONFIG_HINT_BAZAR_FARM_ID' => 'Farm form\'s id',
         'EDIT_CONFIG_GROUP_FERME' => 'Farm',
 
-        // command line
         'FERME_CLI_NOT_A_DIRECTORY' => 'Not a directory:',
         'FERME_CLI_MASTER_EXCLUDED' => 'The farm master cannot be a target.',
         'FERME_CLI_NO_WIKI_IN' => 'No wakka.config.php in',
@@ -599,5 +589,53 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_STATS_ARCHIVES_SWEPT' => 'Stale archives removed',
         'EDIT_CONFIG_HINT_yeswiki-farm-archive-keep' => 'How many seconds an undownloaded archive stays in its wiki (604800 = one week, 0 = for ever)',
         'FERME_FILTER_BY' => 'Show only:',
+        'FERME_LIFETIME' => 'Lifetime',
+        'FERME_LIFETIME_SHORT' => 'Quick test',
+        'FERME_LIFETIME_LONG' => 'Extended test',
+        'FERME_LIFETIME_PERMANENT' => 'Permanent',
+        'FERME_LIFETIME_CHOICE_SHORT' => 'Quick test: deleted after %{days} days, no backup',
+        'FERME_LIFETIME_CHOICE_LONG' => 'Extended test: %{days} days, to renew every year',
+        'FERME_LIFETIME_INVALID' => 'Unknown lifetime',
+        'FERME_LIFETIME_CANNOT_RENEW' => 'This wiki cannot be renewed.',
+        'FERME_LIFETIME_TOO_EARLY' => 'Too early to renew: it will be possible in the month before %{date}.',
+        'FERME_LIFETIME_BAD_LINK' => 'This link is no longer valid. The wiki may already have been renewed.',
+        'FERME_LIFETIME_RENEW' => 'Renew',
+        'FERME_LIFETIME_RENEW_TITLE' => 'Renew your wiki',
+        'FERME_LIFETIME_RENEWED' => 'Done, your wiki is renewed until %{date}. Thank you!',
+        'FERME_LIFETIME_RENEWED_ON' => 'renewed on %{date}',
+        'FERME_LIFETIME_EXPIRES_ON' => 'expires on %{date}',
+        'FERME_LIFETIME_ARCHIVED' => 'archived',
+        'FERME_LIFETIME_ARCHIVED_ON' => 'on %{date}, deleted for good on %{purge}',
+        'FERME_LIFETIME_PURGE_ON' => 'deleted on',
+        'FERME_LIFETIME_DONATE' => 'Support the farm',
+        'FERME_LIFETIME_TO_SHORT' => 'Switch to quick test',
+        'FERME_LIFETIME_TO_LONG' => 'Switch to extended test',
+        'FERME_LIFETIME_TO_PERMANENT' => 'Make permanent',
+        'FERME_LIFETIME_PURGE_FAILED' => 'Could not delete the archive',
+        'FERME_CHIP_EXPIRING' => 'expiring soon',
+        'FERME_LIFETIME_MAIL_SUBJECT' => 'Your wiki {title} expires on {expires}',
+        'FERME_LIFETIME_MAIL_BODY' => "Hello {referent},\n\nYour wiki {title} ({lifetime}) expires on {expires}, in {daysLeft} days.\n{url}\n\nIt holds {pages} pages, {entries} entries and {users} accounts. Last activity: {lastActivity}.\n\nTo keep it, click here:\n{renewUrl}\n\nWithout renewal, it will be deleted on that date.\n\nThe farm runs on your donations:\n{donateUrl}",
+        'FERME_LIFETIME_ARCHIVED_SUBJECT' => 'Your wiki {title} has been archived',
+        'FERME_LIFETIME_ARCHIVED_BODY' => "Hello {referent},\n\nYour wiki {title} was not renewed. It is closed and its backup is kept until {purgeAt}.\n\nTo get it back, reply to this mail before that date.\n\nThe farm runs on your donations:\n{donateUrl}",
+        'FERME_CLI_LIFETIME_DESCRIPTION' => 'Wiki lifetimes: reminders, deletions, archives',
+        'FERME_CLI_OPT_LIFETIME_LIST' => 'List deadlines without doing anything',
+        'FERME_CLI_LIFETIME_OFF' => 'Wiki lifetimes are not enabled (yeswiki-farm-lifetime).',
+        'FERME_CLI_LIFETIME_REMINDED' => 'Reminders sent',
+        'FERME_CLI_LIFETIME_DELETED' => 'Quick tests deleted',
+        'FERME_CLI_LIFETIME_ARCHIVED' => 'Extended tests archived',
+        'FERME_CLI_LIFETIME_PURGED' => 'Archives deleted',
+        'FERME_CLI_LIFETIME_RENEWED' => 'Renewed on',
+        'FERME_CLI_LIFETIME_EXPIRES' => 'Expires',
+        'FERME_CLI_LIFETIME_PURGE' => 'Deletion',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime' => 'Offer limited-lifetime wikis at creation (true/false)',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-short' => 'Length of a quick test, in days',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-long' => 'Length of an extended test, in days',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-grace' => 'Days the archive of an unrenewed extended test is kept',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-reminders' => 'Days before the deadline when reminders go out, for example 30,7',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-mail-subject' => 'Reminder mail subject (empty = default text)',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-mail-body' => 'Reminder mail text (empty = default text). Placeholders: {title} {url} {referent} {lifetime} {expires} {daysLeft} {renewUrl} {pages} {entries} {users} {files} {lastActivity} {donateUrl}. Write \\n for a line break.',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-archived-subject' => 'Subject of the mail sent when an extended test is archived (empty = default text)',
+        'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-archived-body' => 'Text of the mail sent when an extended test is archived (empty = default text). Placeholders: {title} {url} {referent} {purgeAt} {pages} {entries} {users} {files} {lastActivity} {donateUrl}. Write \\n for a line break.',
+        'EDIT_CONFIG_HINT_yeswiki-farm-donate-url' => 'Address of the donation page, quoted in the mails',
     ]
 );

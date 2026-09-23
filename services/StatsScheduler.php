@@ -4,42 +4,31 @@ namespace YesWiki\Ferme\Service;
 
 use YesWiki\Wiki;
 
-/**
- * Keeps the statistics moving on a farm where nobody installed a cron line, by
- * refreshing a few wikis after a page of the master has been served.
- *
- * Core's own maintenance dispatches nothing an extension can subscribe to, so the
- * signal used here is the cheapest one available, a page view, and the work waits
- * until the visitor has their page.
- *
- * What a farm gets per hour is 3600 / interval x batch, so the defaults carry 1 200
- * wikis an hour. A turn over a hundred wikis where nothing moved costs about 30 ms,
- * once the visitor has been served.
- */
+/** Keeps the statistics moving on a farm where nobody installed a cron line, by refreshing a few wikis after a page of the master has been served. */
 class StatsScheduler
 {
     public const LOCK_FILE = 'cache/ferme-stats-visit.lock';
     public const INTERVAL = 300;
     public const PER_VISIT = 100;
+    public const EXPIRE_PER_VISIT = 5;
 
     private $wiki;
     private $finder;
     private $store;
     private $refresher;
+    private $sweeper;
     private $triggered = false;
 
-    public function __construct(Wiki $wiki, WikiFinder $finder, WikiStatsStore $store, StatsRefresher $refresher)
+    public function __construct(Wiki $wiki, WikiFinder $finder, WikiStatsStore $store, StatsRefresher $refresher, LifetimeSweeper $sweeper)
     {
+        $this->sweeper = $sweeper;
         $this->wiki = $wiki;
         $this->finder = $finder;
         $this->store = $store;
         $this->refresher = $refresher;
     }
 
-    /**
-     * Called from every page view. Decides in three syscalls whether anything is
-     * due, and leaves the work itself for after the response.
-     */
+    /** Called from every page view. */
     public function triggerAfterResponse(): void
     {
         if ($this->triggered || !$this->isDue()) {
@@ -57,12 +46,7 @@ class StatsScheduler
         return filter_var($this->wiki->config['yeswiki-farm-stats-on-visit'] ?? true, FILTER_VALIDATE_BOOL);
     }
 
-    /**
-     * The wikis to measure now: the ones checked longest ago, the farm's own master
-     * excluded by the finder.
-     *
-     * @return array<int,string> folders
-     */
+    /** The wikis to measure now: the ones checked longest ago, the farm's own master excluded by the finder. */
     public function due(int $howMany): array
     {
         $wikis = $this->finder->find();
@@ -98,11 +82,7 @@ class StatsScheduler
         return @touch(self::LOCK_FILE);
     }
 
-    /**
-     * The visitor has their page: let go of their connection where php-fpm allows
-     * it, and measure. Nothing here may surface as an error on a page that was
-     * only asking to be read.
-     */
+    /** The visitor has their page: let go of their connection where php-fpm allows it, and measure. */
     private function runAfterResponse(): void
     {
         @ignore_user_abort(true);
@@ -116,6 +96,12 @@ class StatsScheduler
                 $this->refresher->refresh($folder);
             }
             $this->refresher->close();
+        } catch (\Throwable $throwable) {
+            error_log('ferme: ' . $throwable->getMessage());
+        }
+
+        try {
+            $this->sweeper->sweepIfDue(self::EXPIRE_PER_VISIT);
         } catch (\Throwable $throwable) {
             error_log('ferme: ' . $throwable->getMessage());
         }

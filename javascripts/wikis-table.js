@@ -1,5 +1,4 @@
 $(document).ready(function() {
-  //dirty hack for full width for wiki table
   $('.page > .row-fluid.row').addClass('full-width')
 
   var $table = $('#wikis-table');
@@ -23,6 +22,7 @@ $(document).ready(function() {
   var wakeUrl = $config.data('wake-url');
   var adminAddUrl = $config.data('admin-add-url');
   var adminRemoveUrl = $config.data('admin-remove-url');
+  var lifetimeUrl = $config.data('lifetime-url');
   var csrfToken = $config.data('csrf-token');
   var csrfTokenUrl = $config.data('csrf-token-url');
   var i18n = $config.data();
@@ -38,7 +38,6 @@ $(document).ready(function() {
   var DELETE_PARALLEL = 5;
   var selectedWikis = {};
   var filteredCount = 0;
-  // which way each column reads when you first sort on it: names from A, numbers from the top
   var SORT_WAY = {
     title: 'asc', referent: 'asc', lastActivity: 'desc', activity: 'desc',
     entries: 'desc', pages: 'desc', users: 'desc', forms: 'desc', diskBytes: 'desc'
@@ -57,19 +56,16 @@ $(document).ready(function() {
     { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'exclamation-triangle' },
     { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' },
     { key: 'hibernating', label: 'chipHibernating', kind: 'default', icon: 'moon' },
-    { key: 'spammed', label: 'chipSpammed', kind: 'warning', icon: 'link' }
+    { key: 'spammed', label: 'chipSpammed', kind: 'warning', icon: 'link' },
+    { key: 'expiring', label: 'chipExpiring', kind: 'warning', icon: 'hourglass-end' },
+    { key: 'archived', label: 'chipArchived', kind: 'default', icon: 'archive' }
   ];
 
   function esc(str) {
     return $('<span>').text(str || '').html();
   }
 
-  /**
-   * The table's state travels in the address bar, so a link to a chip and a sort
-   * opens on the same list. Our four parameters are read and written by hand:
-   * YesWiki carries its page name as a bare token in the query string, and
-   * rebuilding that string from URLSearchParams would turn it into "PageName=".
-   */
+  /** The table's state travels in the address bar, so a link to a chip and a sort opens on the same list. */
   function urlParam(name) {
     var found = new RegExp('[?&]' + name + '=([^&#]*)').exec(window.location.search);
 
@@ -134,11 +130,7 @@ $(document).ready(function() {
       });
   }
 
-  /**
-   * One POST per wiki, carrying the token. A token that went stale while the page
-   * was open is fetched again and the call replayed once, and whatever happens the
-   * promise resolves, so a queue never stops on one wiki.
-   */
+  /** One POST per wiki, carrying the token. */
   function postWithToken(url, data, retried) {
     var answered = $.Deferred();
 
@@ -165,10 +157,7 @@ $(document).ready(function() {
     return answered.promise();
   }
 
-  /**
-   * Keeps the wiki being worked on in sight, and says where the run is in the
-   * title, because a batch of two hundred otherwise scrolls away from the reader.
-   */
+  /** Keeps the wiki being worked on in sight, and says where the run is in the title, because a batch of two hundred otherwise scrolls away from the reader. */
   function follow(modal, listSelector, $item, index, total) {
     $(modal).find('.ferme-progress').text(total > 0 ? (index + 1) + ' / ' + total : '');
 
@@ -226,6 +215,18 @@ $(document).ready(function() {
       + '<i class="fas fa-moon"></i> ' + esc(row.status.label) + '</span>';
   }
 
+  function lifetimeBadge(row) {
+    var lifetime = row.lifetime;
+    if (!lifetime) { return ''; }
+    if (lifetime.archived) {
+      return '<span class="label label-danger" title="' + esc(lifetime.archive) + '">'
+        + '<i class="fas fa-archive"></i> ' + esc(i18n.chipArchived) + ' · ' + esc(i18n.i18nPurgeOn) + ' ' + esc(lifetime.purge_label) + '</span>';
+    }
+    var text = esc(lifetime.label) + (lifetime.expires_label ? ' · ' + esc(lifetime.expires_label) : '');
+    return '<span class="label ' + (lifetime.expiring ? 'label-warning' : 'label-info') + '">'
+      + '<i class="fas fa-hourglass-half"></i> ' + text + '</span>';
+  }
+
   var columns = [
     {
       data: null,
@@ -258,7 +259,7 @@ $(document).ready(function() {
           + '<small>' + esc(row.referent || '')
           + (row.mail ? ' · <a href="mailto:' + esc(row.mail) + '">' + esc(row.mail) + '</a>' : '')
           + '</small>'
-          + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + ' ' + statusBadge(row) + '</small>'
+          + '<small>' + versionBadge(row) + ' ' + adminBadge(row) + ' ' + statusBadge(row) + ' ' + lifetimeBadge(row) + '</small>'
           + '</div>';
         if (row.stats && row.stats.spammed) {
           html +=
@@ -337,6 +338,17 @@ $(document).ready(function() {
             + '<i class="fas fa-user-' + (row.admin.present ? 'minus' : 'plus') + ' fa-fw"></i> '
             + esc(row.admin.present ? i18n.i18nAdminRemove : i18n.i18nAdminAdd) + '</a></li>';
         }
+        if (row.lifetime && !row.lifetime.archived && lifetimeUrl) {
+          if (row.lifetime.kind !== 'permanent') {
+            items += '<li><a href="#" class="lifetime-action-btn" data-kind="renew" data-id-fiche="' + esc(row.id_fiche) + '">'
+              + '<i class="fas fa-redo fa-fw"></i> ' + esc(i18n.i18nLifetimeRenew) + '</a></li>';
+          }
+          ['short', 'long', 'permanent'].forEach(function(kind) {
+            if (kind === row.lifetime.kind) { return; }
+            items += '<li><a href="#" class="lifetime-action-btn" data-kind="' + kind + '" data-id-fiche="' + esc(row.id_fiche) + '">'
+              + '<i class="fas fa-hourglass-half fa-fw"></i> ' + esc(i18n['i18nLifetimeTo' + kind.charAt(0).toUpperCase() + kind.slice(1)]) + '</a></li>';
+          });
+        }
         if (row.delete_url) {
           items += '<li role="separator" class="divider"></li>'
             + '<li><a href="' + esc(row.delete_url) + '" class="text-danger" target="_blank" rel="noopener">'
@@ -375,7 +387,6 @@ $(document).ready(function() {
       + "<'row'<'col-sm-12'p>>"
   }));
 
-  // Keep the processing overlay centred over the table (not the whole viewport)
   wikisTable.on('processing.dt', function(e, settings, processing) {
     if (!processing) { return; }
     var $container = $table.closest('.table-responsive');
@@ -490,7 +501,6 @@ $(document).ready(function() {
     loadSpamPages($detail);
   }
 
-  // anywhere in the row opens it, except what is already something to click
   $(document).on('click', '#wikis-table tbody tr', function(event) {
     if ($(event.target).closest('a, button, input, label, .dropdown-menu, svg').length) { return; }
     toggleDetail($(this));
@@ -670,7 +680,6 @@ $(document).ready(function() {
     return $(html + '</div>');
   }
 
-  // After each draw, restore checkbox state for visible rows and sync select-all
   wikisTable.on('draw', function() {
     $table.find('.wiki-checkbox').each(function() {
       $(this).prop('checked', !!(selectedWikis[$(this).val()]));
@@ -709,10 +718,7 @@ $(document).ready(function() {
     $('#btn-select-none').toggle(count > 0);
   }
 
-  /**
-   * The page shows a hundred wikis at a time; the button says how many the current
-   * search and chip actually hold, and takes them all.
-   */
+  /** The page shows a hundred wikis at a time; the button says how many the current search and chip actually hold, and takes them all. */
   function updateSelectEverything() {
     $('#select-everything-label').text(
       filteredCount > 0 ? i18n.i18nSelectAllN.replace('%{n}', filteredCount) : i18n.i18nSelectAll
@@ -751,7 +757,6 @@ $(document).ready(function() {
     return String(wikisTable.search() || '');
   }
 
-  // Select/deselect all wikis on the current page
   $('#select-all-wikis').on('change', function() {
     var checked = $(this).is(':checked');
     $table.find('.wiki-checkbox').each(function() {
@@ -768,7 +773,6 @@ $(document).ready(function() {
     updateBulkBtns();
   });
 
-  // Individual checkboxes — delegated for DataTables re-render safety
   $(document).on('change', '#wikis-table .wiki-checkbox', function() {
     var folder = $(this).val();
     var title = $(this).data('title');
@@ -964,12 +968,10 @@ $(document).ready(function() {
     event.preventDefault();
     if (selectionCount() === 0) { return; }
     var wikis = selectedList();
-    // Populate confirmation preview
     var $preview = $('#delete-wikis-preview').empty();
     wikis.forEach(function(wiki) {
       $preview.append($('<div class="list-group-item">').text(wiki.title));
     });
-    // Reset modal to confirmation stage
     $('#delete-confirm-stage').show();
     $('#delete-progress-stage').hide();
     $('#delete-footer-confirm').show();
@@ -980,7 +982,6 @@ $(document).ready(function() {
 
   $('#btn-start-delete').on('click', function() {
     var wikis = selectedList();
-    // Switch to progress stage
     $('#delete-confirm-stage').hide();
     $('#delete-footer-confirm').hide();
     var $list = $('#delete-wikis-list').empty();
@@ -1102,10 +1103,7 @@ $(document).ready(function() {
     }
   }
 
-  /**
-   * Some of these are one line written in a wiki's configuration; sending them one
-   * request at a time costs far more than doing them. Those modes go by the handful.
-   */
+  /** Some of these are one line written in a wiki's configuration; sending them one request at a time costs far more than doing them. */
   function upgradeBatch(wikis, index, done) {
     var chunk = wikis.slice(index, index + runMode.batch);
     var byFolder = {};
@@ -1159,7 +1157,6 @@ $(document).ready(function() {
     return postWithToken(action === 'remove' ? adminRemoveUrl : adminAddUrl, { folder: folder });
   }
 
-  // Admin add/remove — delegated for DataTables re-render safety
   $(document).on('click', '#wikis-table .admin-action-btn', function() {
     var $btn = $(this);
     var action = $btn.data('admin-action');
@@ -1180,6 +1177,21 @@ $(document).ready(function() {
       }
       $btn.prop('disabled', false).find('.fa-spinner').remove();
       $btn.attr('title', (response && response.error) || i18n.adminError);
+    });
+  });
+
+  $(document).on('click', '#wikis-table .lifetime-action-btn', function(event) {
+    event.preventDefault();
+    var $link = $(this);
+    $link.prepend('<i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i>');
+    postWithToken(lifetimeUrl, { id_fiche: $link.data('id-fiche'), kind: $link.data('kind') }).done(function(response) {
+      if (response && response.success) {
+        wikisTable.ajax.reload(null, false);
+        return;
+      }
+      $link.find('.fa-spinner').remove();
+      $link.attr('title', (response && response.error) || '');
+      window.alert((response && response.error) || 'error');
     });
   });
 

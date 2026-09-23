@@ -56,9 +56,10 @@ class AdminWikisAction extends YesWikiAction
                     'wake_api_url' => $this->wiki->href('', 'api/ferme/wikis/wake'),
                     'admin_add_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-add'),
                     'admin_remove_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-remove'),
+                    'lifetime_api_url' => $this->wiki->href('', 'api/ferme/wikis/lifetime'),
                 ]
             );
-        }   // User isn't admin
+        }
 
         return '<div class="alert alert-danger">' . _t('FERME_ADMIN_REQUIRED') . '</div>';
     }

@@ -303,6 +303,14 @@
      data-spam-pages-url="{{ spam_pages_api_url }}"
      data-approve-spam-url="{{ approve_spam_api_url }}"
      data-hibernate-url="{{ hibernate_api_url }}"
+     data-lifetime-url="{{ lifetime_api_url }}"
+     data-chip-expiring="{{ _t("FERME_CHIP_EXPIRING") }}"
+     data-chip-archived="{{ _t("FERME_LIFETIME_ARCHIVED") }}"
+     data-i18n-purge-on="{{ _t("FERME_LIFETIME_PURGE_ON") }}"
+     data-i18n-lifetime-renew="{{ _t("FERME_LIFETIME_RENEW") }}"
+     data-i18n-lifetime-to-short="{{ _t("FERME_LIFETIME_TO_SHORT") }}"
+     data-i18n-lifetime-to-long="{{ _t("FERME_LIFETIME_TO_LONG") }}"
+     data-i18n-lifetime-to-permanent="{{ _t("FERME_LIFETIME_TO_PERMANENT") }}"
      data-wake-url="{{ wake_api_url }}"
      data-admin-add-url="{{ admin_add_api_url }}"
      data-admin-remove-url="{{ admin_remove_api_url }}"
@@ -398,7 +406,6 @@
      data-i18n-mail-sending="{{ _t("FERME_MAIL_SENDING") }}"
      data-i18n-mail-sent="{{ _t("FERME_MAIL_SENT") }}"></div>
 {{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
-{# Upgrade modal #}
 <div class="modal fade"
      id="upgrade-selected-modal"
      tabindex="-1"
@@ -432,7 +439,6 @@
         </div>
     </div>
 </div>
-{# Delete modal #}
 <div class="modal fade"
      id="delete-selected-modal"
      tabindex="-1"
@@ -481,7 +487,6 @@
         </div>
     </div>
 </div>
-{# Mail modal #}
 <div class="modal fade"
      id="mail-selected-modal"
      tabindex="-1"
@@ -507,7 +512,7 @@
                     <div class="form-group">
                         <label for="mail-body">{{ _t("FERME_MAIL_BODY") }}</label>
                         <textarea class="form-control" id="mail-body" rows="9"></textarea>
-                        <span class="help-block">{{ _t("FERME_MAIL_PLACEHOLDERS") }} <code>{title}</code> <code>{url}</code> <code>{referent}</code> <code>{folder}</code> <code>{lastActivity}</code></span>
+                        <span class="help-block">{{ _t("FERME_MAIL_PLACEHOLDERS") }} <code>{title}</code> <code>{url}</code> <code>{referent}</code> <code>{folder}</code> <code>{lastActivity}</code> <code>{entries}</code> <code>{pages}</code> <code>{users}</code> <code>{files}</code></span>
                     </div>
                     <div id="mail-recipients" class="help-block"></div>
                 </div>
@@ -536,7 +541,6 @@
         </div>
     </div>
 </div>
-{# Admin account modal #}
 <div class="modal fade"
      id="admin-selected-modal"
      tabindex="-1"
@@ -574,7 +578,6 @@
 <button id="btn-search-wikis" type="button" class="btn btn-primary">
     <i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}
 </button>
-{# Search modal #}
 <div class="modal fade"
      id="search-wikis-modal"
      tabindex="-1"

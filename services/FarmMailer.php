@@ -6,14 +6,10 @@ use YesWiki\Bazar\Service\EntryManager;
 use YesWiki\Core\Service\Mailer;
 use YesWiki\Wiki;
 
-/**
- * Writes to the people who run the wikis of the farm. The address is taken from
- * the farm entry, never from what the browser sent, so an admin picks which wikis
- * to write to and not who the mail goes to.
- */
+/** Writes to the people who run the wikis of the farm. */
 class FarmMailer
 {
-    public const PLACEHOLDERS = ['title', 'url', 'referent', 'folder', 'lastActivity'];
+    public const PLACEHOLDERS = ['title', 'url', 'referent', 'folder', 'lastActivity', 'entries', 'pages', 'users', 'files'];
 
     private $wiki;
     private $entryManager;
@@ -28,20 +24,21 @@ class FarmMailer
         $this->statsStore = $statsStore;
     }
 
-    /**
-     * @return string the address it went to
-     */
     public function sendToReferent(string $idFiche, string $subject, string $body): string
     {
-        $entry = $this->farmEntry($idFiche);
+        return $this->send($this->farmEntry($idFiche), $subject, $body);
+    }
+
+    public function send(array $entry, string $subject, string $body, array $extra = []): string
+    {
         $address = trim((string)($entry['bf_mail'] ?? ''));
 
         if ($address === '' || !filter_var($address, FILTER_VALIDATE_EMAIL)) {
             throw new \RuntimeException(_t('FERME_MAIL_NO_ADDRESS'));
         }
 
-        $subject = trim($this->fill($subject, $entry));
-        $body = trim($this->fill($body, $entry));
+        $subject = trim($this->fill($subject, $entry, $extra));
+        $body = trim($this->fill($body, $entry, $extra));
         if ($subject === '' || $body === '') {
             throw new \RuntimeException(_t('FERME_MAIL_EMPTY'));
         }
@@ -51,12 +48,8 @@ class FarmMailer
         return $address;
     }
 
-    /**
-     * Replace the handful of things an admin can point at in a subject or a body.
-     *
-     * @param array<string,mixed> $entry
-     */
-    public function fill(string $text, array $entry): string
+    /** Replace the handful of things an admin can point at in a subject or a body. */
+    public function fill(string $text, array $entry, array $extra = []): string
     {
         $folder = (string)($entry['bf_dossier-wiki'] ?? '');
         $stats = $folder === '' ? null : $this->statsStore->read($folder);
@@ -67,7 +60,18 @@ class FarmMailer
             'referent' => (string)($entry['bf_referent'] ?? ''),
             'folder' => $folder,
             'lastActivity' => (string)($stats['lastActivity'] ?? _t('FERME_STATS_NEVER_MEASURED')),
+            'entries' => (string)(int)($stats['entries'] ?? 0),
+            'pages' => (string)(int)($stats['pages'] ?? 0),
+            'users' => (string)(int)($stats['users'] ?? 0),
+            'files' => (string)(int)($stats['files'] ?? 0),
         ];
+        $values = array_merge($values, $extra);
+
+        if (($values['donateUrl'] ?? null) === '') {
+            $text = implode("\n", array_filter(explode("\n", $text), function (string $line) {
+                return !str_contains($line, '{donateUrl}');
+            }));
+        }
 
         foreach ($values as $name => $value) {
             $text = str_replace('{' . $name . '}', $value, $text);
@@ -76,9 +80,6 @@ class FarmMailer
         return $text;
     }
 
-    /**
-     * @return array<string,mixed>
-     */
     private function farmEntry(string $idFiche): array
     {
         $entry = $this->entryManager->isEntry($idFiche) ? $this->entryManager->getOne($idFiche) : null;

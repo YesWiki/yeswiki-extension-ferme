@@ -8,6 +8,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
 use YesWiki\Ferme\Service\FolderLock;
+use YesWiki\Ferme\Service\LifetimeSweeper;
 use YesWiki\Ferme\Service\SpamCleaner;
 use YesWiki\Ferme\Service\SpamFingerprints;
 use YesWiki\Ferme\Service\StatsRefresher;
@@ -26,6 +27,7 @@ class StatsCommand extends AbstractFarmCommand
     protected $archiver;
     protected $fingerprints;
     protected $cleaner;
+    protected $sweeper;
 
     public function __construct(Wiki &$wiki)
     {
@@ -36,6 +38,7 @@ class StatsCommand extends AbstractFarmCommand
         $this->archiver = $wiki->services->get(WikiArchiver::class);
         $this->fingerprints = $wiki->services->get(SpamFingerprints::class);
         $this->cleaner = $wiki->services->get(SpamCleaner::class);
+        $this->sweeper = $wiki->services->get(LifetimeSweeper::class);
     }
 
     protected function configure()
@@ -82,6 +85,7 @@ class StatsCommand extends AbstractFarmCommand
             $counters = $this->refresh($input, $output, $wikis);
             $staleLocks = $dryRun ? 0 : $this->folderLock->prune();
             $tidied = $dryRun ? ['private' => 0, 'archives' => 0] : $this->tidy($wikis);
+            $swept = $dryRun ? null : $this->sweeper->sweepIfDue();
         } finally {
             if (is_resource($lock)) {
                 flock($lock, LOCK_UN);
@@ -103,17 +107,18 @@ class StatsCommand extends AbstractFarmCommand
                 _t('FERME_CLI_STATS_STALE_LOCKS') => $staleLocks,
                 _t('FERME_CLI_STATS_PRIVATE_MADE') => $tidied['private'],
                 _t('FERME_CLI_STATS_ARCHIVES_SWEPT') => $tidied['archives'],
+                _t('FERME_CLI_LIFETIME_REMINDED') => count($swept['reminded'] ?? []),
+                _t('FERME_CLI_LIFETIME_DELETED') => count($swept['deleted'] ?? []),
+                _t('FERME_CLI_LIFETIME_ARCHIVED') => count($swept['archived'] ?? []),
+                _t('FERME_CLI_LIFETIME_PURGED') => count($swept['purged'] ?? []),
                 _t('FERME_CLI_FAILED') => count($counters['failed']),
                 _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
             ],
-            $counters['failed'],
+            array_merge($counters['failed'], $swept['failed'] ?? []),
             $dryRun
         );
     }
 
-    /**
-     * @return array{probed:int,counted:int,walked:int,unchanged:int,failed:array<int,string>}
-     */
     private function refresh(InputInterface $input, OutputInterface $output, array $wikis): array
     {
         $dryRun = $this->isDryRun($input);
@@ -171,10 +176,7 @@ class StatsCommand extends AbstractFarmCommand
         return $counters;
     }
 
-    /**
-     * Measures nothing: says whether the farm is being measured at all, and fails
-     * when it is not, so a supervision can watch a cron that stopped.
-     */
+    /** Measures nothing: says whether the farm is being measured at all, and fails when it is not, so a supervision can watch a cron that stopped. */
     private function check(InputInterface $input, OutputInterface $output, float $started): int
     {
         $olderThan = $this->seconds((string)$input->getOption('check'));
@@ -226,13 +228,7 @@ class StatsCommand extends AbstractFarmCommand
         );
     }
 
-    /**
-     * Wikis deleted by something other than the farm leave their stats behind, so a
-     * full run drops what no longer matches a folder. A narrowed run cannot tell an
-     * absent wiki from one it was not asked about, so it sweeps nothing.
-     *
-     * @return array<int,string>
-     */
+    /** Wikis deleted by something other than the farm leave their stats behind, so a full run drops what no longer matches a folder. */
     private function sweepOrphans(InputInterface $input, OutputInterface $output, array $wikis): array
     {
         if ($input->getOption('wiki') || $input->getOption('path') || $this->isDryRun($input)) {
@@ -247,9 +243,7 @@ class StatsCommand extends AbstractFarmCommand
         return $orphans;
     }
 
-    /**
-     * Oldest check first, so a run capped by --max walks the farm round robin.
-     */
+    /** Oldest check first, so a run capped by --max walks the farm round robin. */
     private function oldestFirst(array $wikis, array $stored): array
     {
         usort($wikis, function (array $a, array $b) use ($stored) {
@@ -269,9 +263,6 @@ class StatsCommand extends AbstractFarmCommand
         return $expected !== false && $expected === realpath($wiki['PATH']);
     }
 
-    /**
-     * @return resource|false
-     */
     private function lock()
     {
         $handle = fopen(self::LOCK_FILE, 'c');
@@ -287,10 +278,7 @@ class StatsCommand extends AbstractFarmCommand
         return $handle;
     }
 
-    /**
-     * The campaign index is rebuilt once a week: reading every wiki is too long to
-     * do on every sweep, and a robot's block does not appear and vanish in a day.
-     */
+    /** The campaign index is rebuilt once a week: reading every wiki is too long to do on every sweep, and a robot's block does not appear and vanish in a day. */
     private function refreshIndex(OutputInterface $output): int
     {
         $about = $this->fingerprints->about();
@@ -303,14 +291,7 @@ class StatsCommand extends AbstractFarmCommand
         return $this->fingerprints->build($this->cleaner->hosts())['kept'];
     }
 
-    /**
-     * Each wiki gets the private folder it should have, and loses the archives
-     * nobody came to fetch.
-     *
-     * @param array<int,array<string,mixed>> $wikis
-     *
-     * @return array{private:int,archives:int}
-     */
+    /** Each wiki gets the private folder it should have, and loses the archives nobody came to fetch. */
     private function tidy(array $wikis): array
     {
         $keep = (int)($this->wiki->config['yeswiki-farm-archive-keep'] ?? WikiArchiver::KEEP_ARCHIVES);

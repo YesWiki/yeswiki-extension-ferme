@@ -129,6 +129,32 @@ Install them on the farm first.
 - `mattermost-webhook`: notifies a channel on each creation or deletion.
 - `migrate-on-update`: migrates the wikis when the master wiki is updated.
 
+### Limited-lifetime wikis
+
+```php
+'yeswiki-farm-lifetime' => true,
+'yeswiki-farm-lifetime-short' => 90,
+'yeswiki-farm-lifetime-long' => 365,
+'yeswiki-farm-lifetime-grace' => 180,
+'yeswiki-farm-lifetime-reminders' => [30, 7],
+'yeswiki-farm-lifetime-mail-subject' => '',
+'yeswiki-farm-lifetime-mail-body' => '',
+'yeswiki-farm-lifetime-archived-subject' => '',
+'yeswiki-farm-lifetime-archived-body' => '',
+'yeswiki-farm-donate-url' => 'https://example.org/donate',
+```
+
+At creation, people choose between a quick test and an extended test. An admin can also create a permanent wiki.
+
+- Quick test: deleted with no backup on its deadline.
+- Extended test: on its deadline, the wiki is backed up to `private/backups/farm/expired/` and closed. The backup and the entry are deleted after `grace` days.
+- Mails go out `reminders` days before the deadline, with a link to renew. Another one goes out on archiving. Their texts are configurable (`mail-*`, `archived-*`), `\n` for a line break.
+- In the last month, a "Renew" button also shows on the wiki's entry.
+- Mail placeholders: `{title}` `{url}` `{referent}` `{lifetime}` `{expires}` `{daysLeft}` `{renewUrl}` `{pages}` `{entries}` `{users}` `{files}` `{lastActivity}` `{donateUrl}`.
+- In `{{adminwikis}}`, a wiki's ⋯ menu renews it or changes its lifetime.
+
+Existing wikis stay permanent.
+
 ### Files shared by symbolic link
 
 ```php
@@ -149,6 +175,7 @@ Run from the farm root. `--wiki` targets a single wiki, `--dry-run` shows withou
 - `ferme:clean-spam`: cleans spam.
 - `ferme:spam-index`: finds spam copied across several wikis.
 - `ferme:stats`: updates statistics.
+- `ferme:lifetime`: sends reminders, deletes and archives expired wikis. `--list` shows deadlines.
 
 Start with `--dry-run`.
 
