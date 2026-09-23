@@ -47,6 +47,7 @@ $(document).ready(function() {
     ? urlParam('ferme_way')
     : SORT_WAY[sortField];
   var activeFilter = urlParam('ferme_filter');
+  var activeLifetime = urlParam('ferme_lifetime');
   var chips = [
     { key: 'toUpdate', label: 'chipToUpdate', kind: 'danger', icon: 'sync-alt' },
     { key: 'dormant', label: 'chipDormant', kind: 'default', icon: 'moon' },
@@ -56,7 +57,15 @@ $(document).ready(function() {
     { key: 'failed', label: 'chipFailed', kind: 'danger', icon: 'exclamation-triangle' },
     { key: 'unmeasured', label: 'chipUnmeasured', kind: 'default', icon: 'question' },
     { key: 'hibernating', label: 'chipHibernating', kind: 'default', icon: 'moon' },
-    { key: 'spammed', label: 'chipSpammed', kind: 'warning', icon: 'link' },
+    { key: 'spammed', label: 'chipSpammed', kind: 'warning', icon: 'link' }
+  ];
+  var lifetimeKinds = [
+    { key: 'short', label: 'i18nLifetimeShort', icon: 'stopwatch' },
+    { key: 'long', label: 'i18nLifetimeLong', icon: 'calendar-alt' },
+    { key: 'permanent', label: 'i18nLifetimePermanent', icon: 'infinity' }
+  ];
+  var lifetimeStates = [
+    { key: 'ongoing', label: 'chipOngoing', kind: 'info', icon: 'hourglass-half' },
     { key: 'expiring', label: 'chipExpiring', kind: 'warning', icon: 'hourglass-end' },
     { key: 'archived', label: 'chipArchived', kind: 'default', icon: 'archive' }
   ];
@@ -75,7 +84,7 @@ $(document).ready(function() {
   function writeUrl() {
     if (!window.history || !window.history.replaceState) { return; }
     var kept = window.location.search.replace(/^\?/, '').split('&').filter(function(part) {
-      return part !== '' && !/^ferme_(sort|way|filter|search)=/.test(part);
+      return part !== '' && !/^ferme_(sort|way|filter|lifetime|search)=/.test(part);
     });
     var mine = {};
     if (sortField !== 'title' || sortWay !== 'asc') {
@@ -83,6 +92,7 @@ $(document).ready(function() {
       mine.ferme_way = sortWay;
     }
     mine.ferme_filter = activeFilter;
+    mine.ferme_lifetime = activeLifetime;
     mine.ferme_search = searchTerm();
     Object.keys(mine).forEach(function(name) {
       if (mine[name] !== '') { kept.push(name + '=' + encodeURIComponent(mine[name])); }
@@ -378,6 +388,7 @@ $(document).ready(function() {
         data.sort = sortField;
         data.direction = sortWay;
         data.filter = activeFilter;
+        data.lifetime = activeLifetime;
       }
     },
     search: { search: urlParam('ferme_search') },
@@ -448,7 +459,44 @@ $(document).ready(function() {
         .attr('data-filter', chip.key)
         .html('<i class="fas fa-' + chip.icon + '"></i> ' + esc(i18n[chip.label]) + ' <span class="badge">' + count + '</span>'));
     });
+
+    renderLifetimeChips(counts);
   }
+
+  function renderLifetimeChips(counts) {
+    var $row = $('#ferme-lifetime-chips').empty();
+    var $states = $('#ferme-lifetime-states').empty();
+    var limited = (counts.short || 0) + (counts.long || 0);
+    if (limited === 0 && !activeLifetime && lifetimeStates.every(function(state) { return activeFilter !== state.key; })) {
+      $row.addClass('hide');
+      $states.addClass('hide');
+      return;
+    }
+    $row.removeClass('hide').append($('<span class="ferme-muted">').text(i18n.i18nLifetimeFilter));
+    $states.removeClass('hide').append($('<span class="ferme-muted">').text(i18n.i18nLifetimeStates));
+    lifetimeKinds.forEach(function(kind) {
+      $row.append($('<button type="button">')
+        .addClass('btn btn-xs btn-default ferme-lifetime-chip')
+        .toggleClass('active', activeLifetime === kind.key)
+        .attr('data-lifetime', kind.key)
+        .html('<i class="fas fa-' + kind.icon + '"></i> ' + esc(i18n[kind.label]) + ' <span class="badge">' + (counts[kind.key] || 0) + '</span>'));
+    });
+    lifetimeStates.forEach(function(state) {
+      var count = counts[state.key] || 0;
+      $states.append($('<button type="button">')
+        .addClass('btn btn-xs btn-' + state.kind + ' ferme-chip')
+        .toggleClass('active', activeFilter === state.key)
+        .attr('data-filter', state.key)
+        .html('<i class="fas fa-' + state.icon + '"></i> ' + esc(i18n[state.label]) + ' <span class="badge">' + count + '</span>'));
+    });
+  }
+
+  $(document).on('click', '.ferme-lifetime-chip', function() {
+    var wanted = $(this).data('lifetime');
+    activeLifetime = activeLifetime === wanted ? '' : wanted;
+    writeUrl();
+    wikisTable.ajax.reload();
+  });
 
   $(document).on('click', '.ferme-total-filter', function() {
     var wanted = $(this).data('filter');
@@ -731,7 +779,7 @@ $(document).ready(function() {
     var was = $('#select-everything-label').text();
     $('#select-everything-label').text(i18n.i18nSelecting);
 
-    postWithToken(selectUrl, { search: currentSearch(), filter: activeFilter }).done(function(response) {
+    postWithToken(selectUrl, { search: currentSearch(), filter: activeFilter, lifetime: activeLifetime }).done(function(response) {
       selectedWikis = {};
       (response.wikis || []).forEach(function(wiki) {
         selectedWikis[wiki.folder] = { title: wiki.title, idFiche: wiki.id_fiche, mail: wiki.mail };

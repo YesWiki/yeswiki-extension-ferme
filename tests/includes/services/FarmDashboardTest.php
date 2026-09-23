@@ -54,7 +54,7 @@ class FarmDashboardTest extends YesWikiTestCase
         );
 
         $this->assertSame(
-            ['toUpdate' => 1, 'dormant' => 1, 'neverEdited' => 0, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0, 'running' => 5, 'expiring' => 0, 'archived' => 0],
+            ['toUpdate' => 1, 'dormant' => 1, 'neverEdited' => 0, 'heavyArchives' => 1, 'suspect' => 0, 'spammed' => 0, 'failed' => 1, 'unmeasured' => 1, 'hibernating' => 0, 'running' => 5, 'ongoing' => 0, 'expiring' => 0, 'archived' => 0, 'short' => 0, 'long' => 0, 'permanent' => 5],
             $page['counts']
         );
         $this->assertSame(5, $page['total']);
@@ -470,6 +470,68 @@ class FarmDashboardTest extends YesWikiTestCase
         $this->assertSame(2, $propre['approvedPages'], 'de quoi revenir sur la validation');
         $this->assertSame(0, $page['fiches'][1]['stats']['approvedPages']);
         $this->assertSame(1, $page['counts']['spammed']);
+    }
+
+    public function testWikisFilterByLifetimeAndAWikiWithoutOneIsPermanent()
+    {
+        $fiches = $this->lifetimeFiches();
+
+        $this->assertSame(['rapide'], $this->folders($this->selectLifetime($fiches, 'short')));
+        $this->assertSame(['annuel', 'archive', 'bientot'], $this->folders($this->selectLifetime($fiches, 'long')));
+        $this->assertSame(['ancien', 'toujours'], $this->folders($this->selectLifetime($fiches, 'permanent')));
+        $this->assertSame(['bientot'], $this->folders($this->selectLifetime($fiches, 'long', 'expiring')));
+    }
+
+    public function testTheLifetimeStatesAreCountedAndAnArchivedWikiIsNeitherRunningNorBroken()
+    {
+        $page = $this->selectLifetime($this->lifetimeFiches(), '');
+
+        $this->assertSame(1, $page['counts']['short']);
+        $this->assertSame(3, $page['counts']['long']);
+        $this->assertSame(2, $page['counts']['permanent']);
+        $this->assertSame(2, $page['counts']['ongoing'], 'rapide and annuel');
+        $this->assertSame(1, $page['counts']['expiring']);
+        $this->assertSame(1, $page['counts']['archived']);
+        $this->assertSame(5, $page['counts']['running']);
+        $this->assertSame(0, $page['counts']['failed'], 'an archived wiki has no folder on purpose');
+        $this->assertSame(5, $page['totals']['running']);
+    }
+
+    private function lifetimeFiches(): array
+    {
+        $state = function (string $kind, bool $expiring = false, bool $archived = false): array {
+            return ['kind' => $kind, 'expiring' => $expiring, 'archived' => $archived];
+        };
+
+        return [
+            $this->fiche('rapide') + ['state' => $state('short')],
+            $this->fiche('annuel') + ['state' => $state('long')],
+            $this->fiche('bientot') + ['state' => $state('long', true)],
+            $this->fiche('archive') + ['state' => $state('long', false, true)],
+            $this->fiche('toujours') + ['state' => $state('permanent')],
+            $this->fiche('ancien'),
+        ];
+    }
+
+    private function selectLifetime(array $fiches, string $lifetime, string $filter = ''): array
+    {
+        return $this->dashboard->select(
+            $fiches,
+            [],
+            [
+                'current' => $this->current,
+                'onDisk' => ['archive' => false],
+                'lifetime' => function (array $fiche) {
+                    return $fiche['state'] ?? null;
+                },
+            ],
+            ['filter' => $filter, 'lifetime' => $lifetime, 'sort' => 'title', 'direction' => 'asc', 'start' => 0, 'length' => 100]
+        );
+    }
+
+    private function folders(array $page): array
+    {
+        return array_column($page['fiches'], 'bf_dossier-wiki');
     }
 
     private function select(

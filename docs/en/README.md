@@ -144,14 +144,14 @@ Install them on the farm first.
 'yeswiki-farm-donate-url' => 'https://example.org/donate',
 ```
 
-At creation, people choose between a quick test and an extended test. An admin can also create a permanent wiki.
+At creation, people choose between a quick test and a yearly test. An admin can also create a permanent wiki.
 
 - Quick test: deleted with no backup on its deadline.
-- Extended test: on its deadline, the wiki is backed up to `private/backups/farm/expired/` and closed. The backup and the entry are deleted after `grace` days.
+- Yearly test: on its deadline, the wiki is backed up to `private/backups/farm/expired/` and closed. The backup and the entry are deleted after `grace` days.
 - Mails go out `reminders` days before the deadline, with a link to renew. Another one goes out on archiving. Their texts are configurable (`mail-*`, `archived-*`), `\n` for a line break.
 - In the last month, a "Renew" button also shows on the wiki's entry.
 - Mail placeholders: `{title}` `{url}` `{referent}` `{lifetime}` `{expires}` `{daysLeft}` `{renewUrl}` `{pages}` `{entries}` `{users}` `{files}` `{lastActivity}` `{donateUrl}`.
-- In `{{adminwikis}}`, a wiki's ⋯ menu renews it or changes its lifetime.
+- In `{{adminwikis}}`, the "Lifetime" row filters by kind (quick test, yearly test, permanent), the "Deadline" row below by state (deadline far off, expiring soon, archived). A wiki's ⋯ menu renews it or changes its lifetime.
 
 Existing wikis stay permanent.
 

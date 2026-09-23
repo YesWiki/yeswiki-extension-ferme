@@ -54,9 +54,10 @@ class ApiController extends YesWikiController
         $sort = (string)$request->request->get('sort', 'title');
         $direction = $request->request->get('direction') === 'desc' ? 'desc' : 'asc';
         $filter = (string)$request->request->get('filter', '');
+        $lifetime = (string)$request->request->get('lifetime', '');
 
         $farm = $this->getService(FarmService::class);
-        $result = $farm->getWikiListPaginated($start, $length, $search, $sort, $direction, $filter);
+        $result = $farm->getWikiListPaginated($start, $length, $search, $sort, $direction, $filter, $lifetime);
 
         $rows = [];
         foreach ($result['fiches'] as $fiche) {
@@ -86,7 +87,8 @@ class ApiController extends YesWikiController
 
         $search = trim((string)$request->request->get('search', ''));
         $filter = (string)$request->request->get('filter', '');
-        $found = $this->getService(FarmService::class)->wikisForSelection($search, $filter);
+        $lifetime = (string)$request->request->get('lifetime', '');
+        $found = $this->getService(FarmService::class)->wikisForSelection($search, $filter, $lifetime);
 
         return new ApiResponse(['success' => true, 'wikis' => $found['wikis'], 'total' => $found['total']]);
     }

@@ -81,7 +81,8 @@ class WikiRepository
         string $search,
         string $sort,
         string $direction,
-        string $filter = ''
+        string $filter = '',
+        string $lifetime = ''
     ): array {
         $fiches = $this->getAllWikiFiches();
 
@@ -92,6 +93,7 @@ class WikiRepository
             [
                 'search' => $search,
                 'filter' => $filter,
+                'lifetime' => $lifetime,
                 'sort' => $sort,
                 'direction' => $direction,
                 'start' => $start,
@@ -107,7 +109,7 @@ class WikiRepository
     }
 
     /** Just enough of every wiki the filter keeps to select them all: the page is limited to a hundred rows, and an operator cleaning a farm needs the lot. */
-    public function listForSelection(string $search, string $filter = ''): array
+    public function listForSelection(string $search, string $filter = '', string $lifetime = ''): array
     {
         $fiches = $this->getAllWikiFiches();
 
@@ -118,6 +120,7 @@ class WikiRepository
             [
                 'search' => $search,
                 'filter' => $filter,
+                'lifetime' => $lifetime,
                 'sort' => 'title',
                 'direction' => 'asc',
                 'start' => 0,

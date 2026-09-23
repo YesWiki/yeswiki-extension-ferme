@@ -144,14 +144,14 @@ Les installer d'abord sur la ferme.
 'yeswiki-farm-donate-url' => 'https://exemple.org/dons',
 ```
 
-À la création, on choisit entre test rapide et test prolongé. Un admin peut aussi créer un wiki permanent.
+À la création, on choisit entre test rapide et test annuel. Un admin peut aussi créer un wiki permanent.
 
 - Test rapide : effacé sans sauvegarde à l'échéance.
-- Test prolongé : à l'échéance, le wiki est sauvegardé dans `private/backups/farm/expired/` puis fermé. La sauvegarde et la fiche sont effacées après `grace` jours.
+- Test annuel : à l'échéance, le wiki est sauvegardé dans `private/backups/farm/expired/` puis fermé. La sauvegarde et la fiche sont effacées après `grace` jours.
 - Des mails partent `reminders` jours avant l'échéance, avec un lien pour prolonger. Un autre part à l'archivage. Leurs textes sont réglables (`mail-*`, `archived-*`), `\n` pour aller à la ligne.
 - Dans le dernier mois, le bouton "Prolonger" apparaît aussi sur la fiche du wiki.
 - Variables du mail : `{title}` `{url}` `{referent}` `{lifetime}` `{expires}` `{daysLeft}` `{renewUrl}` `{pages}` `{entries}` `{users}` `{files}` `{lastActivity}` `{donateUrl}`.
-- Dans `{{adminwikis}}`, le menu ⋯ d'un wiki permet de le prolonger ou de changer sa durée.
+- Dans `{{adminwikis}}`, la ligne "Durée de vie" filtre par type (test rapide, test annuel, permanent), la ligne "Échéance" en dessous par état (échéance lointaine, bientôt échus, archivés). Le menu ⋯ d'un wiki permet de le prolonger ou de changer sa durée.
 
 Les wikis existants restent permanents.
 

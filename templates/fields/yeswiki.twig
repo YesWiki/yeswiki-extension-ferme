@@ -19,8 +19,7 @@
                     {{ _t('FERME_LIFETIME_ARCHIVED_ON', {date: lifetime.archivedAt|date('d/m/Y'), purge: lifetime.purgeAt|date('d/m/Y')}) }}
                 {% else %}
                     <span class="label {{ lifetime.expiring ? 'label-warning' : 'label-default' }}">{{ lifetimeLabel }}</span>
-                    {% if lifetime.renewedAt %}{{ _t('FERME_LIFETIME_RENEWED_ON', {date: lifetime.renewedAt|date('d/m/Y')}) }}{% endif %}
-                    {% if lifetime.expiresAt %}· {{ _t('FERME_LIFETIME_EXPIRES_ON', {date: lifetime.expiresAt|date('d/m/Y')}) }}{% endif %}
+                    {% if lifetime.expiresAt %}{{ _t('FERME_LIFETIME_EXPIRES_ON', {date: lifetime.expiresAt|date('d/m/Y')}) }}{% endif %}
                     {% if renewUrl %}
                         <a class="btn btn-warning btn-sm" href="{{ renewUrl }}"><i class="fas fa-redo"></i> {{ _t('FERME_LIFETIME_RENEW') }}</a>
                     {% endif %}

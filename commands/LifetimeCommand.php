@@ -86,17 +86,16 @@ class LifetimeCommand extends AbstractFarmCommand
             $rows[] = [
                 (string)($entry['bf_dossier-wiki'] ?? $entry['id_fiche']),
                 $this->lifetime->label($state['kind']),
-                $state['renewedAt'],
                 $state['archived'] ? '' : $state['expiresAt'],
                 $state['archived'] ? $state['purgeAt'] : '',
             ];
         }
         usort($rows, function (array $left, array $right) {
-            return strcmp($left[3] ?: $left[4], $right[3] ?: $right[4]);
+            return strcmp($left[2] ?: $left[3], $right[2] ?: $right[3]);
         });
 
         $table = new Table($output);
-        $table->setHeaders(['folder', _t('FERME_LIFETIME'), _t('FERME_CLI_LIFETIME_RENEWED'), _t('FERME_CLI_LIFETIME_EXPIRES'), _t('FERME_CLI_LIFETIME_PURGE')]);
+        $table->setHeaders(['folder', _t('FERME_LIFETIME'), _t('FERME_CLI_LIFETIME_EXPIRES'), _t('FERME_CLI_LIFETIME_PURGE')]);
         $table->setRows($rows);
         $table->render();
 

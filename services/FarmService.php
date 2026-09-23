@@ -204,9 +204,9 @@ class FarmService
     /**
      * @return array{wikis:array<int,array<string,string>>,total:int}
      */
-    public function wikisForSelection(string $search, string $filter = ''): array
+    public function wikisForSelection(string $search, string $filter = '', string $lifetime = ''): array
     {
-        return $this->repository->listForSelection($search, $filter);
+        return $this->repository->listForSelection($search, $filter, $lifetime);
     }
 
     public function getWikiListPaginated(
@@ -215,9 +215,10 @@ class FarmService
         string $search,
         string $sort,
         string $direction,
-        string $filter = ''
+        string $filter = '',
+        string $lifetime = ''
     ): array {
-        return $this->repository->getPaginated($start, $length, $search, $sort, $direction, $filter);
+        return $this->repository->getPaginated($start, $length, $search, $sort, $direction, $filter, $lifetime);
     }
 
     public function searchWikisOnServer(): array
