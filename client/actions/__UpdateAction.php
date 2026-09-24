@@ -4,14 +4,11 @@ namespace YesWiki\FermeClient;
 
 use YesWiki\Core\YesWikiAction;
 
-/**
- * Refuses, on a wiki whose code is lent by its farm, the updates that would write
- * through the links and rewrite that code for every other wiki sharing it. What the
- * wiki installed for itself is a folder of its own, and stays its own business.
- */
+/** Refuses the updates that would rewrite code lent by the farm, and a farm installed inside it. */
 class __UpdateAction extends YesWikiAction
 {
     private const CORE_MARKERS = ['javascripts', 'vendor', 'includes'];
+    private const FARM_PACKAGE = 'ferme';
 
     public function run()
     {
@@ -21,20 +18,31 @@ class __UpdateAction extends YesWikiAction
         }
 
         $package = (string)($_GET['package'] ?? '');
+        if ($action === 'upgrade' && $this->isNewFarm($package)) {
+            return $this->refuse('FERME_CLIENT_FARM_REFUSED');
+        }
         if (!$this->isLent($package)) {
             return '';
         }
 
+        return $this->refuse('FERME_CLIENT_UPDATE_REFUSED');
+    }
+
+    private function refuse(string $message): string
+    {
         unset($_GET['action'], $_GET['package']);
 
         return '<div class="alert alert-danger"><i class="fas fa-link"></i> '
-            . _t('FERME_CLIENT_UPDATE_REFUSED') . '</div>';
+            . _t($message) . '</div>';
     }
 
-    /**
-     * A package the farm lends: the core when the code folders are links, or an
-     * extension or theme whose own folder is one.
-     */
+    /** A farm inside a farm's wiki: only the ones already there may still be updated. */
+    private function isNewFarm(string $package): bool
+    {
+        return $package === self::FARM_PACKAGE && !is_dir('tools/' . self::FARM_PACKAGE);
+    }
+
+    /** The core when its code folders are links, or an extension or theme whose folder is one. */
     private function isLent(string $package): bool
     {
         if ($package === '' || $package === $this->wiki->config['yeswiki_version']) {

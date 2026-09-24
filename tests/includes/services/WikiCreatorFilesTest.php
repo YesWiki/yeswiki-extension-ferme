@@ -28,6 +28,7 @@ class WikiCreatorFilesTest extends YesWikiTestCase
         }
         file_put_contents($this->source . 'tools/README.md', 'ce dossier contient les extensions');
         file_put_contents($this->source . 'index.php', 'x');
+        mkdir($this->source . 'tools/ferme/client', 0777, true);
     }
 
     protected function tearDown(): void
@@ -92,6 +93,14 @@ class WikiCreatorFilesTest extends YesWikiTestCase
         $this->assertFileExists($this->destination . 'tools/README.md');
         $this->assertFileExists($this->destination . 'tools/aceditor/index.php');
         $this->assertFalse(is_link($this->destination . 'tools/aceditor'));
+    }
+
+    public function testANewWikiGetsTheGuardThatRefusesAFarmInsideIt()
+    {
+        $this->copyFiles([]);
+
+        $this->assertSame($this->source . 'tools/ferme/client', readlink($this->destination . 'tools/ferme-client'));
+        $this->assertDirectoryDoesNotExist($this->destination . 'tools/ferme');
     }
 
     public function testAnExtraThemeTheFarmAlreadyLendsIsNotCopiedOntoItsOwnLink()

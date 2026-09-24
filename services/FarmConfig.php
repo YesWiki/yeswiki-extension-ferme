@@ -184,23 +184,27 @@ class FarmConfig
 
     private function applyExtraDefaults(): void
     {
-        if (
-            !isset($this->wiki->config['yeswiki-farm-extra-themes'])
-            || !is_array($this->wiki->config['yeswiki-farm-extra-themes'])
-        ) {
-            $this->wiki->config['yeswiki-farm-extra-themes'] = [];
-        }
-
-        if (
-            !isset($this->wiki->config['yeswiki-farm-extra-tools'])
-            || !is_array($this->wiki->config['yeswiki-farm-extra-tools'])
-        ) {
-            $this->wiki->config['yeswiki-farm-extra-tools'] = [];
+        foreach (['yeswiki-farm-extra-themes', 'yeswiki-farm-extra-tools'] as $key) {
+            $this->wiki->config[$key] = $this->folderNames($this->wiki->config[$key] ?? []);
         }
 
         if (is_null($this->wiki->config['yeswiki_symlinked_files'])) {
             $this->wiki->config['yeswiki_symlinked_files'] = [];
         }
+    }
+
+    /** Folder names from a setting, without the [''] an emptied form field saves. */
+    private function folderNames($value): array
+    {
+        $names = [];
+        foreach (is_array($value) ? $value : [] as $name) {
+            $name = is_string($name) ? trim($name, " \t\n\r\0\x0B/") : '';
+            if ($name !== '' && $name !== '.' && $name !== '..') {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
     }
 
     private function applyThemeDefaults(): void

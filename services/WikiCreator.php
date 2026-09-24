@@ -197,6 +197,7 @@ class WikiCreator
         foreach ($symlinked as $file) {
             $this->linkOrFail($srcfolder . $file, $destfolder . $file);
         }
+        $this->linkOrFail($srcfolder . WikiSymlinker::GUARD_SOURCE, $destfolder . WikiSymlinker::GUARD_LINK);
 
         foreach (['themes' => 'yeswiki-farm-extra-themes', 'tools' => 'yeswiki-farm-extra-tools'] as $parent => $configKey) {
             foreach ($this->wiki->config[$configKey] as $dir) {

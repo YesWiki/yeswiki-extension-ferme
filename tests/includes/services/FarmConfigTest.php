@@ -9,6 +9,7 @@ use YesWiki\Test\Core\YesWikiTestCase;
 require_once 'tests/YesWikiTestCase.php';
 
 #[CoversMethod(FarmConfig::class, 'isSafeName')]
+#[CoversMethod(FarmConfig::class, 'init')]
 class FarmConfigTest extends YesWikiTestCase
 {
     protected function setUp(): void
@@ -38,5 +39,22 @@ class FarmConfigTest extends YesWikiTestCase
     {
         $this->assertTrue(FarmConfig::isSafeName('groupe/monwiki', true));
         $this->assertFalse(FarmConfig::isSafeName('groupe/monwiki'), 'pas de sous-dossier là où on n\'en attend pas');
+    }
+
+    public function testAnEmptiedExtraSettingNamesNoFolder()
+    {
+        $wiki = self::getWiki();
+        $saved = [$wiki->config['yeswiki-farm-extra-themes'] ?? null, $wiki->config['yeswiki-farm-extra-tools'] ?? null];
+        $wiki->config['yeswiki-farm-extra-themes'] = [''];
+        $wiki->config['yeswiki-farm-extra-tools'] = ['', ' /moncustom/ ', '..'];
+
+        try {
+            $wiki->services->get(FarmConfig::class)->init();
+
+            $this->assertSame([], $wiki->config['yeswiki-farm-extra-themes'], 'themes/ entier recopié sur les liens des thèmes prêtés');
+            $this->assertSame(['moncustom'], $wiki->config['yeswiki-farm-extra-tools']);
+        } finally {
+            [$wiki->config['yeswiki-farm-extra-themes'], $wiki->config['yeswiki-farm-extra-tools']] = $saved;
+        }
     }
 }
