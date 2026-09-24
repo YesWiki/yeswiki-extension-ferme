@@ -129,6 +129,20 @@ Install them on the farm first.
 - `mattermost-webhook`: notifies a channel on each creation or deletion.
 - `migrate-on-update`: migrates the wikis when the master wiki is updated.
 
+### Welcome mail
+
+```php
+'yeswiki-farm-welcome-mail-subject' => '',
+'yeswiki-farm-welcome-mail-body' => '',
+```
+
+When a wiki is created, its referent gets its address and the admin username. For a limited-lifetime wiki, the mail also gives the deadline.
+
+- Empty: default text. `\n` for a line break.
+- Placeholders: `{title}` `{url}` `{referent}` `{folder}` `{username}` `{lifetime}` `{expires}` `{daysLeft}` `{donateUrl}`.
+- A line holding `{lifetime}`, `{expires}` or `{daysLeft}` is left out for a permanent wiki.
+- If the farm sets the admin password (`yeswiki-farm-password-WikiAdmin`), the line holding `{username}` is left out.
+
 ### Limited-lifetime wikis
 
 ```php

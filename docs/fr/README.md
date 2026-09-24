@@ -129,6 +129,20 @@ Les installer d'abord sur la ferme.
 - `mattermost-webhook` : prévient un salon à chaque création ou suppression.
 - `migrate-on-update` : migre les wikis quand le wiki maître est mis à jour.
 
+### Mail de bienvenue
+
+```php
+'yeswiki-farm-welcome-mail-subject' => '',
+'yeswiki-farm-welcome-mail-body' => '',
+```
+
+À la création, la personne référente reçoit l'adresse du wiki et l'identifiant admin. Pour un wiki à durée limitée, le mail donne aussi la date d'échéance.
+
+- Vide : texte par défaut. `\n` pour aller à la ligne.
+- Variables : `{title}` `{url}` `{referent}` `{folder}` `{username}` `{lifetime}` `{expires}` `{daysLeft}` `{donateUrl}`.
+- Une ligne qui contient `{lifetime}`, `{expires}` ou `{daysLeft}` est retirée pour un wiki permanent.
+- Si la ferme impose le mot de passe admin (`yeswiki-farm-password-WikiAdmin`), la ligne qui contient `{username}` est retirée.
+
 ### Wikis à durée limitée
 
 ```php

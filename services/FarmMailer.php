@@ -48,7 +48,7 @@ class FarmMailer
         return $address;
     }
 
-    /** Replace the handful of things an admin can point at in a subject or a body. */
+    /** Replace what an admin can point at in a mail, dropping the lines that point at an extra left empty. */
     public function fill(string $text, array $entry, array $extra = []): string
     {
         $folder = (string)($entry['bf_dossier-wiki'] ?? '');
@@ -67,10 +67,20 @@ class FarmMailer
         ];
         $values = array_merge($values, $extra);
 
-        if (($values['donateUrl'] ?? null) === '') {
-            $text = implode("\n", array_filter(explode("\n", $text), function (string $line) {
-                return !str_contains($line, '{donateUrl}');
+        $empty = array_keys(array_filter($extra, function ($value) {
+            return $value === '';
+        }));
+        if ($empty !== []) {
+            $text = implode("\n", array_filter(explode("\n", $text), function (string $line) use ($empty) {
+                foreach ($empty as $name) {
+                    if (str_contains($line, '{' . $name . '}')) {
+                        return false;
+                    }
+                }
+
+                return true;
             }));
+            $text = preg_replace("/\n{3,}/", "\n\n", $text);
         }
 
         foreach ($values as $name => $value) {

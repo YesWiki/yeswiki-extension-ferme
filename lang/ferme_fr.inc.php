@@ -616,5 +616,10 @@ $GLOBALS['translations'] = array_merge(
         'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-archived-subject' => 'Sujet du mail envoyé quand un test annuel est archivé (vide = texte par défaut)',
         'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-archived-body' => 'Texte du mail envoyé quand un test annuel est archivé (vide = texte par défaut). Variables : {title} {url} {referent} {purgeAt} {pages} {entries} {users} {files} {lastActivity} {donateUrl}. Écrire \\n pour aller à la ligne.',
         'EDIT_CONFIG_HINT_yeswiki-farm-donate-url' => 'Adresse de la page de dons, citée dans les mails',
+        'EDIT_CONFIG_HINT_yeswiki-farm-welcome-mail-subject' => 'Sujet du mail envoyé à la création d\'un wiki (vide = texte par défaut)',
+        'EDIT_CONFIG_HINT_yeswiki-farm-welcome-mail-body' => 'Texte du mail envoyé à la création d\'un wiki (vide = texte par défaut). Variables : {title} {url} {referent} {folder} {username} {lifetime} {expires} {daysLeft} {donateUrl}. Une ligne avec {lifetime}, {expires} ou {daysLeft} disparaît pour un wiki permanent, une ligne avec {username} quand le mot de passe admin est imposé par la ferme. Écrire \\n pour aller à la ligne.',
+        'FERME_WELCOME_MAIL_SUBJECT' => 'Votre wiki {title} est prêt',
+        'FERME_WELCOME_MAIL_BODY' => "Bonjour {referent},\n\nVotre wiki {title} est prêt :\n{url}\n\nPour l'administrer, connectez-vous avec l'identifiant {username} et le mot de passe choisi à la création.\n\nCe wiki a une durée limitée ({lifetime}) : il arrive à échéance le {expires}, dans {daysLeft} jours. Vous recevrez un mail avant cette date avec un lien pour le prolonger.\n\nLa ferme vit grâce à vos dons : {donateUrl}",
+        'FERME_WELCOME_MAIL_FAILED' => 'Le wiki est créé, mais le mail de bienvenue n\'a pas pu partir :',
     ]
 );

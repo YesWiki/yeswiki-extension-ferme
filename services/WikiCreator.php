@@ -13,6 +13,7 @@ class WikiCreator
     protected $yeswicli;
     protected $mattermost;
     protected $lock;
+    protected $welcome;
 
     public function __construct(
         Wiki $wiki,
@@ -20,7 +21,8 @@ class WikiCreator
         FileSystem $files,
         Yeswicli $yeswicli,
         MattermostNotifier $mattermost,
-        FolderLock $lock
+        FolderLock $lock,
+        WelcomeMailer $welcome
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -28,6 +30,7 @@ class WikiCreator
         $this->yeswicli = $yeswicli;
         $this->mattermost = $mattermost;
         $this->lock = $lock;
+        $this->welcome = $welcome;
     }
 
     public function createFromEntry(array $entry, string $fieldName, string $theme = '0', string $model = 'default-content'): void
@@ -97,8 +100,20 @@ class WikiCreator
             $this->createGroup($prefix, $entry);
 
             $this->mattermost->created($entry, $folder);
+
+            $this->greet($entry, $fieldName);
         } finally {
             $this->lock->release($destfolder);
+        }
+    }
+
+    /** Send the welcome mail, without failing a creation that already succeeded. */
+    private function greet(array $entry, string $fieldName): void
+    {
+        try {
+            $this->welcome->send($entry, (string)$entry[$fieldName . '_wikiname'], new \DateTimeImmutable('today'));
+        } catch (\Throwable $throwable) {
+            $this->warn(_t('FERME_WELCOME_MAIL_FAILED') . ' ' . $throwable->getMessage());
         }
     }
 

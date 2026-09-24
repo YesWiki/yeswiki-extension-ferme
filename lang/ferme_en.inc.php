@@ -639,5 +639,10 @@ $GLOBALS['translations'] = array_merge(
         'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-archived-subject' => 'Subject of the mail sent when a yearly test is archived (empty = default text)',
         'EDIT_CONFIG_HINT_yeswiki-farm-lifetime-archived-body' => 'Text of the mail sent when a yearly test is archived (empty = default text). Placeholders: {title} {url} {referent} {purgeAt} {pages} {entries} {users} {files} {lastActivity} {donateUrl}. Write \\n for a line break.',
         'EDIT_CONFIG_HINT_yeswiki-farm-donate-url' => 'Address of the donation page, quoted in the mails',
+        'EDIT_CONFIG_HINT_yeswiki-farm-welcome-mail-subject' => 'Subject of the mail sent when a wiki is created (empty = default text)',
+        'EDIT_CONFIG_HINT_yeswiki-farm-welcome-mail-body' => 'Text of the mail sent when a wiki is created (empty = default text). Placeholders: {title} {url} {referent} {folder} {username} {lifetime} {expires} {daysLeft} {donateUrl}. A line with {lifetime}, {expires} or {daysLeft} is left out for a permanent wiki, a line with {username} when the farm sets the admin password. Write \\n for a line break.',
+        'FERME_WELCOME_MAIL_SUBJECT' => 'Your wiki {title} is ready',
+        'FERME_WELCOME_MAIL_BODY' => "Hello {referent},\n\nYour wiki {title} is ready:\n{url}\n\nTo run it, log in with the username {username} and the password chosen at creation.\n\nThis wiki has a limited lifetime ({lifetime}): it expires on {expires}, in {daysLeft} days. You will get a mail before that date with a link to renew it.\n\nThe farm runs on your donations: {donateUrl}",
+        'FERME_WELCOME_MAIL_FAILED' => 'The wiki is created, but the welcome mail could not be sent:',
     ]
 );

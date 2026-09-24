@@ -84,7 +84,7 @@ class YesWikiField extends BazarField
     public function formatValuesBeforeSaveIfEditable($entry)
     {
         $terms = $this->lifetimeTerms(is_array($entry) ? $entry : []);
-        $values = parent::formatValuesBeforeSaveIfEditable($entry);
+        $values = parent::formatValuesBeforeSaveIfEditable(array_merge(is_array($entry) ? $entry : [], $terms));
         $values['fields-to-remove'] = array_merge(
             $values['fields-to-remove'] ?? [],
             ['yeswiki-farm-lifetime'],

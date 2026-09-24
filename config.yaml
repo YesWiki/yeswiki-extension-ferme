@@ -23,6 +23,8 @@ parameters:
   yeswiki-farm-lifetime-archived-subject: ''
   yeswiki-farm-lifetime-archived-body: ''
   yeswiki-farm-donate-url: ''
+  yeswiki-farm-welcome-mail-subject: ''
+  yeswiki-farm-welcome-mail-body: ''
   contact_wikis:
     default_template: 'list-email.twig'
   yeswiki-farm-lent-files: &sharedFiles
@@ -155,6 +157,8 @@ parameters:
     - 'yeswiki-farm-lifetime-archived-subject'
     - 'yeswiki-farm-lifetime-archived-body'
     - 'yeswiki-farm-donate-url'
+    - 'yeswiki-farm-welcome-mail-subject'
+    - 'yeswiki-farm-welcome-mail-body'
 services:
   _defaults:
     autowire: true
