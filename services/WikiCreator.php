@@ -190,8 +190,6 @@ class WikiCreator
 
                 continue;
             }
-            // a lone file such as tools/README.md needs the folder above it, which
-            // nothing else makes once every tools/ entry is borrowed rather than copied
             $this->makeDir(dirname($destfolder . $file));
             $this->copyOrFail($srcfolder . $file, $destfolder . $file);
         }
@@ -202,6 +200,9 @@ class WikiCreator
 
         foreach (['themes' => 'yeswiki-farm-extra-themes', 'tools' => 'yeswiki-farm-extra-tools'] as $parent => $configKey) {
             foreach ($this->wiki->config[$configKey] as $dir) {
+                if (in_array($parent . '/' . $dir, $symlinked)) {
+                    continue;
+                }
                 $source = $srcfolder . $parent . DIRECTORY_SEPARATOR . $dir;
                 if (!file_exists($source)) {
                     $this->warn(_t('FERME_EXTRA_MISSING') . ' ' . $parent . '/' . $dir);

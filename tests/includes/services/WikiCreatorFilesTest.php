@@ -94,17 +94,28 @@ class WikiCreatorFilesTest extends YesWikiTestCase
         $this->assertFalse(is_link($this->destination . 'tools/aceditor'));
     }
 
+    public function testAnExtraThemeTheFarmAlreadyLendsIsNotCopiedOntoItsOwnLink()
+    {
+        $this->copyFiles(['tools/aceditor', 'tools/bazar', 'themes/margot'], ['margot'], ['bazar']);
+
+        $this->assertTrue(is_link($this->destination . 'themes/margot'));
+        $this->assertTrue(is_link($this->destination . 'tools/bazar'));
+        $this->assertSame('x', file_get_contents($this->source . 'themes/margot/index.php'));
+    }
+
     /**
      * @param array<int,string> $symlinked
+     * @param array<int,string> $extraThemes
+     * @param array<int,string> $extraTools
      */
-    private function copyFiles(array $symlinked): void
+    private function copyFiles(array $symlinked, array $extraThemes = [], array $extraTools = []): void
     {
         $wiki = self::getWiki();
         $wiki->config['yeswiki_files'] = ['index.php', 'tools/aceditor', 'tools/bazar', 'tools/README.md', 'themes/margot'];
         $wiki->config['yeswiki_empty_folders'] = ['cache', 'custom', 'files', 'private'];
         $wiki->config['yeswiki_symlinked_files'] = $symlinked;
-        $wiki->config['yeswiki-farm-extra-themes'] = [];
-        $wiki->config['yeswiki-farm-extra-tools'] = [];
+        $wiki->config['yeswiki-farm-extra-themes'] = $extraThemes;
+        $wiki->config['yeswiki-farm-extra-tools'] = $extraTools;
 
         $creator = $wiki->services->get(WikiCreator::class);
         $method = new \ReflectionMethod(WikiCreator::class, 'copyWikiFiles');
