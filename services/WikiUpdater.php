@@ -1,19 +1,11 @@
 <?php
+// Brings a farm wiki to the state of a source tree: the master by default, or an unpacked release.
 
 namespace YesWiki\Ferme\Service;
 
 use Symfony\Component\Process\Process;
 use YesWiki\Wiki;
 
-/**
- * Bring one wiki up to the state of a source tree: the farm master by default,
- * or a release unpacked from a zip.
- *
- * The files replaced are the ones listed in yeswiki_files, plus the extra tools
- * of the farm, so whatever else a wiki has installed survives. Those extras are
- * then upgraded through the wiki's own console, which is the only way they end
- * up on the same release as the rest.
- */
 class WikiUpdater
 {
     private const REMOVED_TOOLS = ['tools/despam', 'tools/hashcash', 'tools/ipblock', 'tools/nospam'];
@@ -55,11 +47,7 @@ class WikiUpdater
         $this->refresher = $refresher;
     }
 
-    /**
-     * @param array{sourceDir?:string,backup?:bool,dryRun?:bool,ignoreExtensions?:bool,migrateOnly?:bool} $options
-     *
-     * @return array{status:string,messages:array<int,string>}
-     */
+    // brings one wiki to the state of the source tree: core files, lent folders as symlinks, extensions and migrations
     public function update(string $wikiDir, array $options = []): array
     {
         $wikiDir = rtrim($wikiDir, DIRECTORY_SEPARATOR);
@@ -110,7 +98,6 @@ class WikiUpdater
                 try {
                     $messages[] = $this->dumpDatabase($wakkaConfig, $backupDir);
                 } catch (\Throwable $th) {
-                    // nothing has been moved yet, so the folder is only litter
                     $this->files->remove($backupDir);
 
                     throw $th;
@@ -171,14 +158,7 @@ class WikiUpdater
         });
     }
 
-    /**
-     * Bring a wiki's own extensions to the release published for the version it
-     * runs, and run the migrations they carry. The core is left alone.
-     *
-     * @param array{sourceDir?:string} $options
-     *
-     * @return array{status:string,messages:array<int,string>}
-     */
+    // brings the extensions of a wiki to the release published for the version it runs, leaving the core alone
     public function updateExtensions(string $wikiDir, array $options = []): array
     {
         $wikiDir = rtrim($wikiDir, DIRECTORY_SEPARATOR);
@@ -208,6 +188,12 @@ class WikiUpdater
             return ['status' => 'uptodate', 'messages' => $messages];
         }
 
+        if ($options['dryRun'] ?? false) {
+            $messages[] = _t('FERME_CLI_WOULD_UPGRADE_EXTENSIONS') . ' ' . implode(', ', $toUpgrade);
+
+            return ['status' => 'updated', 'messages' => $messages];
+        }
+
         $recovered = $this->aside->recover($wikiDir);
         if ($recovered !== null) {
             $messages[] = $recovered;
@@ -219,10 +205,7 @@ class WikiUpdater
         ];
     }
 
-    /**
-     * Version and release of a source tree. The master answers from its own
-     * config, an unpacked release from its constants.php.
-     */
+    // returns the version and release of a source tree, from the master config or a release constants.php
     public function sourceVersion(string $sourceDir): array
     {
         $sourceDir = rtrim($sourceDir, DIRECTORY_SEPARATOR);
@@ -246,11 +229,7 @@ class WikiUpdater
         return [$read('YESWIKI_VERSION'), $read('YESWIKI_RELEASE')];
     }
 
-    /**
-     * The files of yeswiki_files and the farm's extra tools, minus what is symlinked.
-     *
-     * @return array<int,string>
-     */
+    // returns the files of yeswiki_files and the farm extra tools, minus what is symlinked
     private function entriesToReplace(): array
     {
         $symlinked = $this->symlinkedEntries();
@@ -263,9 +242,7 @@ class WikiUpdater
         return array_values(array_diff($entries, $symlinked));
     }
 
-    /**
-     * @return array<int,string>
-     */
+    // returns the folders lent to the wikis as symlinks
     private function symlinkedEntries(): array
     {
         $symlinked = $this->wiki->config['yeswiki_symlinked_files'] ?? [];
@@ -273,12 +250,7 @@ class WikiUpdater
         return is_array($symlinked) ? $symlinked : [];
     }
 
-    /**
-     * Extensions a wiki has that the source does not ship, so they can be put back
-     * on their feet with the wiki's own console once the core files are new.
-     *
-     * @return array<int,string>
-     */
+    // returns the extensions a wiki has that the source does not ship
     private function extraExtensions(string $sourceDir, string $wikiDir): array
     {
         $names = function (string $dir) {
@@ -288,10 +260,7 @@ class WikiUpdater
         return array_values(array_diff($names($wikiDir), $names($sourceDir)));
     }
 
-    /**
-     * Move an entry out of the way, into the backup folder when there is one.
-     * Never follows a symlink: the entry may already point at the master.
-     */
+    // moves an entry out of the way, into the backup folder when there is one, without following symlinks
     private function displace(string $wikiDir, string $entry, ?string $backupDir): void
     {
         $target = $wikiDir . DIRECTORY_SEPARATOR . $entry;
@@ -318,10 +287,7 @@ class WikiUpdater
         }
     }
 
-    /**
-     * A folder of our own under the backup dir, on the same filesystem as the wiki
-     * so moving its files aside stays a rename rather than a copy.
-     */
+    // creates a backup folder on the same filesystem as the wiki, so moving files aside stays a rename
     private function prepareBackupDir(string $wikiDir): string
     {
         $slug = str_replace('/', '-', trim((string)(realpath($wikiDir) ?: $wikiDir), '/'));
@@ -349,7 +315,6 @@ class WikiUpdater
             [$host, $port] = explode(':', $host, 2);
         }
 
-        // credentials go in a file, not on a command line every process can read
         $defaults = tempnam(sys_get_temp_dir(), 'ferme-my-');
         chmod($defaults, 0600);
         file_put_contents($defaults, "[client]\n"
@@ -383,11 +348,7 @@ class WikiUpdater
         return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $value) . '"';
     }
 
-    /**
-     * The extensions come first so their own migrations are on disk when migrate runs.
-     *
-     * @return array<int,string>
-     */
+    // upgrades the extensions first, so their migrations are on disk, then runs migrate
     private function runMigrations(string $wikiDir, array $extensions): array
     {
         $messages = [];
@@ -410,7 +371,6 @@ class WikiUpdater
 
     private function runConsole(string $wikiDir, array $arguments): string
     {
-        // a wiki migrating on its own must not set the whole farm migrating again
         $process = new Process(
             array_merge([PHP_BINARY, self::CONSOLE], $arguments),
             $wikiDir,
@@ -426,11 +386,7 @@ class WikiUpdater
         return implode(' ', $arguments) . ': ' . trim(preg_replace('/\033\[[0-9;]*[A-Za-z]/', '', $process->getOutput()));
     }
 
-    /**
-     * @param array<int,string> $extensions
-     *
-     * @return array<int,string>
-     */
+    // upgrades each extension through the wiki own console
     private function upgradeExtensions(string $wikiDir, array $extensions): array
     {
         $messages = [];
@@ -449,9 +405,7 @@ class WikiUpdater
         }
     }
 
-    /**
-     * @return array<int,string>
-     */
+    // describes what an update would do, for --dry-run
     private function plan(
         string $wikiDir,
         string $sourceDir,

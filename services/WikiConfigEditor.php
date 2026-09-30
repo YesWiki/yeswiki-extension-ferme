@@ -1,23 +1,15 @@
 <?php
+// Reads and rewrites the wakka.config.php of another wiki through the core ConfigurationService.
 
 namespace YesWiki\Ferme\Service;
 
 use YesWiki\Core\Service\ConfigurationService;
 use YesWiki\Wiki;
 
-/**
- * Read and rewrite the wakka.config.php of another wiki.
- *
- * Writing goes through the core ConfigurationService, so the file comes back in
- * the exact shape YesWiki writes itself: short arrays, two spaces, no reordering
- * surprises.
- */
 class WikiConfigEditor
 {
-    /**
-     * Mail settings the farm pushes to its wikis. Read from the master's own
-     * config, so a farm never carries a second copy of its SMTP credentials.
-     */
+    public const LOCKED_PARAMS = 'edit_config_locked_params';
+
     public const SMTP_KEYS = [
         'contact_mail_func',
         'contact_smtp_host',
@@ -68,10 +60,7 @@ class WikiConfigEditor
         }
     }
 
-    /**
-     * Copy a wakka.config.php aside before touching it. The folder is named after
-     * the wiki path, so two wikis sharing a base_url never overwrite each other.
-     */
+    // copies a wakka.config.php into the farm backups, in a folder named after the wiki path
     public function backup(string $wikiDir): string
     {
         $slug = str_replace('/', '-', trim($this->realPath($wikiDir), '/'));
@@ -85,11 +74,7 @@ class WikiConfigEditor
         return $backupFile;
     }
 
-    /**
-     * Apply the wanted keys to a config array, in place.
-     *
-     * @return array<string,array{old:mixed,new:mixed}> only the keys that really change
-     */
+    // applies the wanted keys to a config array in place and returns only the real changes
     public function apply(array &$config, array $set, array $unset = []): array
     {
         $changes = [];
@@ -114,15 +99,12 @@ class WikiConfigEditor
         return $changes;
     }
 
-    /**
-     * The keys --smtp writes in one wiki: the master's mail settings, plus the
-     * same settings inside yeswiki-farm-extra-config when that wiki is itself a
-     * farm, so the wikis it creates in turn inherit them.
-     */
+    // returns the keys --smtp writes in one wiki: the master mail settings, locked in edit config, and copied in its own farm defaults
     public function smtpChangesFor(array $wikiConfig): array
     {
         $smtp = $this->smtpFromMaster();
         $set = $smtp;
+        $set[self::LOCKED_PARAMS] = self::lockParams($wikiConfig, array_keys($smtp));
 
         if (isset($wikiConfig['yeswiki-farm-extra-config']) && is_array($wikiConfig['yeswiki-farm-extra-config'])) {
             foreach ($smtp as $key => $value) {
@@ -133,11 +115,7 @@ class WikiConfigEditor
         return $set;
     }
 
-    /**
-     * What --smtp writes in the master itself: only inside yeswiki-farm-extra-config,
-     * which WikiCreator merges into every wiki it creates from then on. The master's
-     * own contact_* settings are the source here, so they are left alone.
-     */
+    // returns the keys --smtp writes in the master: only its farm defaults, from its own contact_* settings
     public function smtpChangesForMaster(): array
     {
         $set = [];
@@ -148,13 +126,7 @@ class WikiConfigEditor
         return $set;
     }
 
-    /**
-     * The master's own mail settings, the ones its wikis should inherit.
-     *
-     * A farm that does not send through SMTP itself has nothing to propagate:
-     * the contact defaults are an empty host and contact_mail_func 'mail', and
-     * copying those into every wiki would break their mail silently.
-     */
+    // returns the master smtp settings, and refuses to propagate a master that does not send through smtp
     public function smtpFromMaster(): array
     {
         $smtp = [];
@@ -171,9 +143,15 @@ class WikiConfigEditor
         return $smtp;
     }
 
-    /**
-     * Values given on the command line are strings, except these.
-     */
+    // returns the locked edit config params of a wiki with these keys added
+    public static function lockParams(array $config, array $keys): array
+    {
+        $locked = array_merge((array)($config[self::LOCKED_PARAMS] ?? []), array_diff($keys, [self::LOCKED_PARAMS]));
+
+        return array_values(array_unique($locked));
+    }
+
+    // casts a command line value, which stays a string except true, false, null, int: and json:
     public static function cast(string $raw)
     {
         switch ($raw) {
@@ -194,9 +172,7 @@ class WikiConfigEditor
         return $raw;
     }
 
-    /**
-     * Keep passwords out of the terminal and out of whatever logs it.
-     */
+    // prints a value for the terminal, hiding passwords
     public static function mask(string $key, $value): string
     {
         $printable = is_scalar($value) || is_null($value)
@@ -214,9 +190,7 @@ class WikiConfigEditor
         return $printable;
     }
 
-    /**
-     * Nested keys use dots: yeswiki-farm-extra-config.contact_from.
-     */
+    // reads a nested key written with dots, like yeswiki-farm-extra-config.contact_from
     public static function getPath(array $config, string $path)
     {
         $current = $config;

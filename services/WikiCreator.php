@@ -240,10 +240,7 @@ class WikiCreator
         }
     }
 
-    /**
-     * A wiki whose files did not all arrive is not a wiki. Better to say which ones
-     * are missing than to hand over a tree that looks installed.
-     */
+    /** Copies a folder, and names the missing files rather than handing over a half-installed wiki. */
     private function copyOrFail(string $source, string $dest): void
     {
         if ($this->files->copyRecursive($source, $dest) === true) {
@@ -316,7 +313,9 @@ class WikiCreator
             isset($this->wiki->config['yeswiki-farm-extra-config'])
             and is_array($this->wiki->config['yeswiki-farm-extra-config'])
         ) {
-            $config = array_merge($config, $this->wiki->config['yeswiki-farm-extra-config']);
+            $extraConfig = $this->wiki->config['yeswiki-farm-extra-config'];
+            $config = array_merge($config, $extraConfig);
+            $config[WikiConfigEditor::LOCKED_PARAMS] = WikiConfigEditor::lockParams($extraConfig, array_keys($extraConfig));
         }
 
         if (isset($entry['bf_description'])) {

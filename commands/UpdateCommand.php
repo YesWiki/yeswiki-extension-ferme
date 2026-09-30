@@ -45,6 +45,7 @@ class UpdateCommand extends AbstractFarmCommand
             ->addOption('stop-on-error', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_STOP_ON_ERROR'))
             ->addOption('ignore-extensions', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_IGNORE_EXTENSIONS'))
             ->addOption('recover-only', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_RECOVER_ONLY'))
+            ->addOption('extensions-only', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_EXTENSIONS_ONLY'))
             ->addOption('migrate-only', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATE_ONLY'))
             ->addOption('migratecerco', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATECERCO'))
             ->addOption('migratedev', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_MIGRATEDEV'))
@@ -59,6 +60,9 @@ class UpdateCommand extends AbstractFarmCommand
 
         if ($input->getOption('recover-only')) {
             return $this->recoverOnly($input, $output, $started);
+        }
+        if ($input->getOption('extensions-only')) {
+            return $this->extensionsOnly($input, $output, $started);
         }
 
         try {
@@ -92,7 +96,6 @@ class UpdateCommand extends AbstractFarmCommand
                 ? $this->runHere($input, $output, $todo, $sourceDir)
                 : $this->runInParallel($input, $output, $todo, $sourceDir, $workers);
 
-            // the parent prints its own summary over all the wikis
             if ($worker) {
                 return empty($result['failed']) ? Command::SUCCESS : Command::FAILURE;
             }
@@ -118,9 +121,7 @@ class UpdateCommand extends AbstractFarmCommand
         }
     }
 
-    /**
-     * Put back the custom/ folders left aside by interrupted runs, and stop there.
-     */
+    // puts back the custom/ folders left aside by interrupted runs, and stops there
     private function recoverOnly(InputInterface $input, OutputInterface $output, float $started): int
     {
         $wikis = $this->selectWikis($input);
@@ -146,9 +147,62 @@ class UpdateCommand extends AbstractFarmCommand
         );
     }
 
-    /**
-     * @return array{0:int,1:array<int,string>}
-     */
+    // upgrades the extensions each wiki has on top of the farm to their latest release for the version it runs
+    private function extensionsOnly(InputInterface $input, OutputInterface $output, float $started): int
+    {
+        $wikis = $this->selectWikis($input);
+        if (empty($wikis)) {
+            $this->warnNothingFound($input, $output);
+
+            return Command::SUCCESS;
+        }
+
+        $dryRun = $this->isDryRun($input);
+        $upgraded = 0;
+        $upToDate = 0;
+        $failed = [];
+        foreach ($wikis as $wiki) {
+            $label = $this->label($wiki);
+            try {
+                $result = $this->updater->updateExtensions($wiki['PATH'], ['dryRun' => $dryRun]);
+            } catch (\Throwable $th) {
+                $failed[] = $label;
+                $output->writeln('<error>  ' . $label . ': ' . $th->getMessage() . '</error>');
+                if ($input->getOption('stop-on-error')) {
+                    break;
+                }
+                continue;
+            }
+
+            if ($result['status'] === 'uptodate') {
+                $upToDate++;
+                $output->writeln('  <fg=gray>- ' . $label . ': ' . implode(' · ', $result['messages']) . '</>');
+                continue;
+            }
+
+            $upgraded++;
+            $output->writeln($this->dryRunPrefix($input) . '  <info>' . $label . '</info>');
+            foreach ($result['messages'] as $message) {
+                $output->writeln('      ' . trim($message));
+            }
+        }
+
+        return $this->renderSummary(
+            $output,
+            _t('FERME_CLI_EXTENSIONS_SUMMARY'),
+            [
+                _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+                _t('FERME_CLI_SKIPPED_UP_TO_DATE') => $upToDate,
+                _t('FERME_CLI_UPDATED') => $upgraded,
+                _t('FERME_CLI_FAILED') => count($failed),
+                _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+            ],
+            $failed,
+            $dryRun
+        );
+    }
+
+    // puts back the custom/ folders left aside in these wikis
     private function sweepAsides(InputInterface $input, OutputInterface $output, array $wikis): array
     {
         $recovered = 0;
@@ -178,13 +232,7 @@ class UpdateCommand extends AbstractFarmCommand
         return [$recovered, $failed];
     }
 
-    /**
-     * Where the new files come from: the farm master, or a release unpacked from
-     * a zip. Workers are handed the folder the parent already prepared, so a
-     * release is downloaded once however many of them there are.
-     *
-     * @return array{0:string,1:?string} the source folder, and it again when it is ours to delete
-     */
+    // returns the folder the new files come from, the master or a release zip unpacked once for all workers
     private function resolveSource(InputInterface $input, OutputInterface $output): array
     {
         $given = $input->getOption('source-dir');
@@ -205,7 +253,6 @@ class UpdateCommand extends AbstractFarmCommand
         $output->writeln(_t('FERME_CLI_DOWNLOADING') . ' ' . $url);
         $base = $this->downloadArchive($url);
 
-        // the wiki sits inside the unpacked folder, the folder itself is ours to delete
         return [$this->archiveRoot($base . DIRECTORY_SEPARATOR . 'source'), $base];
     }
 
@@ -236,9 +283,7 @@ class UpdateCommand extends AbstractFarmCommand
         return $base;
     }
 
-    /**
-     * Release zips hold a single folder named after the version; the wiki is inside it.
-     */
+    // finds the wiki inside an unpacked release, which holds a single folder named after the version
     private function archiveRoot(string $target): string
     {
         $entries = array_values(array_diff(scandir($target) ?: [], ['.', '..']));
@@ -249,11 +294,7 @@ class UpdateCommand extends AbstractFarmCommand
         return $target;
     }
 
-    /**
-     * Sort the wikis into the ones to update and the ones to leave alone.
-     *
-     * @return array{0:array,1:int,2:int}
-     */
+    // sorts the wikis into the ones to update, the ones on another version and the ones already up to date
     private function triage(InputInterface $input, OutputInterface $output, array $wikis, string $version, string $release): array
     {
         $wanted = self::DEFAULT_VERSIONS;
@@ -286,9 +327,7 @@ class UpdateCommand extends AbstractFarmCommand
         return [$todo, $wrongVersion, $upToDate];
     }
 
-    /**
-     * @return array{updated:int,failed:array<int,string>}
-     */
+    // updates the wikis one after the other in this process
     private function runHere(InputInterface $input, OutputInterface $output, array $todo, string $sourceDir): array
     {
         $options = [
@@ -329,12 +368,7 @@ class UpdateCommand extends AbstractFarmCommand
         return ['updated' => $updated, 'failed' => $failed];
     }
 
-    /**
-     * One process per wiki, a few at a time. Each boots its own wiki and opens its
-     * own database connection, which forking a booted wiki could not do safely.
-     *
-     * @return array{updated:int,failed:array<int,string>}
-     */
+    // updates the wikis a few at a time, one process per wiki with its own database connection
     private function runInParallel(
         InputInterface $input,
         OutputInterface $output,
@@ -396,12 +430,9 @@ class UpdateCommand extends AbstractFarmCommand
         return ['updated' => $updated, 'failed' => $failed];
     }
 
-    /**
-     * @return array<int,string>
-     */
+    // builds the command line of the worker process for one wiki
     private function workerCommand(InputInterface $input, array $wiki, string $sourceDir): array
     {
-        // the parent already decided this wiki needs it, so the worker does not triage again
         $command = [
             PHP_BINARY,
             self::CONSOLE,
