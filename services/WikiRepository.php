@@ -2,210 +2,95 @@
 
 namespace YesWiki\Ferme\Service;
 
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-use Symfony\Component\Security\Csrf\CsrfTokenManager;
-use YesWiki\Bazar\Service\EntryManager;
-use YesWiki\Core\Service\PageManager;
-use YesWiki\Core\Service\TripleStore;
-use YesWiki\Wiki;
+use YesWiki\Content\Entity\PageType;
+use YesWiki\Content\Service\EntryManager;
+use YesWiki\Kernel\Service\ProgramVersion;
 
+/** The farm's wikis as its entries describe them, joined to their numbers, and the wikis on disk that have no entry yet. */
 class WikiRepository
 {
-    public const WIKI_TABLES = WikiDatabase::WIKI_TABLES;
-
-    protected $wiki;
-    protected $config;
-    protected $params;
-    protected $entryManager;
-    protected $pageManager;
-    protected $tripleStore;
-    protected $finder;
-    protected $configEditor;
-    protected $database;
-    protected $statsStore;
-    protected $dashboard;
-    protected $spamScore;
-    protected $aside;
-    protected $lifetime;
-
     public function __construct(
-        Wiki $wiki,
-        FarmConfig $config,
-        ParameterBagInterface $params,
-        EntryManager $entryManager,
-        PageManager $pageManager,
-        TripleStore $tripleStore,
-        WikiFinder $finder,
-        WikiConfigEditor $configEditor,
-        WikiDatabase $database,
-        WikiStatsStore $statsStore,
-        FarmDashboard $dashboard,
-        SpamScore $spamScore,
-        CustomAside $aside,
-        WikiLifetime $lifetime
+        private readonly FarmConfig $config,
+        private readonly EntryManager $entryManager,
+        private readonly WikiFinder $finder,
+        private readonly InstanceDatabase $database,
+        private readonly WikiStatsStore $statsStore,
+        private readonly FarmDashboard $dashboard,
+        private readonly SpamScore $spamScore,
+        private readonly WikiLifetime $lifetime
     ) {
-        $this->wiki = $wiki;
-        $this->config = $config;
-        $this->params = $params;
-        $this->entryManager = $entryManager;
-        $this->pageManager = $pageManager;
-        $this->tripleStore = $tripleStore;
-        $this->finder = $finder;
-        $this->configEditor = $configEditor;
-        $this->database = $database;
-        $this->statsStore = $statsStore;
-        $this->dashboard = $dashboard;
-        $this->spamScore = $spamScore;
-        $this->aside = $aside;
-        $this->lifetime = $lifetime;
     }
 
+    /** @return list<array<string, mixed>> every entry of the farm, by title */
     public function getAll(): array
     {
-        $fiches = $this->getAllWikiFiches();
-        usort($fiches, function ($a, $b) {
-            return strcasecmp($a['bf_titre'] ?? '', $b['bf_titre'] ?? '');
-        });
+        $fiches = $this->entries();
+        usort($fiches, static fn (array $a, array $b): int => strcasecmp(FarmMailer::titleOf($a), FarmMailer::titleOf($b)));
 
-        foreach ($fiches as $i => $fiche) {
-            $fiches[$i] = $this->processWikiEntry($fiche);
-        }
-
-        return $fiches;
+        return array_map(fn (array $fiche): array => $this->processWikiEntry($fiche), $fiches);
     }
 
-    /** One page of the admin table: the wikis a chip and a search leave, in the order asked for, with the summary the page shows above them. */
-    public function getPaginated(
-        int $start,
-        int $length,
-        string $search,
-        string $sort,
-        string $direction,
-        string $filter = '',
-        string $lifetime = ''
-    ): array {
-        $fiches = $this->getAllWikiFiches();
-
-        $page = $this->dashboard->select(
-            $fiches,
-            $this->statsStore->readAll(),
-            $this->context($fiches),
-            [
-                'search' => $search,
-                'filter' => $filter,
-                'lifetime' => $lifetime,
-                'sort' => $sort,
-                'direction' => $direction,
-                'start' => $start,
-                'length' => $length,
-            ]
-        );
-
-        foreach ($page['fiches'] as $index => $fiche) {
-            $page['fiches'][$index] = $this->processWikiEntry($fiche);
-        }
+    /**
+     * One page of the admin table, with the summary shown above it.
+     *
+     * @return array{fiches: list<array<string, mixed>>, total: int, filtered: int, counts: array<string, int>, totals: array<string, int>}
+     */
+    public function getPaginated(int $start, int $length, string $search, string $sort, string $direction, string $filter = '', string $lifetime = ''): array
+    {
+        $fiches = $this->entries();
+        $page = $this->dashboard->select($fiches, $this->statsStore->readAll(), $this->context($fiches), [
+            'search' => $search,
+            'filter' => $filter,
+            'lifetime' => $lifetime,
+            'sort' => $sort,
+            'direction' => $direction,
+            'start' => $start,
+            'length' => $length,
+        ]);
+        $page['fiches'] = array_map(fn (array $fiche): array => $this->processWikiEntry($fiche), $page['fiches']);
 
         return $page;
     }
 
-    /** Just enough of every wiki the filter keeps to select them all: the page is limited to a hundred rows, and an operator cleaning a farm needs the lot. */
+    /**
+     * Just enough of every wiki a filter keeps to select them all.
+     *
+     * @return array{wikis: list<array<string, string>>, total: int}
+     */
     public function listForSelection(string $search, string $filter = '', string $lifetime = ''): array
     {
-        $fiches = $this->getAllWikiFiches();
-
-        $page = $this->dashboard->select(
-            $fiches,
-            $this->statsStore->readAll(),
-            $this->context($fiches),
-            [
-                'search' => $search,
-                'filter' => $filter,
-                'lifetime' => $lifetime,
-                'sort' => 'title',
-                'direction' => 'asc',
-                'start' => 0,
-                'length' => count($fiches) ?: 1,
-            ]
-        );
-
+        $fiches = $this->entries();
+        $page = $this->dashboard->select($fiches, $this->statsStore->readAll(), $this->context($fiches), [
+            'search' => $search,
+            'filter' => $filter,
+            'lifetime' => $lifetime,
+            'sort' => 'title',
+            'direction' => 'asc',
+            'start' => 0,
+            'length' => max(1, count($fiches)),
+        ]);
         $wikis = [];
         foreach ($page['fiches'] as $fiche) {
             $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
-            if ($folder === '') {
-                continue;
+            if ($folder !== '') {
+                $wikis[] = ['folder' => $folder, 'tag' => (string)($fiche['tag'] ?? ''), 'title' => FarmMailer::titleOf($fiche), 'mail' => (string)($fiche['bf_mail'] ?? '')];
             }
-            $wikis[] = [
-                'folder' => $folder,
-                'id_fiche' => (string)($fiche['id_fiche'] ?? ''),
-                'title' => (string)($fiche['bf_titre'] ?? $folder),
-                'mail' => (string)($fiche['bf_mail'] ?? ''),
-            ];
         }
 
         return ['wikis' => $wikis, 'total' => $page['filtered']];
     }
 
-    /** What the dashboard needs to know besides the entries and their statistics. */
-    private function context(array $fiches): array
-    {
-        $today = new \DateTimeImmutable('today');
-
-        return [
-            'current' => [
-                'version' => (string)$this->wiki->config['yeswiki_version'],
-                'release' => (string)$this->wiki->config['yeswiki_release'],
-            ],
-            'onDisk' => $this->wikisOnDisk($fiches),
-            'statuses' => $this->statuses($fiches),
-            'spamThreshold' => $this->spamScore->threshold(),
-            'lifetime' => function (array $fiche) use ($today) {
-                return $this->lifetime->describe($fiche, $today);
-            },
-        ];
-    }
-
-    /** The `wiki_status` of every wiki, read from its configuration without including it. */
-    private function statuses(array $fiches): array
-    {
-        $statuses = [];
-        foreach ($fiches as $fiche) {
-            $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
-            if ($folder === '' || isset($statuses[$folder]) || !FarmConfig::isSafeName($folder, true)) {
-                continue;
-            }
-            $path = $this->config->wikiConfigFile($folder);
-            if (!is_file($path)) {
-                continue;
-            }
-            $content = (string)@file_get_contents($path);
-            $statuses[$folder] = preg_match('/[\'"]wiki_status[\'"]\s*=>\s*[\'"]([^\'"]*)[\'"]/', $content, $matches) === 1
-                ? $matches[1]
-                : '';
-        }
-
-        return $statuses;
-    }
-
-    /** Which of the farm entries still have a wiki behind them. */
-    private function wikisOnDisk(array $fiches): array
-    {
-        $onDisk = [];
-        foreach ($fiches as $fiche) {
-            $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
-            if ($folder === '' || isset($onDisk[$folder]) || !FarmConfig::isSafeName($folder, true)) {
-                continue;
-            }
-            $onDisk[$folder] = file_exists($this->config->wikiConfigFile($folder));
-        }
-
-        return $onDisk;
-    }
-
+    /**
+     * What each wiki found on disk is, for the command that lists and imports them.
+     *
+     * @param list<array{PATH: string, FOLDER: string, URL: string, VERSION: string, RELEASE: string}> $wikis
+     *
+     * @return list<array<string, mixed>>
+     */
     public function inspect(array $wikis): array
     {
-        $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
+        $known = array_map('strval', array_column($this->entries(), 'bf_dossier-wiki'));
         $stats = $this->statsStore->readMany(array_column($wikis, 'FOLDER'));
-
         $results = [];
         foreach ($wikis as $wiki) {
             $inspected = $this->inspectWiki($wiki, in_array($wiki['FOLDER'], $known, true));
@@ -216,27 +101,46 @@ class WikiRepository
         return $results;
     }
 
+    /**
+     * Give an entry to each inspected wiki that has none.
+     *
+     * @param list<array<string, mixed>> $inspected
+     *
+     * @return list<string> the folders imported
+     */
     public function import(array $inspected, string $fallbackEmail = ''): array
     {
-        $toImport = [];
+        $imported = [];
         foreach ($inspected as $wiki) {
-            if ($wiki['existsInBazar']) {
+            if (!empty($wiki['existsInBazar'])) {
                 continue;
             }
-            $toImport[] = $this->buildImportEntry($wiki, $fallbackEmail);
+            $this->entryManager->create($this->config->farmId(), [
+                'bf_titre' => (string)$wiki['name'],
+                'bf_description' => (string)$wiki['description'],
+                'bf_referent' => _t('FERME_IMPORTED_REFERENT'),
+                'bf_mail' => (string)($wiki['adminEmail'] ?? $fallbackEmail),
+                'bf_dossier-wiki' => (string)$wiki['folder'],
+                'bf_dossier-wiki_exists' => '1',
+                'ListeOuiNon' => 'oui',
+                'antispam' => 1,
+            ]);
+            $imported[] = (string)$wiki['folder'];
         }
 
-        return $this->importEntries($toImport);
+        return $imported;
     }
 
-    /** What the AdminWikis search button calls: inspect the farm root, then import. */
-    /** The wikis sitting on the server that the farm does not list, with what they hold, so an operator can see what they would be importing. */
+    /**
+     * The wikis on the server the farm does not list, with what they hold.
+     *
+     * @return array<string, mixed>
+     */
     public function searchOnServer(): array
     {
         $wikis = $this->finder->find();
-        $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
+        $known = array_map('strval', array_column($this->entries(), 'bf_dossier-wiki'));
         $stats = $this->statsStore->readMany(array_column($wikis, 'FOLDER'));
-
         $results = [];
         $unmeasured = 0;
         foreach ($wikis as $wiki) {
@@ -256,39 +160,72 @@ class WikiRepository
                 'lastActivity' => $measured['lastActivity'] ?? null,
             ];
         }
+        usort($results, static fn (array $a, array $b): int => strcmp((string)$b['lastActivity'], (string)$a['lastActivity']));
 
-        usort($results, function (array $a, array $b) {
-            return strcmp((string)$b['lastActivity'], (string)$a['lastActivity']);
-        });
-
-        return [
-            'wikisInBazar' => count($known),
-            'wikisOnServer' => count($wikis),
-            'missing' => count($results),
-            'unmeasured' => $unmeasured,
-            'results' => $results,
-        ];
+        return ['wikisInBazar' => count($known), 'wikisOnServer' => count($wikis), 'missing' => count($results), 'unmeasured' => $unmeasured, 'results' => $results];
     }
 
-    /** Give a farm entry to the wikis an operator picked, and to nobody else. */
+    /**
+     * Give a farm entry to the wikis an operator picked, and to nobody else.
+     *
+     * @param list<string> $folders
+     *
+     * @return list<string>
+     */
     public function importFolders(array $folders, string $fallbackEmail = ''): array
     {
-        $known = array_column($this->getAllWikiFiches(), 'bf_dossier-wiki');
-        $wanted = array_values(array_unique(array_filter($folders, function ($folder) use ($known) {
-            return is_string($folder)
-                && FarmConfig::isSafeName($folder, true)
-                && !in_array($folder, $known, true)
-                && is_file($this->config->wikiConfigFile($folder));
-        })));
-        if (empty($wanted)) {
+        $known = array_map('strval', array_column($this->entries(), 'bf_dossier-wiki'));
+        $wanted = array_values(array_unique(array_filter($folders, fn (string $folder): bool => FarmConfig::isSafeName($folder, true) && !in_array($folder, $known, true) && $this->config->hasWiki($folder))));
+        if ($wanted === []) {
             return [];
         }
 
-        return $this->import($this->inspect(array_map(function (string $folder) {
-            return $this->finder->findOne($folder);
-        }, $wanted)), $fallbackEmail);
+        return $this->import($this->inspect(array_map(fn (string $folder): array => $this->finder->findOne($folder), $wanted)), $fallbackEmail);
     }
 
+    /** @return list<array<string, mixed>> */
+    public function entries(): array
+    {
+        return array_values(array_filter($this->entryManager->search(['formsIds' => [$this->config->farmId()]]), 'is_array'));
+    }
+
+    /**
+     * What the dashboard needs besides the entries and their numbers.
+     *
+     * @param list<array<string, mixed>> $fiches
+     *
+     * @return array<string, mixed>
+     */
+    private function context(array $fiches): array
+    {
+        $today = new \DateTimeImmutable('today');
+        $program = new ProgramVersion();
+        $onDisk = [];
+        $statuses = [];
+        foreach ($fiches as $fiche) {
+            $folder = (string)($fiche['bf_dossier-wiki'] ?? '');
+            if ($folder === '' || isset($onDisk[$folder]) || !FarmConfig::isSafeName($folder, true)) {
+                continue;
+            }
+            $file = $this->config->wikiConfigFile($folder);
+            $onDisk[$folder] = is_file($file);
+            $statuses[$folder] = $onDisk[$folder] ? (WikiFinder::extractConfig($file)['wiki_status'] ?? '') : '';
+        }
+
+        return [
+            'current' => ['version' => $program->releaseLine(), 'release' => $program->version()],
+            'onDisk' => $onDisk,
+            'statuses' => $statuses,
+            'spamThreshold' => $this->spamScore->threshold(),
+            'lifetime' => fn (array $fiche): ?array => $this->lifetime->describe($fiche, $today),
+        ];
+    }
+
+    /**
+     * @param array{PATH: string, FOLDER: string, URL: string, VERSION: string, RELEASE: string} $wiki
+     *
+     * @return array<string, mixed>
+     */
     private function inspectWiki(array $wiki, bool $existsInBazar): array
     {
         $result = [
@@ -307,189 +244,96 @@ class WikiRepository
             'adminEmail' => null,
         ];
 
-        try {
-            $wakkaConfig = $this->configEditor->load($wiki['PATH']);
-        } catch (\Throwable $th) {
-            $result['sqlError'] = $th->getMessage();
+        $wikiConfig = $this->config->readConfigIn($wiki['PATH']);
+        if ($wikiConfig === []) {
+            $result['sqlError'] = _t('FERME_CLI_NO_CONFIG_FILE');
 
             return $result;
         }
-
-        $result['name'] = $wakkaConfig['wakka_name'] ?? $wiki['FOLDER'];
-        $result['description'] = $wakkaConfig['meta_description'] ?? '';
-        $result['url'] = ($wakkaConfig['base_url'] ?? '') . ($wakkaConfig['root_page'] ?? '');
-        $prefix = $wakkaConfig['table_prefix'] ?? '';
+        $result['name'] = (string)($wikiConfig['yeswiki_name'] ?? $wikiConfig['wakka_name'] ?? $wiki['FOLDER']);
+        $result['description'] = (string)($wikiConfig['meta_description'] ?? '');
+        $result['url'] = (string)($wikiConfig['base_url'] ?? '') . (string)($wikiConfig['root_page'] ?? '');
 
         try {
-            $db = $this->database->connect($wakkaConfig);
-        } catch (\Throwable $th) {
-            $result['sqlError'] = $th->getMessage();
-
-            return $result;
-        }
-
-        try {
+            $db = $this->database->connect($wikiConfig, $wiki['PATH']);
             $result['sqlOk'] = true;
-            $result['missingTables'] = $this->database->missingTables($db, $prefix);
-            $result['tablesOk'] = empty($result['missingTables']);
+            $prefix = InstanceDatabase::prefix($wikiConfig);
+            $tables = $this->database->ownTables($db, $prefix);
+            $result['missingTables'] = array_values(array_diff(['pages', 'triples'], array_map(static fn (string $table): string => substr($table, strlen($prefix)), $tables)));
+            $result['tablesOk'] = $result['missingTables'] === [];
             if ($result['tablesOk']) {
-                $result['adminEmail'] = $this->database->firstAdminEmail($db, $prefix);
+                $result['adminEmail'] = $this->firstAdminEmail($db, $prefix);
             }
         } catch (\Throwable $th) {
             $result['sqlError'] = $th->getMessage();
-        } finally {
-            $db->close();
         }
 
         return $result;
     }
 
-    private function buildImportEntry(array $wiki, string $fallbackEmail): array
+    /** The email of a wiki's first administrator, so an imported entry reaches whoever runs it. */
+    private function firstAdminEmail(\PDO $db, string $prefix): ?string
     {
-        return [
-            'id_fiche' => genere_nom_wiki($wiki['name']),
-            'id_typeannonce' => strval($this->params->get('bazar_farm_id')),
-            'bf_titre' => $wiki['name'],
-            'bf_description' => $wiki['description'],
-            'bf_referent' => _t('FERME_IMPORTED_REFERENT'),
-            'bf_mail' => $wiki['adminEmail'] ?? $fallbackEmail,
-            'bf_dossier-wiki' => $wiki['folder'],
-            'radioListeOuiNon' => 'oui',
-            'imagebf_image' => 'wiki-imported-placeholder.png',
-            'date_creation_fiche' => date('Y-m-d H:i:s'),
-            'statut_fiche' => '1',
-            'date_maj_fiche' => date('Y-m-d H:i:s'),
-        ];
-    }
-
-    private function importEntries(array $wikisToImport): array
-    {
-        if (empty($wikisToImport)) {
-            return [];
-        }
-
-        if (!file_exists('files/wiki-imported-placeholder.png')) {
-            copy('tools/ferme/images/wiki-imported-placeholder.png', 'files/wiki-imported-placeholder.png');
-        }
-
-        $imported = [];
-        foreach ($wikisToImport as $w) {
-            $saved = $this->pageManager->save($w['id_fiche'], json_encode($w), '', true);
-            if ($saved == 0) {
-                $this->tripleStore->create($w['id_fiche'], TripleStore::TYPE_URI, 'fiche_bazar', '', '');
-                $imported[] = $w['bf_dossier-wiki'];
+        $members = (string)InstanceDatabase::scalar($db, 'SELECT value FROM ' . InstanceDatabase::table($db, $prefix, 'triples') . ' WHERE resource = ? AND property = ?', [GROUP_PREFIX . 'admins', WIKINI_VOC_ACLS_URI]);
+        $type = InstanceDatabase::quote($db, 'type');
+        foreach (array_filter(array_map('trim', preg_split('/[\r\n]+/', $members) ?: [])) as $member) {
+            $body = InstanceDatabase::scalar($db, 'SELECT body FROM ' . InstanceDatabase::table($db, $prefix, 'pages') . " WHERE latest = 'Y' AND {$type} = ? AND tag = ?", [PageType::USER, $member]);
+            $decoded = is_string($body) ? json_decode($body, true) : null;
+            $email = is_array($decoded) ? trim((string)($decoded['email'] ?? '')) : '';
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return $email;
             }
         }
 
-        return $imported;
+        return null;
     }
 
-    private function getAllWikiFiches(): array
-    {
-        $bazarFarmId = $this->params->get('bazar_farm_id');
-
-        $bazarFarmId = (!empty($bazarFarmId) && (strval($bazarFarmId) == strval(intval($bazarFarmId)))) ? $bazarFarmId : '1100';
-
-        return $this->entryManager->search(['formsIds' => [$bazarFarmId]]);
-    }
-
+    /**
+     * @param array<string, mixed> $fiche
+     *
+     * @return array<string, mixed>
+     */
     private function processWikiEntry(array $fiche): array
     {
         $folder = is_string($fiche['bf_dossier-wiki'] ?? null) ? $fiche['bf_dossier-wiki'] : '';
-
         if (!FarmConfig::isSafeName($folder, true)) {
             $fiche['error'] = _t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"';
 
             return $fiche;
         }
-
         if (!empty($fiche['lifetimeState']['archived'])) {
             return $fiche;
         }
-
-        if (!file_exists($this->config->wikiConfigFile($folder))) {
-            $fiche['error'] = _t('FERME_FILE') . $folder . '/wakka.config.php' . _t('FERME_NOT_FOUND');
+        if (!$this->config->hasWiki($folder)) {
+            $fiche['error'] = _t('FERME_NO_WIKI_IN') . ' ' . $folder;
 
             return $fiche;
         }
-
-        $wakkaConfig = $this->config->readWikiConfig($folder);
-        if (empty($wakkaConfig['table_prefix'])) {
-            return $fiche;
-        }
-
-        $fiche['custom_aside'] = $this->aside->isAside($this->config->wikiDir($folder));
-        $fiche['url'] = $wakkaConfig['base_url'] . $wakkaConfig['root_page'];
-        $fiche['version'] = $this->describeVersion($wakkaConfig, $folder);
-        $fiche['admin'] = $this->describeAdmin($folder);
-
-        $this->wiki->query('USE ' . $wakkaConfig['mysql_database'] . ';');
-        try {
-            if ($fiche['admin'] !== null) {
-                $sql = 'SELECT name FROM ' . $wakkaConfig['table_prefix'] . 'users WHERE name="'
-                    . addslashes($fiche['admin']['name']) . '"';
-                $fiche['admin']['present'] = count($this->wiki->LoadAll($sql)) > 0;
-            }
-
-            $wikiresults = $this->wiki->LoadAll('SELECT time FROM `' . $wakkaConfig['table_prefix'] . 'pages` WHERE latest="Y" ORDER BY time DESC LIMIT 1');
-            $fiche['last_modification_iso'] = $wikiresults[0]['time'] ?? '';
-            if (!empty($fiche['last_modification_iso'])) {
-                $date = new \DateTime($fiche['last_modification_iso']);
-                $fiche['last_modification'] = $date->format('d.m.Y H:i:s');
-            }
-        } finally {
-            $this->wiki->query('USE ' . $this->wiki->config['mysql_database'] . ';');
-        }
-
-        $fiche['dashboard_link'] = $wakkaConfig['base_url'] . 'TableauDeBord';
+        $wikiConfig = WikiFinder::extractConfig($this->config->wikiConfigFile($folder));
+        $fiche['url'] = ($wikiConfig['base_url'] ?? $this->config->wikiUrl($folder) . '?') . ($wikiConfig['root_page'] ?? '');
+        $fiche['version'] = $this->describeVersion($wikiConfig);
+        $adminName = $this->config->text('yeswiki-farm-admin-name');
+        $fiche['admin'] = $adminName === '' || $this->config->text('yeswiki-farm-admin-pass') === '' ? null : [
+            'name' => $adminName,
+            'present' => ($fiche['stats']['adminPresent'] ?? '') === 'yes',
+            'folder' => $folder,
+        ];
 
         return $fiche;
     }
 
-    private function describeVersion(array $wakkaConfig, string $folder): array
+    /**
+     * @param array<string, string> $wikiConfig
+     *
+     * @return array<string, string>
+     */
+    private function describeVersion(array $wikiConfig): array
     {
-        $wikiVersion = $wakkaConfig['yeswiki_version'] ?? '';
-        $wikiRelease = $wakkaConfig['yeswiki_release'] ?? '';
+        $program = new ProgramVersion();
+        $version = $wikiConfig['yeswiki_version'] ?? '';
+        $release = $wikiConfig['yeswiki_release'] ?? '';
+        $status = strtolower($version) !== strtolower($program->releaseLine()) ? 'different' : ($release !== $program->version() ? 'outdated' : 'up-to-date');
 
-        if ($this->wiki->config['yeswiki_version'] !== $wikiVersion) {
-            $status = 'different';
-            $updateUrl = '';
-        } elseif (empty($wikiRelease) || $wikiRelease < $this->wiki->config['yeswiki_release']) {
-            $status = 'outdated';
-            $token = $this->wiki->services->get(CsrfTokenManager::class)->getToken('main')->getValue();
-            $updateUrl = $this->wiki->href(
-                '',
-                $this->wiki->GetPageTag(),
-                ['maj' => $folder, 'csrf-token' => $token],
-                false
-            );
-        } else {
-            $status = 'up-to-date';
-            $updateUrl = '';
-        }
-
-        return [
-            'version' => $wikiVersion,
-            'release' => $wikiRelease,
-            'status' => $status,
-            'update_url' => $updateUrl,
-            'source_version' => $this->wiki->config['yeswiki_version'],
-        ];
-    }
-
-    private function describeAdmin(string $folder): ?array
-    {
-        $adminName = $this->wiki->config['yeswiki-farm-admin-name'];
-        $adminPass = $this->wiki->config['yeswiki-farm-admin-pass'];
-
-        if (empty($adminName) || empty($adminPass)) {
-            return null;
-        }
-
-        return [
-            'name' => $adminName,
-            'present' => false,
-            'folder' => $folder,
-        ];
+        return ['version' => $version, 'release' => $release, 'status' => $status, 'source_version' => $program->releaseLine(), 'source_release' => $program->version()];
     }
 }

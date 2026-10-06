@@ -1,1 +1,7 @@
-{"label":{"oui":"Oui","non":"Non"},"titre_liste":"Oui Non"}
+{
+  "title": "Oui Non",
+  "nodes": [
+    { "id": "oui", "label": "Oui" },
+    { "id": "non", "label": "Non" }
+  ]
+}

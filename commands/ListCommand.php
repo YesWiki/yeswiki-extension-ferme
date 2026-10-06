@@ -7,30 +7,18 @@ use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use YesWiki\Ferme\Service\AbstractFarmCommand;
+use YesWiki\Ferme\Service\FarmCommand;
 use YesWiki\Ferme\Service\FarmDashboard;
 use YesWiki\Ferme\Service\ImportFilter;
 use YesWiki\Ferme\Service\SpamScore;
 use YesWiki\Ferme\Service\WikiRepository;
-use YesWiki\Wiki;
 
-class ListCommand extends AbstractFarmCommand
+/** `ferme:list`: lists the wikis on disk, and gives an entry to those that have none. */
+class ListCommand extends FarmCommand
 {
     private const FORMATS = ['table', 'json', 'csv'];
 
-    protected $repository;
-    protected $filter;
-    protected $dashboard;
-
-    public function __construct(Wiki &$wiki)
-    {
-        parent::__construct($wiki);
-        $this->repository = $wiki->services->get(WikiRepository::class);
-        $this->filter = $wiki->services->get(ImportFilter::class);
-        $this->dashboard = $wiki->services->get(FarmDashboard::class);
-    }
-
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('ferme:list')
@@ -50,7 +38,7 @@ class ListCommand extends AbstractFarmCommand
             ->addDryRunOption();
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $format = (string)$input->getOption('format');
         if (!in_array($format, self::FORMATS, true)) {
@@ -58,87 +46,54 @@ class ListCommand extends AbstractFarmCommand
 
             return Command::FAILURE;
         }
-
         $wikis = $this->selectWikis($input);
-        if (empty($wikis)) {
+        if ($wikis === []) {
             $this->warnNothingFound($input, $output);
 
             return Command::SUCCESS;
         }
 
-        $inspected = $this->repository->inspect($wikis);
+        $repository = $this->service(WikiRepository::class);
+        $inspected = $repository->inspect($wikis);
         if ($input->getOption('never-edited')) {
-            $inspected = $this->onlyNeverEdited($inspected);
+            $dashboard = $this->service(FarmDashboard::class);
+            $inspected = array_values(array_filter($inspected, static fn (array $wiki): bool => is_array($wiki['stats'] ?? null) && $dashboard->wasNeverEdited($wiki['stats'])));
         }
-
-        $missingFromBazar = array_values(array_filter($inspected, function ($wiki) {
-            return !$wiki['existsInBazar'];
-        }));
-
-        $selection = $this->filter->apply($inspected, $this->criteria($input));
+        $missing = array_values(array_filter($inspected, static fn (array $wiki): bool => !$wiki['existsInBazar']));
+        $selection = $this->service(ImportFilter::class)->apply($inspected, $this->criteria($input));
         $candidates = $selection['keep'];
 
         $imported = [];
         if ($input->getOption('import')) {
-            $imported = $this->isDryRun($input)
-                ? array_column($candidates, 'folder')
-                : $this->repository->import($candidates, $this->fallbackEmail($input));
+            $email = trim((string)$input->getOption('email'));
+            $imported = $this->isDryRun($input) ? array_map('strval', array_column($candidates, 'folder')) : $repository->import($candidates, $email !== '' ? $email : $this->farmConfig->adminEmail());
         }
 
-        switch ($format) {
-            case 'json':
-                $output->writeln(json_encode(
-                    ['wikis' => $inspected, 'candidates' => array_column($candidates, 'folder'), 'imported' => $imported],
-                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                ));
+        if ($format === 'json') {
+            $output->writeln((string)json_encode(['wikis' => $inspected, 'candidates' => array_column($candidates, 'folder'), 'imported' => $imported], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-                return Command::SUCCESS;
+            return Command::SUCCESS;
+        }
+        if ($format === 'csv') {
+            $this->writeCsv($output, $inspected);
 
-            case 'csv':
-                $this->writeCsv($inspected);
-
-                return Command::SUCCESS;
+            return Command::SUCCESS;
         }
 
         $this->writeTable($output, $inspected);
 
-        return $this->renderSummary(
-            $output,
-            _t('FERME_CLI_LIST_SUMMARY'),
-            [
-                _t('FERME_CLI_WIKIS_FOUND') => count($inspected),
-                _t('FERME_CLI_IN_BAZAR') => count($inspected) - count($missingFromBazar),
-                _t('FERME_CLI_NOT_IN_BAZAR') => count($missingFromBazar),
-                _t('FERME_CLI_IMPORT_CANDIDATES') => count($candidates),
-                _t('FERME_CLI_LEFT_OUT') => $this->describeLeftOut($selection['left']),
-                ($this->isDryRun($input) ? _t('FERME_CLI_WOULD_IMPORT') : _t('FERME_CLI_IMPORTED')) => count($imported),
-                _t('FERME_CLI_DB_FAILURES') => count(array_filter($inspected, function ($wiki) {
-                    return !$wiki['sqlOk'] || !$wiki['tablesOk'];
-                })),
-            ],
-            [],
-            $this->isDryRun($input) && $input->getOption('import')
-        );
+        return $this->renderSummary($output, _t('FERME_CLI_LIST_SUMMARY'), [
+            _t('FERME_CLI_WIKIS_FOUND') => count($inspected),
+            _t('FERME_CLI_IN_BAZAR') => count($inspected) - count($missing),
+            _t('FERME_CLI_NOT_IN_BAZAR') => count($missing),
+            _t('FERME_CLI_IMPORT_CANDIDATES') => count($candidates),
+            _t('FERME_CLI_LEFT_OUT') => $this->describeLeftOut($selection['left']),
+            ($this->isDryRun($input) ? _t('FERME_CLI_WOULD_IMPORT') : _t('FERME_CLI_IMPORTED')) => count($imported),
+            _t('FERME_CLI_DB_FAILURES') => count(array_filter($inspected, static fn (array $wiki): bool => !$wiki['sqlOk'] || !$wiki['tablesOk'])),
+        ], [], $this->isDryRun($input) && $input->getOption('import'));
     }
 
-    /**
-     * The wikis holding exactly what their model gave them. A wiki nobody measured
-     * is left out rather than guessed at, as everywhere else.
-     *
-     * @param array<int,array<string,mixed>> $inspected
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    private function onlyNeverEdited(array $inspected): array
-    {
-        return array_values(array_filter($inspected, function (array $wiki) {
-            return is_array($wiki['stats'] ?? null) && $this->dashboard->wasNeverEdited($wiki['stats']);
-        }));
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
+    /** @return array<string, mixed> */
     private function criteria(InputInterface $input): array
     {
         $since = (string)$input->getOption('active-since');
@@ -149,9 +104,7 @@ class ListCommand extends AbstractFarmCommand
             'minUsers' => $this->threshold($input, 'min-users'),
             'activeSince' => $since === '' ? null : $this->seconds($since),
             'nameExcludes' => (string)$input->getOption('name-excludes'),
-            'skipSuspect' => $input->getOption('skip-suspect')
-                ? $this->wiki->services->get(SpamScore::class)->threshold()
-                : null,
+            'skipSuspect' => $input->getOption('skip-suspect') ? $this->service(SpamScore::class)->threshold() : null,
         ];
     }
 
@@ -162,51 +115,29 @@ class ListCommand extends AbstractFarmCommand
         return $value === null || $value === '' ? null : max(0, (int)$value);
     }
 
-    /**
-     * @param array<string,array<int,string>> $left
-     */
+    /** @param array<string, list<string>> $left */
     private function describeLeftOut(array $left): string
     {
         $said = [];
         foreach ($left as $reason => $folders) {
-            if (!empty($folders)) {
+            if ($folders !== []) {
                 $said[] = count($folders) . ' ' . _t('FERME_CLI_LEFT_' . strtoupper($reason));
             }
         }
 
-        return empty($said) ? '-' : implode(', ', $said);
+        return $said === [] ? '-' : implode(', ', $said);
     }
 
-    /**
-     * Used on imported entries for the wikis whose own admins have no email.
-     */
-    private function fallbackEmail(InputInterface $input): string
-    {
-        $email = trim((string)$input->getOption('email'));
-
-        return $email !== '' ? $email : $this->farmConfig->adminEmail();
-    }
-
+    /** @param list<array<string, mixed>> $inspected */
     private function writeTable(OutputInterface $output, array $inspected): void
     {
         $table = new Table($output);
-        $table->setHeaders([
-            _t('FERME_CLI_COL_FOLDER'),
-            _t('FERME_CLI_COL_URL'),
-            _t('FERME_CLI_COL_VERSION'),
-            _t('FERME_CLI_COL_BAZAR'),
-            _t('FERME_CLI_COL_PAGES'),
-            _t('FERME_CLI_COL_ENTRIES'),
-            _t('FERME_CLI_COL_USERS'),
-            _t('FERME_CLI_COL_LAST_ACTIVITY'),
-            _t('FERME_CLI_COL_DATABASE'),
-            _t('FERME_CLI_COL_ADMIN'),
-        ]);
+        $table->setHeaders([_t('FERME_CLI_COL_FOLDER'), _t('FERME_CLI_COL_URL'), _t('FERME_CLI_COL_VERSION'), _t('FERME_CLI_COL_BAZAR'), _t('FERME_CLI_COL_PAGES'), _t('FERME_CLI_COL_ENTRIES'), _t('FERME_CLI_COL_USERS'), _t('FERME_CLI_COL_LAST_ACTIVITY'), _t('FERME_CLI_COL_DATABASE'), _t('FERME_CLI_COL_ADMIN')]);
         foreach ($inspected as $wiki) {
-            $stats = $wiki['stats'] ?? null;
+            $stats = is_array($wiki['stats'] ?? null) ? $wiki['stats'] : null;
             $table->addRow([
-                $wiki['folder'],
-                $wiki['url'],
+                (string)$wiki['folder'],
+                (string)$wiki['url'],
                 trim($wiki['version'] . ' ' . $wiki['release']),
                 $wiki['existsInBazar'] ? _t('FERME_CLI_YES') : _t('FERME_CLI_NO'),
                 $stats === null ? '?' : (string)($stats['pages'] ?? 0),
@@ -214,25 +145,24 @@ class ListCommand extends AbstractFarmCommand
                 $stats === null ? '?' : (string)($stats['users'] ?? 0),
                 $stats === null ? '?' : substr((string)($stats['lastActivity'] ?? ''), 0, 10),
                 $this->databaseState($wiki),
-                $wiki['adminEmail'] ?? '',
+                (string)($wiki['adminEmail'] ?? ''),
             ]);
         }
         $table->render();
     }
 
-    private function writeCsv(array $inspected): void
+    /** @param list<array<string, mixed>> $inspected */
+    private function writeCsv(OutputInterface $output, array $inspected): void
     {
-        $handle = fopen('php://output', 'w');
-        // the escape argument is explicit: its default changes in php 8.4
+        $handle = fopen('php://memory', 'w+');
+        if ($handle === false) {
+            return;
+        }
         fputcsv($handle, ['folder', 'path', 'url', 'version', 'release', 'inBazar', 'pages', 'entries', 'users', 'files', 'lastActivity', 'sqlOk', 'tablesOk', 'missingTables', 'sqlError', 'adminEmail'], ',', '"', '');
         foreach ($inspected as $wiki) {
-            $stats = $wiki['stats'] ?? null;
+            $stats = is_array($wiki['stats'] ?? null) ? $wiki['stats'] : null;
             fputcsv($handle, [
-                $wiki['folder'],
-                $wiki['path'],
-                $wiki['url'],
-                $wiki['version'],
-                $wiki['release'],
+                (string)$wiki['folder'], (string)$wiki['path'], (string)$wiki['url'], (string)$wiki['version'], (string)$wiki['release'],
                 $wiki['existsInBazar'] ? '1' : '0',
                 $stats === null ? '' : (string)($stats['pages'] ?? 0),
                 $stats === null ? '' : (string)($stats['entries'] ?? 0),
@@ -241,21 +171,24 @@ class ListCommand extends AbstractFarmCommand
                 $stats === null ? '' : (string)($stats['lastActivity'] ?? ''),
                 $wiki['sqlOk'] ? '1' : '0',
                 $wiki['tablesOk'] ? '1' : '0',
-                implode(' ', $wiki['missingTables']),
-                $wiki['sqlError'] ?? '',
-                $wiki['adminEmail'] ?? '',
+                implode(' ', (array)$wiki['missingTables']),
+                (string)($wiki['sqlError'] ?? ''),
+                (string)($wiki['adminEmail'] ?? ''),
             ], ',', '"', '');
         }
+        rewind($handle);
+        $output->write((string)stream_get_contents($handle));
         fclose($handle);
     }
 
+    /** @param array<string, mixed> $wiki */
     private function databaseState(array $wiki): string
     {
         if (!$wiki['sqlOk']) {
-            return '<error>' . _t('FERME_CLI_DB_ERROR') . '</error> ' . $wiki['sqlError'];
+            return '<error>' . _t('FERME_CLI_DB_ERROR') . '</error> ' . (string)$wiki['sqlError'];
         }
         if (!$wiki['tablesOk']) {
-            return '<comment>' . _t('FERME_CLI_DB_MISSING_TABLES') . ' ' . implode(', ', $wiki['missingTables']) . '</comment>';
+            return '<comment>' . _t('FERME_CLI_DB_MISSING_TABLES') . ' ' . implode(', ', (array)$wiki['missingTables']) . '</comment>';
         }
 
         return _t('FERME_CLI_DB_OK');

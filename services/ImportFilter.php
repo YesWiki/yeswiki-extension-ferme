@@ -2,21 +2,16 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * Which wikis found on disk deserve a farm entry. A farm that has been open for a
- * while collects wikis created and never used again, so importing everything means
- * importing mostly those. The thresholds are the operator's, and a wiki that was
- * never measured is left out rather than guessed at.
- */
+/** Which wikis found on disk deserve a farm entry, by the operator's thresholds: an unmeasured wiki is left out. */
 class ImportFilter
 {
     public const REASONS = ['inBazar', 'unmeasured', 'entries', 'pages', 'users', 'idle', 'name', 'suspect'];
 
     /**
-     * @param array<int,array<string,mixed>> $inspected as WikiRepository::inspect returns
-     * @param array<string,mixed>            $criteria  minEntries, minPages, minUsers, activeSince, nameExcludes, skipSuspect
+     * @param list<array<string, mixed>> $inspected
+     * @param array<string, mixed>       $criteria
      *
-     * @return array{keep:array<int,array<string,mixed>>,left:array<string,array<int,string>>}
+     * @return array{keep: list<array<string, mixed>>, left: array<string, list<string>>}
      */
     public function apply(array $inspected, array $criteria): array
     {
@@ -38,8 +33,8 @@ class ImportFilter
     /**
      * Why this wiki is not imported, or null when it is.
      *
-     * @param array<string,mixed> $wiki
-     * @param array<string,mixed> $criteria
+     * @param array<string, mixed> $wiki
+     * @param array<string, mixed> $criteria
      */
     public function reason(array $wiki, array $criteria): ?string
     {

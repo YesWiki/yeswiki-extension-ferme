@@ -5,7 +5,7 @@
 
 ## English
 
-[YesWiki](https://yeswiki.net/) extension. Runs a wiki farm from a bazar form.
+[YesWiki](https://yeswiki.net/) extension. Runs a wiki farm from a form: each entry creates a wiki that shares the farm's YesWiki program.
 
 ### Authors
 
@@ -13,11 +13,11 @@
 
 ### Install
 
-In page `GererMisesAJour` on your YesWiki website, search extension `ferme` and install it.
+On your wiki's `/admin/updates` screen, install the `ferme` extension: installing it switches it on. From a shell: `./yeswicli extension:enable ferme`, then `./yeswicli migrate` to create the farm's form and pages. Version `5.x` is for YesWiki Ectoplasme, `4.x` for Doryphore.
 
 ### Usage
 
-Usage help is described in `http://example.com/?doc/#tools/ferme/en/README.md` (replacing `http://example.com/?` by the `baseUrl` of your wiki). The same file can be found also here : https://github.com/YesWiki/yeswiki-extension-ferme/blob/doryphore/docs/en/README.md
+Usage help is on your wiki's `/doc` page once the extension is on, and here: https://github.com/YesWiki/yeswiki-extension-ferme/blob/ectoplasme/docs/en/README.md
 
 ### Warranty
 
@@ -28,7 +28,7 @@ Developpers of this extension can not be responsible of consequences of the usag
 
 ## Français
 
-Extension [YesWiki](https://yeswiki.net/). Gère une ferme à wikis à partir d'un formulaire bazar.
+Extension [YesWiki](https://yeswiki.net/). Gère une ferme à wikis à partir d'un formulaire : chaque fiche crée un wiki qui partage le programme YesWiki de la ferme.
 
 ### Auteurs
 
@@ -36,11 +36,11 @@ Extension [YesWiki](https://yeswiki.net/). Gère une ferme à wikis à partir d'
 
 ### Installation
 
-Dans la page `GererMisesAJour` de votre YesWiki, recherchez l'extension `ferme` et installez-la.
+Sur l'écran `/admin/updates` de votre wiki, installez l'extension `ferme` : l'installer l'active. En ligne de commande : `./yeswicli extension:enable ferme`, puis `./yeswicli migrate` pour créer le formulaire et les pages de la ferme. La version `5.x` est pour YesWiki Ectoplasme, la `4.x` pour Doryphore.
 
 ### Utilisation
 
-L'aide sur l'utilisation peut être trouvée sur `http://example.com/?doc/#tools/ferme/fr/README.md` (en remplaçant `http://example.com/?` par `baseUrl` de votre wiki). Le même fichier peut aussi être trouvé ici : https://github.com/YesWiki/yeswiki-extension-ferme/blob/doryphore/docs/fr/README.md
+L'aide est sur la page `/doc` de votre wiki une fois l'extension activée, et ici : https://github.com/YesWiki/yeswiki-extension-ferme/blob/ectoplasme/docs/fr/README.md
 
 ### Garantie
 

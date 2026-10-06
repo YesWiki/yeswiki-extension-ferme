@@ -1,186 +1,163 @@
 <?php
 
-use YesWiki\Bazar\Service\EntryManager;
-use YesWiki\Bazar\Service\FormManager;
-use YesWiki\Core\Service\AclService;
-use YesWiki\Core\Service\PageManager;
-use YesWiki\Core\Service\TripleStore;
+use YesWiki\Content\Entity\MenuNode;
+use YesWiki\Content\Entity\PageBody;
+use YesWiki\Content\Entity\PageType;
+use YesWiki\Content\Service\EntryManager;
+use YesWiki\Content\Service\FormManager;
+use YesWiki\Content\Service\PageManager;
 use YesWiki\Core\YesWikiMigration;
-use YesWiki\Ferme\Service\FarmConfig;
+use YesWiki\Identity\Service\AclService;
+use YesWiki\Identity\Service\AuthenticationService;
+use YesWiki\Kernel\Service\UrlFormatter;
+use YesWiki\Render\Service\LayoutService;
 
+/** The farm's form, its list, its menu and its pages, created once and left alone after; and no password left in an old entry. */
 class FermeInitialDatabaseAndPageSetup extends YesWikiMigration
 {
-    private const PATHS = [
-        'lists' => [
-            'ListeOuiNon' => 'tools/ferme/setup/lists/ListeOuiNon.json',
-        ],
-        'forms' => [
-            'Farm description' => 'tools/ferme/setup/forms/Form - Farm.json',
-            'Farm template' => 'tools/ferme/setup/forms/Form - Farm - template.txt',
-        ],
-        'pages' => [
-            'AdminWikis' => 'tools/ferme/setup/pages/AdminWikis.txt',
-            'AjouterWiki' => 'tools/ferme/setup/pages/AjouterWiki.txt',
-            'ModelesWiki' => 'tools/ferme/setup/pages/ModelesWiki.txt',
-            'PageRapideHaut' => 'tools/ferme/setup/pages/PageRapideHaut.txt',
-        ],
-    ];
+    private const SETUP = __DIR__ . '/../setup';
+    private const PAGES = ['AdminWikis', 'AjouterWiki', 'ModelesWiki'];
+    private const LEFTOVERS = ['bf_dossier-wiki_wikiname', 'bf_dossier-wiki_email', 'bf_dossier-wiki_password'];
 
     public function run()
     {
-        $output = '';
-        $pageManager = $this->getService(PageManager::class);
-        $tripleStore = $this->getService(TripleStore::class);
-        $entryManager = $this->getService(EntryManager::class);
-
-        // Structure de répertoire désirée
-        $customWikiModelDir = FarmConfig::MODELS_DIR . '/';
-        if (!is_dir($customWikiModelDir)) {
-            if (!mkdir($customWikiModelDir, 0777, true)) {
-                throw new Exception('Folder creation failed...');
-            }
-            $output .= "Creating the folder $customWikiModelDir for the wiki models ✅ Done!\n";
-        } else {
-            $output .= "✅ The folder $customWikiModelDir for the wiki models exists.\n";
+        $farmId = $this->farmId();
+        $this->createList('ListeOuiNon');
+        $this->createForm($farmId);
+        $this->createMenu('MenuFerme');
+        foreach (self::PAGES as $tag) {
+            $this->createPage($tag, ['{FarmFormId}' => $farmId]);
         }
-
-        // if the OuiNon list doesn't exist, create it
-        $output .= 'Adding the "Oui Non" list ';
-        if (!$pageManager->getOne('ListeOuiNon')) {
-            // save the page with the list value
-            $pageManager->save('ListeOuiNon', $this->loadFileContent('lists', 'ListeOuiNon'));
-            // in case, there is already some triples for 'ListOuinonLms', delete them
-            $tripleStore->delete('ListeOuiNon', 'http://outils-reseaux.org/_vocabulary/type', null);
-            // create the triple to specify this page is a list
-            $tripleStore->create('ListeOuiNon', 'http://outils-reseaux.org/_vocabulary/type', 'liste', '', '');
-            $output .= '✅ Done!' . "\n";
-        } else {
-            $output .= '✅ Already existing.' . "\n";
-        }
-
-        // test if the FARM form exists, if not, install it
-        $formDescription = json_decode($this->loadFileContent('forms', 'Farm description'), true);
-        $formTemplate = $this->loadFileContent('forms', 'Farm template');
-        $formTemplate = str_replace('{UtilisationDonnees}', $this->wiki->Href('', 'UtilisationDonnees'), $formTemplate);
-        $formTemplate = str_replace('{Contact}', $this->wiki->Href('', 'Contact'), $formTemplate);
-        if (empty($formTemplate)) {
-            $output .= "ERROR! Not possible to add farm form!\n";
-        } else {
-            $output = $this->checkAndAddForm(
-                $output,
-                $this->params->get('bazar_farm_id'),
-                $formDescription['FARM_FORM_NOM'],
-                $formDescription['FARM_FORM_DESCRIPTION'],
-                $formTemplate
-            );
-        }
-
-        if (empty($pageManager->getOne('AdminWikis'))) {
-            $output = $this->updatePageRapideHaut($output);
-        }
-        $output = $this->updatePage('AdminWikis', $output);
-        $output = $this->updatePage('AjouterWiki', $output, ['{FarmFormId}' => $this->params->get('bazar_farm_id')]);
-        // $output = $this->updatePage('ContactWikis', $output);
-        $output = $this->updatePage('ModelesWiki', $output);
-
-        // remove bf_dossier fields
-        if (method_exists(EntryManager::class, 'removeAttributes')) {
-            $output .= "Removing bf_dossier fields from bazar entries in {$this->dbService->prefixTable('pages')} table. ";
-            try {
-                $removed = $entryManager->removeAttributes([], ['bf_dossier-wiki_wikiname', 'bf_dossier-wiki_email', 'bf_dossier-wiki_password'], true);
-            } catch (Throwable $th) {
-                // no form currently defines these fields (fresh install) : core's search builder
-                // can end up calling mysqli_query() with an empty query, which throws a \ValueError
-                // that is not caught by DbService::query(). There is nothing to remove in this case.
-                $removed = false;
-            }
-            if ($removed) {
-                $output .= '✅ Done!' . "\n";
-            } else {
-                $output .= "✅ Already free of bf_dossier fields in all entries!\n";
-            }
-        }
-
-        return $output;
+        $this->addToQuickMenu();
+        $this->forgetPasswords($farmId);
     }
 
-    private function checkAndAddForm($output, $formId, $formName, $formDescription, $formTemplate)
+    private function farmId(): string
     {
-        $formManager = $this->getService(FormManager::class);
+        $id = $this->params->has('bazar_farm_id') ? $this->params->get('bazar_farm_id') : '';
+        $id = is_scalar($id) ? trim((string)$id) : '';
 
-        // test if the FARM form exists, if not, install it
-        $form = $formManager->getOne($formId);
-        $output .= "Adding {$formName} form into {$this->dbService->prefixTable('nature')} table. ";
-        if (empty($form)) {
-            $formManager->create([
-                'bn_id_nature' => $formId,
-                'bn_label_nature' => $formName,
-                'bn_template' => $formTemplate,
-                'bn_description' => $formDescription,
-                'bn_sem_context' => $formDescription,
-                'bn_sem_type' => '',
-                'bn_sem_use_template' => '1',
-                'bn_condition' => '',
-            ]);
-            $output .= '✅ Done!' . "\n";
-        } else {
-            $output .= "✅ The form already exists.\n";
-        }
-
-        return $output;
+        return ctype_digit($id) ? $id : '1100';
     }
 
-    private function loadFileContent(string $type, string $name): string
+    /** @return array<string, mixed> */
+    private function json(string $relative): array
     {
-        if (!isset(self::PATHS[$type]) || !isset(self::PATHS[$type][$name])) {
-            return '';
-        }
-        $path = self::PATHS[$type][$name];
+        $decoded = json_decode((string)file_get_contents(self::SETUP . '/' . $relative), true);
 
-        return file_get_contents($path);
+        return is_array($decoded) ? $decoded : [];
     }
 
-    private function updatePage(string $pageName, string $output, array $replacements = []): string
+    private function createList(string $tag): void
     {
-        $aclService = $this->getService(AclService::class);
-        $pageManager = $this->getService(PageManager::class);
-        // if the page doesn't exist, create it with a default version
-        $output .= "Adding the $pageName page ";
-        if (!$pageManager->getOne($pageName)) {
-            $content = $this->loadFileContent('pages', $pageName);
-            if (!empty($replacements)) {
-                $content = str_replace(array_keys($replacements), array_values($replacements), $content);
+        $pages = $this->getService(PageManager::class);
+        if ($pages->tagExists($tag)) {
+            return;
+        }
+        $list = $this->json('lists/' . $tag . '.json');
+        $pages->save($tag, ['title' => (string)($list['title'] ?? $tag), 'nodes' => is_array($list['nodes'] ?? null) ? $list['nodes'] : []], '', true, null, PageType::LIST);
+        $pages->cacheType($tag, PageType::LIST);
+        $this->say("ferme: list {$tag} created");
+    }
+
+    private function createForm(string $farmId): void
+    {
+        $forms = $this->getService(FormManager::class);
+        if ($forms->getOne($farmId) !== null) {
+            return;
+        }
+        $form = $this->json('forms/farm.json');
+        $urls = $this->getService(UrlFormatter::class);
+        $form['template'] = json_decode(str_replace(
+            ['{UtilisationDonnees}', '{Contact}'],
+            [$urls->href('', 'UtilisationDonnees', null, false), $urls->href('', 'Contact', null, false)],
+            (string)json_encode($form['template'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        ), true);
+        $form['id'] = $farmId;
+        $forms->create($form);
+        $this->say("ferme: form {$farmId} created");
+    }
+
+    private function createMenu(string $tag): void
+    {
+        $pages = $this->getService(PageManager::class);
+        if ($pages->tagExists($tag)) {
+            return;
+        }
+        $menu = $this->json('menus/' . $tag . '.json');
+        $nodes = array_values(array_filter(array_map(static fn ($node): ?array => is_array($node) ? MenuNode::fromArray($node)?->toArray() : null, is_array($menu['nodes'] ?? null) ? $menu['nodes'] : [])));
+        $pages->save($tag, ['title' => (string)($menu['title'] ?? $tag), 'nodes' => $nodes], '', true, null, PageType::MENU);
+        $pages->cacheType($tag, PageType::MENU);
+        $this->say("ferme: menu {$tag} created");
+    }
+
+    /** @param array<string, string> $replacements */
+    private function createPage(string $tag, array $replacements): void
+    {
+        $pages = $this->getService(PageManager::class);
+        if ($pages->tagExists($tag)) {
+            return;
+        }
+        $content = strtr((string)file_get_contents(self::SETUP . '/pages/' . $tag . '.txt'), $replacements);
+        $pages->save($tag, [PageBody::CONTENT => $content], '', true, null, PageType::PAGE);
+        $pages->cacheType($tag, PageType::PAGE);
+        $acls = $this->getService(AclService::class);
+        $acls->save($tag, 'read', '@admins');
+        $acls->save($tag, 'write', '@admins');
+        $this->say("ferme: page {$tag} created");
+    }
+
+    /** The farm's screens in the quick menu, once: the menu hides them from whoever cannot read them. */
+    private function addToQuickMenu(): void
+    {
+        $tag = $this->params->has(LayoutService::QUICK_MENU) ? $this->params->get(LayoutService::QUICK_MENU) : '';
+        $tag = is_string($tag) ? trim($tag) : '';
+        $pages = $this->getService(PageManager::class);
+        $menu = $tag === '' ? null : $pages->getOne($tag, null, false, true);
+        if ($menu === null || ($menu['type'] ?? '') !== PageType::MENU) {
+            return;
+        }
+        $body = is_array($menu['body'] ?? null) ? $menu['body'] : [];
+        $nodes = is_array($body['nodes'] ?? null) ? $body['nodes'] : [];
+        foreach ($nodes as $node) {
+            if (is_array($node) && (($node['id'] ?? '') === 'ferme' || ($node['link'] ?? '') === 'AdminWikis')) {
+                return;
             }
-            $aclService->delete($pageName); // to clear acl cache
-            $aclService->save($pageName, 'read', '@admins');
-            $aclService->save($pageName, 'write', '@admins');
-            $pageManager->save($pageName, $content, '', true);
-            $output .= '✅ Done!' . "\n";
-        } else {
-            $output .= "✅ Page already exists.\n";
         }
-
-        return $output;
+        $node = MenuNode::fromArray(['id' => 'ferme', 'label' => _t('FERME_MENU_LABEL'), 'link' => 'AdminWikis', 'icon' => ['source' => 'sprite', 'value' => 'server']]);
+        if ($node === null) {
+            return;
+        }
+        $body['nodes'] = [...$nodes, $node->toArray()];
+        $pages->save($tag, $body, '', true, null, PageType::MENU);
+        $this->say("ferme: {$tag} links to the farm's screens");
     }
 
-    private function updatePageRapideHaut(string $output): string
+    /**
+     * Doryphore kept the creator's account name, email and password in the entry: a farm migrated from it loses them, every revision included.
+     */
+    private function forgetPasswords(string $farmId): void
     {
-        $pageManager = $this->getService(PageManager::class);
-        // if the page doesn't exist, error
-        $pageRapideHaut = $pageManager->getOne('PageRapideHaut');
-        if (empty($pageRapideHaut)) {
-            $output .= "The PageRapideHaut page does not exist.\n";
-        } else {
-            $output .= 'Adding menu item in PageRapideHaut for the farm ';
-            if (!strstr($pageRapideHaut['body'], 'AdminWikis')) {
-                $content = $this->loadFileContent('pages', 'PageRapideHaut');
-                $pageManager->save('PageRapideHaut', str_replace('{{end elem="buttondropdown"}}', "$content\n{{end elem=\"buttondropdown\"}}", $pageRapideHaut['body']), '', true);
-                $output .= '✅ Done!' . "\n";
-            } else {
-                $output .= "✅ The item already exists.\n";
+        $forms = $this->getService(FormManager::class);
+        if ($forms->getOne($farmId) === null) {
+            return;
+        }
+        $authentication = $this->getService(AuthenticationService::class);
+        $loggedIn = $authentication->getLoggedUser() !== '';
+
+        try {
+            if (!$loggedIn && $authentication->connectFirstAdmin() === null) {
+                return;
+            }
+            if ($this->getService(EntryManager::class)->removeAttributes(['formsIds' => [$farmId]], self::LEFTOVERS, true)) {
+                $this->say('ferme: account names and passwords removed from the farm entries');
+            }
+        } catch (Throwable $failed) {
+            $this->say('ferme: ' . $failed->getMessage());
+        } finally {
+            if (!$loggedIn) {
+                $authentication->logout();
             }
         }
-
-        return $output;
     }
 }

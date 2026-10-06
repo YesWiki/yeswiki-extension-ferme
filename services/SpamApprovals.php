@@ -2,25 +2,16 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * The pages somebody looked at and vouched for. A wiki that lists its resources
- * looks like a robot's from far away, and no rule will ever tell them apart —
- * so a person says so once, and the farm remembers.
- *
- * What is remembered is the page as it was approved. A robot that comes back to
- * it changes what it holds, the mark no longer matches, and the page is spam
- * again without anybody having to withdraw anything.
- */
+/** The pages somebody looked at and vouched for, remembered as they were approved: a page that changes is judged again. */
 class SpamApprovals
 {
     public const KEY = 'spamApproved';
 
-    private $store;
-    private $read = [];
+    /** @var array<string, array<string, string>> */
+    private array $read = [];
 
-    public function __construct(WikiStatsStore $store)
+    public function __construct(private readonly WikiStatsStore $store)
     {
-        $this->store = $store;
     }
 
     /** What is vouched for is the text, not the name. */
@@ -36,9 +27,7 @@ class SpamApprovals
         return isset($approved[$tag]) && $approved[$tag] === self::mark($body);
     }
 
-    /**
-     * @return array<string,string> page tag => the mark of the body that was approved
-     */
+    /** @return array<string, string> page tag => the mark of the text that was approved */
     public function all(string $folder): array
     {
         if (!array_key_exists($folder, $this->read)) {
@@ -63,16 +52,13 @@ class SpamApprovals
         if (!isset($approved[$tag])) {
             return false;
         }
-
         unset($approved[$tag]);
         $this->keep($folder, $approved);
 
         return true;
     }
 
-    /**
-     * @param array<string,string> $approved
-     */
+    /** @param array<string, string> $approved */
     private function keep(string $folder, array $approved): void
     {
         $this->read[$folder] = $approved;

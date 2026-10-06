@@ -2,61 +2,63 @@
 
 namespace YesWiki\Ferme\Service;
 
-use YesWiki\Bazar\Service\EntryManager;
-use YesWiki\Core\Service\Mailer;
-use YesWiki\Wiki;
+use YesWiki\Content\Service\EntryManager;
+use YesWiki\Kernel\Service\Mailer;
 
 /** Writes to the people who run the wikis of the farm. */
 class FarmMailer
 {
     public const PLACEHOLDERS = ['title', 'url', 'referent', 'folder', 'lastActivity', 'entries', 'pages', 'users', 'files'];
 
-    private $wiki;
-    private $entryManager;
-    private $mailer;
-    private $statsStore;
-
-    public function __construct(Wiki $wiki, EntryManager $entryManager, Mailer $mailer, WikiStatsStore $statsStore)
-    {
-        $this->wiki = $wiki;
-        $this->entryManager = $entryManager;
-        $this->mailer = $mailer;
-        $this->statsStore = $statsStore;
+    public function __construct(
+        private readonly FarmConfig $config,
+        private readonly EntryManager $entryManager,
+        private readonly Mailer $mailer,
+        private readonly WikiStatsStore $statsStore
+    ) {
     }
 
-    public function sendToReferent(string $idFiche, string $subject, string $body): string
+    public function sendToReferent(string $tag, string $subject, string $body): string
     {
-        return $this->send($this->farmEntry($idFiche), $subject, $body);
+        return $this->send($this->farmEntry($tag), $subject, $body);
     }
 
+    /**
+     * @param array<string, mixed>  $entry
+     * @param array<string, string> $extra
+     */
     public function send(array $entry, string $subject, string $body, array $extra = []): string
     {
         $address = trim((string)($entry['bf_mail'] ?? ''));
-
         if ($address === '' || !filter_var($address, FILTER_VALIDATE_EMAIL)) {
             throw new \RuntimeException(_t('FERME_MAIL_NO_ADDRESS'));
         }
-
         $subject = trim($this->fill($subject, $entry, $extra));
         $body = trim($this->fill($body, $entry, $extra));
         if ($subject === '' || $body === '') {
             throw new \RuntimeException(_t('FERME_MAIL_EMPTY'));
         }
-
         $this->mailer->sendEmailFromAdmin($address, $subject, $body, nl2br(htmlspecialchars($body)));
+        if ($this->mailer->lastError() !== '') {
+            throw new \RuntimeException($this->mailer->lastError());
+        }
 
         return $address;
     }
 
-    /** Replace what an admin can point at in a mail, dropping the lines that point at an extra left empty. */
+    /**
+     * Replace what a mail can point at, dropping the lines that point at an extra left empty.
+     *
+     * @param array<string, mixed>  $entry
+     * @param array<string, string> $extra
+     */
     public function fill(string $text, array $entry, array $extra = []): string
     {
         $folder = (string)($entry['bf_dossier-wiki'] ?? '');
         $stats = $folder === '' ? null : $this->statsStore->read($folder);
-
-        $values = [
-            'title' => (string)($entry['bf_titre'] ?? ''),
-            'url' => $this->url($folder),
+        $values = array_merge([
+            'title' => self::titleOf($entry),
+            'url' => $folder === '' ? '' : $this->config->wikiUrl($folder),
             'referent' => (string)($entry['bf_referent'] ?? ''),
             'folder' => $folder,
             'lastActivity' => (string)($stats['lastActivity'] ?? _t('FERME_STATS_NEVER_MEASURED')),
@@ -64,14 +66,11 @@ class FarmMailer
             'pages' => (string)(int)($stats['pages'] ?? 0),
             'users' => (string)(int)($stats['users'] ?? 0),
             'files' => (string)(int)($stats['files'] ?? 0),
-        ];
-        $values = array_merge($values, $extra);
+        ], $extra);
 
-        $empty = array_keys(array_filter($extra, function ($value) {
-            return $value === '';
-        }));
+        $empty = array_keys(array_filter($extra, static fn (string $value): bool => $value === ''));
         if ($empty !== []) {
-            $text = implode("\n", array_filter(explode("\n", $text), function (string $line) use ($empty) {
+            $text = implode("\n", array_filter(explode("\n", $text), static function (string $line) use ($empty): bool {
                 foreach ($empty as $name) {
                     if (str_contains($line, '{' . $name . '}')) {
                         return false;
@@ -80,9 +79,8 @@ class FarmMailer
 
                 return true;
             }));
-            $text = preg_replace("/\n{3,}/", "\n\n", $text);
+            $text = (string)preg_replace("/\n{3,}/", "\n\n", $text);
         }
-
         foreach ($values as $name => $value) {
             $text = str_replace('{' . $name . '}', $value, $text);
         }
@@ -90,29 +88,25 @@ class FarmMailer
         return $text;
     }
 
-    private function farmEntry(string $idFiche): array
+    /** @param array<string, mixed> $entry */
+    public static function titleOf(array $entry): string
     {
-        $entry = $this->entryManager->isEntry($idFiche) ? $this->entryManager->getOne($idFiche) : null;
-        if (empty($entry)) {
-            throw new \RuntimeException(_t('FERME_MAIL_NO_ENTRY') . ' ' . $idFiche);
-        }
+        $title = (string)($entry['title'] ?? '');
 
-        $farmForm = (string)($this->wiki->config['bazar_farm_id'] ?? '1100');
-        if ((string)($entry['id_typeannonce'] ?? '') !== $farmForm) {
-            throw new \RuntimeException(_t('FERME_MAIL_NOT_A_WIKI') . ' ' . $idFiche);
+        return $title !== '' ? $title : (string)($entry['bf_titre'] ?? $entry['bf_dossier-wiki'] ?? '');
+    }
+
+    /** @return array<string, mixed> */
+    private function farmEntry(string $tag): array
+    {
+        $entry = $this->entryManager->isEntry($tag) ? $this->entryManager->getOne($tag) : null;
+        if (empty($entry)) {
+            throw new \RuntimeException(_t('FERME_MAIL_NO_ENTRY') . ' ' . $tag);
+        }
+        if ((string)($entry['form_id'] ?? '') !== $this->config->farmId()) {
+            throw new \RuntimeException(_t('FERME_MAIL_NOT_A_WIKI') . ' ' . $tag);
         }
 
         return $entry;
-    }
-
-    private function url(string $folder): string
-    {
-        if ($folder === '') {
-            return '';
-        }
-
-        $root = rtrim((string)($this->wiki->config['yeswiki-farm-root-url'] ?? ''), '/');
-
-        return $root === '' ? $folder : $root . '/' . $folder . '/';
     }
 }

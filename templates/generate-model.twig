@@ -1,63 +1,110 @@
-<h2>{{ _t('FERME_AVAILABLE_MODELS') }}</h2>
-<form method="POST">
-<input type="hidden" name="csrf-token" value="{{ csrfToken({id: 'main', refresh: false})|e('html_attr') }}">
-<ol>
-<li style="margin-bottom:1rem;">
-  {{ _t('FERME_BASIC_INSTALL') }} <br />
-  <div class="checkbox">
-    <label>
-      <input name="config[default-content.sql]" type="checkbox" {% if defaultModelIsAvailable is not same as(false) %} checked {% endif %} />
-      <span>{{ _t('FERME_PROPOSED_MODEL') }}</span>
-    </label>
-  </div>
-</li>
-{% for model in models %}
-    <li style="margin-bottom:1rem;">
-      <div class="model-label">
-        <span class="model-label-text">{{ model.label }}</span>
-        <button type="button" class="btn btn-xs btn-default model-label-edit-btn" title="{{ _t('FERME_RENAME') }}"><i class="fas fa-pencil-alt"></i></button>
-        <input type="text" name="model_labels[{{ model.model }}]" value="{{ model.label }}" class="model-label-input form-control input-sm" style="display:none; width:auto; max-width:400px;">
-      </div>
-      <div class="checkbox">
-        <label>
-          <input name="config[{{ model.model }}]" type="checkbox" {% if model.isavailable %} checked {% endif %} />
-          <span>{{ _t('FERME_PROPOSED_MODEL') }}</span>
-        </label>
-      </div>
-      <a target="_blank" href="{{ model.url }}" class="btn btn-xs btn-default"><i class="fas fa-eye"></i> {{ _t('FERME_VIEW_SOURCE') }}</a>
-      <button type="submit" name="delete_model" value="{{ model.model }}" onclick="return confirm('{{ _t('FERME_CONFIRM_DELETE_MODEL') }}')" class="btn btn-xs btn-danger"><i class="fas fa-trash"></i> {{ _t('FERME_DELETE') }}</button>
-    </li>
-{% endfor %}
-</ol>
-<button name="save_config" type="submit" class="btn btn-primary">Enregistrer</button>
-</form>
-<hr />
-<h2>{{ _t('FERME_GENERATE_MODEL_FROM_URL') }}</h2>
-<form id="yw-import-from-url" action="{{formurl|e}}" method="post">
-  <div class="form-group">
-    <div class="input-prepend input-append input-group">
-      <span class="add-on input-group-addon"><i class="glyphicon glyphicon-link icon-globe"></i></span>
-      <input id="url-import" name="url-import" class="form-control input-xxlarge" placeholder="{{ _t('FERME_URL_IMPORT_INFO') }}" type="url">
-      <span class="input-group-btn">
-          <button id="btn-import-wiki" class="btn btn-primary" type="submit">{{ _t('FERME_IMPORT') }}</button>
-      </span>
+{% import _self as ferme %}
+{{ include_css('extensions/ferme/styles/ferme.css') }}
+<div class="ferme ferme-models">
+  {% for message in messages %}
+    <p class="yw-alert yw-alert--{{ message.type }}">{{ message.message }}</p>
+  {% endfor %}
+
+  <p class="ferme-intro">{{ _t('FERME_MODELS_INTRO') }}</p>
+
+  <h3>{{ _t('FERME_AVAILABLE_MODELS') }}</h3>
+  {% if models is empty %}
+    <p class="ferme-muted">{{ _t('FERME_MODELS_NONE') }}</p>
+  {% else %}
+    <div class="ferme-table-wrap">
+      <table class="yw-table ferme-table">
+        <thead>
+          <tr>
+            <th>{{ _t('FERME_MODEL_LABEL') }}</th>
+            <th>{{ _t('FERME_MODEL_SOURCE') }}</th>
+            <th>{{ _t('FERME_STATS_DISK') }}</th>
+            <th><span class="ferme-visually-hidden">{{ _t('FERME_WIKI_ACTION') }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for model in models %}
+            <tr>
+              <td>
+                <form method="post" class="ferme-models__update">
+                  <input type="hidden" name="csrf-token" value="{{ csrfToken }}">
+                  <input type="hidden" name="ferme_model_action" value="update">
+                  <input type="hidden" name="name" value="{{ model.name }}">
+                  <input type="text" class="yw-input" name="label" value="{{ model.label }}" aria-label="{{ _t('FERME_MODEL_LABEL') }}">
+                  <label class="ferme-models__offered"><input type="checkbox" name="offered" value="1"{% if model.offered %} checked{% endif %}> {{ _t('FERME_PROPOSED_MODEL') }}</label>
+                  <button type="submit" class="yw-btn yw-btn--sm">{{ icon('device-floppy') }} {{ _t('FERME_MODEL_SAVE') }}</button>
+                </form>
+                <code class="ferme-muted">{{ model.name }}</code>
+              </td>
+              <td>
+                {% if model.source %}<a href="{{ model.source }}" target="_blank" rel="noopener">{{ model.source }}</a>{% endif %}
+                <div class="ferme-muted">{{ model.createdAt }}</div>
+              </td>
+              <td>{{ model.size }}</td>
+              <td>
+                <form method="post" onsubmit="return confirm({{ _t('FERME_CONFIRM_DELETE_MODEL')|json_encode }})">
+                  <input type="hidden" name="csrf-token" value="{{ csrfToken }}">
+                  <input type="hidden" name="ferme_model_action" value="delete">
+                  <input type="hidden" name="name" value="{{ model.name }}">
+                  <button type="submit" class="yw-btn yw-btn--sm yw-btn--danger">{{ icon('trash') }} {{ _t('FERME_DELETE') }}</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  </div>
-  <div class="form-group" id="source-admin-fields" data-farm-root-url="{{ farmRootUrl }}">
-    <p class="help-block">{{ _t('FERME_MODEL_CREDENTIALS_HINT') }}</p>
-    <div class="row">
-      <div class="col-sm-6">
-        <input name="source_admin_user" class="form-control" placeholder="{{ _t('FERME_MODEL_ADMIN_USER') }}" type="text" autocomplete="off">
+  {% endif %}
+
+  <div class="ferme-models__new">
+    <form method="post" class="ferme-panel">
+      <h3>{{ _t('FERME_MODEL_FROM_WIKI') }}</h3>
+      <p class="ferme-muted">{{ _t('FERME_MODEL_FROM_WIKI_INTRO') }}</p>
+      <input type="hidden" name="csrf-token" value="{{ csrfToken }}">
+      <input type="hidden" name="ferme_model_action" value="from-wiki">
+      {% if wikis is empty %}
+        <p class="yw-alert yw-alert--info">{{ _t('FERME_NO_WIKIS') }}</p>
+      {% else %}
+        <div class="yw-form-group">
+          <label class="yw-form-label" for="ferme-model-folder">{{ _t('FERME_WIKI') }}</label>
+          <select class="yw-input" id="ferme-model-folder" name="folder" required>
+            {% for folder, label in wikis %}<option value="{{ folder }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        {{ ferme.naming('wiki') }}
+        <button type="submit" class="yw-btn yw-btn--primary">{{ icon('copy') }} {{ _t('FERME_MODEL_CREATE') }}</button>
+      {% endif %}
+    </form>
+
+    <form method="post" class="ferme-panel">
+      <h3>{{ _t('FERME_MODEL_FROM_REMOTE') }}</h3>
+      <p class="ferme-muted">{{ _t('FERME_MODEL_CREDENTIALS_HINT') }}</p>
+      <input type="hidden" name="csrf-token" value="{{ csrfToken }}">
+      <input type="hidden" name="ferme_model_action" value="from-remote">
+      <div class="yw-form-group">
+        <label class="yw-form-label" for="ferme-model-url">{{ _t('FERME_MODEL_REMOTE_URL') }}</label>
+        <input type="url" class="yw-input" id="ferme-model-url" name="url" required placeholder="https://example.org/?PagePrincipale">
       </div>
-      <div class="col-sm-6">
-        <input name="source_admin_password" class="form-control" placeholder="{{ _t('FERME_MODEL_ADMIN_PASSWORD') }}" type="password" autocomplete="new-password">
+      <div class="yw-form-group">
+        <label class="yw-form-label" for="ferme-model-admin">{{ _t('FERME_MODEL_ADMIN_USER') }}</label>
+        <input type="text" class="yw-input" id="ferme-model-admin" name="remote_admin" required autocomplete="off">
       </div>
-    </div>
+      <div class="yw-form-group">
+        <label class="yw-form-label" for="ferme-model-password">{{ _t('FERME_MODEL_ADMIN_PASSWORD') }}</label>
+        <input type="password" class="yw-input" id="ferme-model-password" name="remote_password" required autocomplete="off">
+      </div>
+      {{ ferme.naming('remote') }}
+      <button type="submit" class="yw-btn yw-btn--primary">{{ icon('download') }} {{ _t('FERME_MODEL_CREATE') }}</button>
+    </form>
   </div>
-  <div id="wiki-response"></div>
-  <input id="wiki-import-forms" name="wiki-import-forms" type="hidden" value="">
-  <input id="wiki-import-lists" name="wiki-import-lists" type="hidden" value="">
-  <input id="wiki-import-entries" name="wiki-import-entries" type="hidden" value="">
-  <input id="wiki-import-pages" name="wiki-import-pages" type="hidden" value="">
-</form>
-<div id="yw-import-from-url-translations" data-nbformsfound="{{ _t('BAZ_NBFORMSFOUND') }}" data-nblistsfound="{{ _t('Nombre de listes trouvées') }}" data-nbpagesfound="{{ _t('Nombre de pages trouvées') }}" data-nbentriesfound="{{ _t('Nombre de fiches trouvées') }}" data-noanswers="{{ _t('BAZ_NOANSWERS') }}" data-notvalidurl="{{ _t('BAZ_NOTVALIDURL') }}" data-recuperation="{{ _t('BAZ_RECUPERATION') }}" data-generatesqlfile="{{ _t('Générer le fichier MySQL modèle pour ce wiki') }}" data-loading="{{ _t('BAZ_LOADING') }}" data-existingmessage="{{ _t('BAZ_EXISTINGMESSAGEFORM') }}" data-existingmessagereplace="{{ _t('BAZ_EXISTINGMESSAGEREPLACEFORM') }}" data-selectall="{{ _t('FERME_SELECT_ALL') }}"></div>
+</div>
+
+{% macro naming(prefix) %}
+  <div class="yw-form-group">
+    <label class="yw-form-label" for="ferme-model-{{ prefix }}-name">{{ _t('FERME_MODEL_NAME') }}</label>
+    <input type="text" class="yw-input" id="ferme-model-{{ prefix }}-name" name="name" required pattern="[a-zA-Z0-9-]+" placeholder="association">
+  </div>
+  <div class="yw-form-group">
+    <label class="yw-form-label" for="ferme-model-{{ prefix }}-label">{{ _t('FERME_MODEL_LABEL') }}</label>
+    <input type="text" class="yw-input" id="ferme-model-{{ prefix }}-label" name="label" placeholder="{{ _t('FERME_MODEL_LABEL_PLACEHOLDER') }}">
+  </div>
+{% endmacro %}

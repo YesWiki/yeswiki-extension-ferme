@@ -2,56 +2,39 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * What a deletion needs to know about the other entries, worked out once.
- *
- * Asking "does another entry claim this folder?" means reading every farm entry,
- * which costs half a second on a farm of a few thousand. Deleting three hundred
- * wikis one request at a time paid it three hundred times.
- */
+/** Which entries name which folder, read once: a folder two entries claim must survive the deletion of one of them. */
 class DeletionPlan
 {
-    private $byFolder = [];
+    /** @var array<string, list<string>> */
+    private array $byFolder = [];
 
-    /**
-     * @param array<string,array<string,mixed>> $entries as EntryManager::search returns them
-     */
+    /** @param array<array-key, mixed> $entries as EntryManager::search returns them */
     public function index(array $entries): void
     {
         $this->byFolder = [];
         foreach ($entries as $entry) {
-            $folder = (string)($entry['bf_dossier-wiki'] ?? '');
-            $idFiche = (string)($entry['id_fiche'] ?? '');
-            if ($folder === '' || $idFiche === '') {
+            if (!is_array($entry)) {
                 continue;
             }
-            $this->byFolder[$folder][] = $idFiche;
+            $folder = (string)($entry['bf_dossier-wiki'] ?? '');
+            $tag = (string)($entry['tag'] ?? '');
+            if ($folder !== '' && $tag !== '') {
+                $this->byFolder[$folder][] = $tag;
+            }
         }
     }
 
-    /**
-     * @return array<int,string> the entries other than this one naming that folder
-     */
-    public function others(string $folder, string $idFiche): array
+    /** @return list<string> the entries other than this one naming that folder */
+    public function others(string $folder, string $tag): array
     {
-        return array_values(array_filter(
-            $this->byFolder[$folder] ?? [],
-            function (string $other) use ($idFiche) {
-                return $other !== $idFiche;
-            }
-        ));
+        return array_values(array_filter($this->byFolder[$folder] ?? [], static fn (string $other): bool => $other !== $tag));
     }
 
-    /**
-     * An entry that has just been deleted claims nothing any more: without this, the
-     * second of two entries on one folder would be kept alive by the first, already gone.
-     */
-    public function forget(string $idFiche): void
+    /** An entry just deleted claims nothing any more. */
+    public function forget(string $tag): void
     {
         foreach ($this->byFolder as $folder => $entries) {
-            $left = array_values(array_filter($entries, function (string $other) use ($idFiche) {
-                return $other !== $idFiche;
-            }));
+            $left = array_values(array_filter($entries, static fn (string $other): bool => $other !== $tag));
             if ($left === []) {
                 unset($this->byFolder[$folder]);
             } else {

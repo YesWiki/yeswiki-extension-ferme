@@ -2,10 +2,7 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * Turns stored numbers into what a row shows: a sparkline drawn server side, a
- * size a human reads, and an age rather than a timestamp.
- */
+/** Turns stored numbers into what a row shows: a sparkline, a size a human reads, an age rather than a timestamp. */
 class StatsPresenter
 {
     private const WIDTH = 4;
@@ -14,10 +11,9 @@ class StatsPresenter
     private const AGE_LIMIT = 92;
 
     /**
-     * Twelve bars of inline SVG in the current text colour, so it follows the theme
-     * and prints. The numbers travel with it for whoever cannot see it.
+     * Twelve bars of inline SVG in the current text colour, the numbers in its label.
      *
-     * @param array<int,int> $months oldest first
+     * @param array<int, int> $months oldest first
      */
     public function sparkline(array $months): string
     {
@@ -30,7 +26,7 @@ class StatsPresenter
         $width = count($months) * (self::WIDTH + self::GAP) - self::GAP;
         $bars = '';
 
-        foreach (array_values($months) as $index => $edits) {
+        foreach ($months as $index => $edits) {
             $height = $peak > 0 ? max(1, (int)round($edits / $peak * self::HEIGHT)) : 1;
             $bars .= '<rect x="' . $index * (self::WIDTH + self::GAP) . '" y="' . (self::HEIGHT - $height) . '"'
                 . ' width="' . self::WIDTH . '" height="' . $height . '"'
@@ -48,10 +44,9 @@ class StatsPresenter
     }
 
     /**
-     * A year of edits as a grid of weeks, the way a calendar of contributions
-     * reads: one column a week, one cell a day, darker where there was more.
+     * A year of edits as a grid of weeks, darker where there was more.
      *
-     * @param array<string,int> $edits keyed by Y-m-d
+     * @param array<string, int> $edits keyed by Y-m-d
      */
     public function calendar(array $edits, int $weeks = 53): string
     {
@@ -86,9 +81,7 @@ class StatsPresenter
             . '<title>' . htmlspecialchars($label) . '</title>' . $squares . '</svg>';
     }
 
-    /**
-     * What the calendar covers, said with dates rather than left to guess.
-     */
+    /** What the calendar covers, said with dates. */
     public function calendarTitle(int $weeks = 53): string
     {
         $format = _t('FERME_DATE_FORMAT');
@@ -129,10 +122,7 @@ class StatsPresenter
         return ($unit === 0 ? (string)(int)$size : number_format($size, $size < 10 ? 1 : 0, ',', ' ')) . ' ' . $units[$unit];
     }
 
-    /**
-     * How long ago, while that still means something. Past three months "il y a
-     * sept mois" tells nobody anything useful, so the date itself is shown.
-     */
+    /** How long ago, while that still means something, then the date itself. */
     public function age(?string $date): string
     {
         if (empty($date)) {

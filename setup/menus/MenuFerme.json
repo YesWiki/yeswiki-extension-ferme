@@ -1,0 +1,8 @@
+{
+  "title": "Ferme à wikis",
+  "nodes": [
+    { "id": "ferme-new", "label": "Nouveau wiki", "link": "AjouterWiki", "icon": { "source": "sprite", "value": "circle-plus" } },
+    { "id": "ferme-wikis", "label": "Wikis", "link": "AdminWikis", "icon": { "source": "sprite", "value": "server" } },
+    { "id": "ferme-models", "label": "Modèles de wiki", "link": "ModelesWiki", "icon": { "source": "sprite", "value": "copy" } }
+  ]
+}

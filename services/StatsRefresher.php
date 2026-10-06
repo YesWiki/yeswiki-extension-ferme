@@ -4,31 +4,25 @@ namespace YesWiki\Ferme\Service;
 
 use YesWiki\Ferme\Exception\WikiStatsException;
 
-/**
- * Measures one wiki again, but only what has moved: the two probes decide whether
- * the counting, the weighing, both or neither are worth doing. The sweep and the
- * per-visit trickle both go through here, so they cannot drift apart.
- */
+/** Measures one wiki again, but only what has moved since the last count. */
 class StatsRefresher
 {
     public const RECOMPUTE_AFTER = 604800;
 
-    private $stats;
-    private $store;
-    private $spam;
-    private $untouched = [];
+    /** @var list<string> */
+    private array $untouched = [];
 
-    public function __construct(WikiStats $stats, WikiStatsStore $store, SpamScore $spam)
-    {
-        $this->stats = $stats;
-        $this->store = $store;
-        $this->spam = $spam;
+    public function __construct(
+        private readonly WikiStats $stats,
+        private readonly WikiStatsStore $store,
+        private readonly SpamScore $spam
+    ) {
     }
 
     /**
-     * @param array{force?:bool,withDisk?:bool,known?:array<string,mixed>|null} $options
+     * @param array{force?: bool, withDisk?: bool, known?: array<string, mixed>|null} $options
      *
-     * @return array{counted:bool,walked:bool,failed:?string}
+     * @return array{counted: bool, walked: bool, failed: ?string}
      */
     public function refresh(string $folder, array $options = []): array
     {
@@ -38,7 +32,6 @@ class StatsRefresher
 
         $countAgain = $force || $this->databaseMoved($folder, $known);
         $walkAgain = $withDisk && ($force || $this->diskMoved($folder, $known));
-
         if (!$countAgain && !$walkAgain) {
             $this->untouched[] = $folder;
 
@@ -46,16 +39,11 @@ class StatsRefresher
         }
 
         try {
-            $measured = [];
-            if ($countAgain) {
-                $measured = $this->stats->fromDatabase($folder);
-            }
+            $measured = $countAgain ? $this->stats->fromDatabase($folder) : [];
             if ($walkAgain) {
-                $measured = array_merge($measured, $this->stats->fromDisk($folder), [
-                    'filesMtime' => $this->stats->diskProbe($folder),
-                ]);
+                $measured = array_merge($measured, $this->stats->fromDisk($folder), ['filesMtime' => $this->stats->diskProbe($folder)]);
             }
-            $this->store->save($folder, array_merge($measured, $this->judge($folder, $measured, $known)));
+            $this->store->save($folder, array_merge($measured, $this->judge($folder, $measured)));
         } catch (WikiStatsException $exception) {
             $this->store->fail($folder, $exception->getReason());
 
@@ -65,51 +53,17 @@ class StatsRefresher
         return ['counted' => $countAgain, 'walked' => $walkAgain, 'failed' => null];
     }
 
-    /**
-     * What the numbers and the wiki's own name say about it being spam. A pass that
-     * only weighed the folders keeps whatever the last full count decided.
-     *
-     * @param array<string,mixed>      $measured
-     * @param array<string,mixed>|null $known
-     *
-     * @return array<string,mixed>
-     */
-    private function judge(string $folder, array $measured, ?array $known): array
-    {
-        if (!array_key_exists('name', $measured)) {
-            return [];
-        }
-
-        $verdict = $this->spam->of(
-            (string)$measured['name'],
-            (string)($measured['description'] ?? ''),
-            $measured,
-            $folder
-        );
-
-        return [
-            'suspect' => $verdict['score'],
-            'suspectWhy' => implode(',', $verdict['reasons']),
-        ];
-    }
-
-    /**
-     * @param array<string,mixed>|null $known
-     */
+    /** @param array<string, mixed>|null $known */
     public function isStale(?array $known, int $olderThan): bool
     {
         if ($known === null || empty($known['checkedAt'])) {
             return true;
         }
 
-        return strtotime($known['checkedAt']) < time() - $olderThan;
+        return (int)strtotime((string)$known['checkedAt']) < time() - $olderThan;
     }
 
-    /**
-     * Count one wiki again, now, because something the farm did just changed what
-     * there is to count. Used by the actions rather than by the sweep: waiting a
-     * quarter of an hour to see the result of one's own click is no fun.
-     */
+    /** Count one wiki again now, because something the farm just did changed it. */
     public function remeasure(string $folder, bool $withDisk = true): void
     {
         try {
@@ -120,53 +74,64 @@ class StatsRefresher
         }
     }
 
-    /**
-     * Ends a sweep: the wikis where nothing had moved get their check date in one
-     * statement, and the connections opened along the way are released.
-     */
+    /** End a sweep: the wikis where nothing moved get their check date in one statement. */
     public function close(): void
     {
-        if (!empty($this->untouched)) {
+        if ($this->untouched !== []) {
             $this->store->touchMany($this->untouched);
             $this->untouched = [];
         }
         $this->stats->close();
     }
 
+    /**
+     * What the numbers and the wiki's own name say about it being spam.
+     *
+     * @param array<string, mixed> $measured
+     *
+     * @return array<string, mixed>
+     */
+    private function judge(string $folder, array $measured): array
+    {
+        if (!array_key_exists('name', $measured)) {
+            return [];
+        }
+        $verdict = $this->spam->of((string)$measured['name'], (string)($measured['description'] ?? ''), $measured, $folder);
+
+        return [
+            'suspect' => $verdict['score'],
+            'suspectWhy' => implode(',', $verdict['reasons']),
+        ];
+    }
+
+    /** @param array<string, mixed>|null $known */
     private function databaseMoved(string $folder, ?array $known): bool
     {
         if ($known === null || !isset($known['lastPageId']) || $this->tooOld($known)) {
             return true;
         }
-        // a wiki last measured before the farm kept install dates owes one more count
         if (!isset($known['editedPages']) && (int)($known['pages'] ?? 0) > 0) {
             return true;
         }
-
         $probe = $this->stats->probe($folder);
 
         return $probe === null || $probe !== $known['lastPageId'];
     }
 
+    /** @param array<string, mixed>|null $known */
     private function diskMoved(string $folder, ?array $known): bool
     {
         if ($known === null || !isset($known['filesMtime']) || $this->tooOld($known)) {
             return true;
         }
-
         $probe = $this->stats->diskProbe($folder);
 
         return $probe === null || $probe !== $known['filesMtime'];
     }
 
-    /**
-     * Deleting an account moves no page id and touches no folder, so a week without
-     * a full count is enough to recount whatever the probes say.
-     *
-     * @param array<string,mixed> $known
-     */
+    /** @param array<string, mixed> $known */
     private function tooOld(array $known): bool
     {
-        return empty($known['computedAt']) || strtotime($known['computedAt']) < time() - self::RECOMPUTE_AFTER;
+        return empty($known['computedAt']) || (int)strtotime((string)$known['computedAt']) < time() - self::RECOMPUTE_AFTER;
     }
 }

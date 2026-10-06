@@ -1,0 +1,62 @@
+<div class="ferme-detail__body" data-ferme-folder="{{ folder }}">
+  {% if error %}
+    <p class="yw-alert yw-alert--danger">{{ error }}</p>
+  {% endif %}
+  {% if calendar %}
+    <section class="ferme-detail__section ferme-calendar-wrap">
+      <h4>{{ calendarTitle }}</h4>
+      {{ calendar|raw }}
+    </section>
+  {% endif %}
+  {% if stats %}
+    <section class="ferme-detail__section">
+      <h4>{{ _t('FERME_STATS_DETAIL') }}</h4>
+      <dl class="ferme-facts">
+        <dt>{{ _t('FERME_SORT_FORMS') }}</dt><dd>{{ stats.forms|default(0) }}</dd>
+        <dt>{{ _t('FERME_FILES_TITLE') }}</dt><dd>{{ stats.files|default(0) }}</dd>
+        {% if stats.version is defined %}<dt>{{ _t('FERME_WIKI_VERSION') }}</dt><dd>{{ stats.version }} {{ stats.release|default('') }}</dd>{% endif %}
+        {% if stats.firstActivity is defined %}<dt>{{ _t('FERME_STATS_INSTALLED_AT') }}</dt><dd>{{ stats.firstActivity }}</dd>{% endif %}
+        {% if stats.editedPages is defined %}<dt>{{ _t('FERME_STATS_EDITED_PAGES_LABEL') }}</dt><dd>{{ stats.editedPages }}</dd>{% endif %}
+        {% if stats.computedAt is defined %}<dt>{{ _t('FERME_STATS_MEASURED_AT') }}</dt><dd>{{ stats.computedAt }}</dd>{% endif %}
+        {% if stats.error is defined and stats.error %}<dt>{{ _t('FERME_UPGRADE_ERROR') }}</dt><dd>{{ stats.error }}</dd>{% endif %}
+      </dl>
+    </section>
+  {% endif %}
+  <section class="ferme-detail__section">
+    <h4>{{ _t('FERME_SPAM_PAGES_TITLE') }}</h4>
+    {% if spam is empty %}
+      <p class="ferme-muted">{{ _t('FERME_CLEAN_NOTHING') }}</p>
+    {% else %}
+      <ul class="ferme-spam">
+        {% for page in spam %}
+          <li>
+            <a href="{{ page.url }}" target="_blank" rel="noopener">{{ page.tag }}</a>
+            <span class="yw-label{% if page.action == 'delete' %} yw-label--danger{% else %} yw-label--warning{% endif %}">{{ page.action == 'delete' ? _t('FERME_SPAM_WOULD_DELETE') : (page.action == 'strip' ? _t('FERME_SPAM_WOULD_STRIP') : _t('FERME_SPAM_STUCK')) }}</span>
+            <span class="ferme-muted">{{ page.words }} {{ _t('FERME_SPAM_WHY_WORDS') }}, {{ page.links }} {{ _t('FERME_SPAM_WHY_LINKS') }}</span>
+            <button type="button" class="yw-btn yw-btn--sm" data-ferme-approve data-tag="{{ page.tag }}">{{ icon('check') }} {{ _t('FERME_SPAM_APPROVE') }}</button>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if approved is not empty %}
+      <h5>{{ _t('FERME_SPAM_APPROVED_BY_HAND') }}</h5>
+      <ul class="ferme-spam">
+        {% for tag in approved %}
+          <li>{{ tag }} <button type="button" class="yw-btn yw-btn--sm" data-ferme-approve data-undo data-tag="{{ tag }}">{{ icon('arrow-back-up') }} {{ _t('FERME_SPAM_UNAPPROVE') }}</button></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+  <section class="ferme-detail__section">
+    <h4>{{ _t('FERME_ARCHIVES_TITLE') }}</h4>
+    {% if archives is empty %}
+      <p class="ferme-muted">{{ _t('FERME_NO_ARCHIVE') }}</p>
+    {% else %}
+      <ul class="ferme-archives">
+        {% for archive in archives %}
+          <li><a href="{{ archive.url }}">{{ icon('download') }} {{ archive.file }}</a> <span class="ferme-muted">{{ archive.size }} · {{ archive.time|date('Y-m-d H:i') }}</span></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+</div>

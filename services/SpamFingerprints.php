@@ -2,14 +2,12 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * The one thing a farm can see that a wiki cannot: the same line of links pasted
- * into wiki after wiki. A line carrying a link and found in several unrelated
- * wikis is a robot's, and the cleaning may take it out wherever it sits.
- */
+use YesWiki\Files\Service\Storage;
+
+/** The one thing a farm sees that a wiki cannot: the same line of links pasted into wiki after wiki. */
 class SpamFingerprints
 {
-    public const FILE = 'spam-lines.json';
+    public const FILE = 'spam/spam-lines.json';
     public const WIKIS_FOR_CAMPAIGN = 5;
     public const PAGES_READ = 60;
     public const LINES_FOR_SPAM_PAGE = 5;
@@ -17,29 +15,23 @@ class SpamFingerprints
     public const SAMPLES_KEPT = 200;
     public const SAMPLE_LENGTH = 160;
 
-    private $config;
-    private $finder;
-    private $database;
-    private $known;
+    /** @var array<string, int>|null */
+    private ?array $known = null;
 
-    public function __construct(FarmConfig $config, WikiFinder $finder, WikiDatabase $database)
-    {
-        $this->config = $config;
-        $this->finder = $finder;
-        $this->database = $database;
+    public function __construct(
+        private readonly FarmConfig $config,
+        private readonly WikiFinder $finder,
+        private readonly WikiPages $pages,
+        private readonly Storage $storage
+    ) {
     }
 
-    /**
-     * The fingerprint of a line, or null for a line the index ignores. Only lines
-     * carrying a link are indexed: ordinary prose repeats itself from one wiki to
-     * the next without anybody's help.
-     */
+    /** The fingerprint of a line carrying a link, or null for any other line. */
     public static function fingerprint(string $line): ?string
     {
         if (preg_match('#https?://#i', $line) !== 1) {
             return null;
         }
-
         $normalised = preg_replace('/\s+/', ' ', mb_strtolower(trim($line)));
 
         return $normalised === null || $normalised === '' ? null : substr(sha1($normalised), 0, 12);
@@ -52,11 +44,7 @@ class SpamFingerprints
         return $print !== null && isset($this->load()[$print]);
     }
 
-    /**
-     * How much of a page is lines the farm has seen elsewhere.
-     *
-     * @return array{lines:int,known:int,share:float}
-     */
+    /** @return array{lines: int, known: int, share: float} */
     public function measurePage(string $body): array
     {
         $index = $this->load();
@@ -76,28 +64,20 @@ class SpamFingerprints
         return ['lines' => $lines, 'known' => $known, 'share' => $lines === 0 ? 0.0 : $known / $lines];
     }
 
-    /**
-     * A page belongs to a campaign when enough of its links come from one: a wiki
-     * that copied a footer from a neighbour shares a line or two, never half a page.
-     */
+    /** A page belongs to a campaign when enough of its links come from one. */
     public function isCampaignPage(string $body): bool
     {
         $measure = $this->measurePage($body);
 
-        return $measure['known'] >= self::LINES_FOR_SPAM_PAGE
-            && $measure['share'] >= self::SHARE_FOR_SPAM_PAGE;
+        return $measure['known'] >= self::LINES_FOR_SPAM_PAGE && $measure['share'] >= self::SHARE_FOR_SPAM_PAGE;
     }
 
     /**
-     * Read every wiki, learn the lines its condemned pages carry, and keep those
-     * that several wikis share.
+     * Read every wiki, learn the lines its condemned pages carry, and keep those several wikis share and no innocent page carries.
      *
-     * Only condemned pages teach: a farm's wikis are clones of one another, so the
-     * lines they all show are the model's, not a robot's. And a line that also sits
-     * on a page nobody suspects is dropped whatever its spread — that is how the
-     * documentation's own examples stay out of the index.
+     * @param callable(string, int): void|null $onWiki
      *
-     * @return array{wikis:int,lines:int,kept:int,dropped:int,path:string}
+     * @return array{wikis: int, lines: int, kept: int, dropped: int, path: string}
      */
     public function build(string $hosts = '', int $wikisForCampaign = self::WIKIS_FOR_CAMPAIGN, ?callable $onWiki = null): array
     {
@@ -107,32 +87,22 @@ class SpamFingerprints
         $wikis = 0;
 
         foreach ($this->finder->find() as $wiki) {
-            $folder = (string)$wiki['FOLDER'];
-            $wakkaConfig = $this->config->readWikiConfig($folder);
-            if (empty($wakkaConfig['table_prefix'])) {
-                continue;
-            }
-
             try {
-                $db = $this->database->connect($wakkaConfig);
+                $pages = $this->pages->current($wiki['FOLDER'], self::PAGES_READ);
             } catch (\Throwable $throwable) {
                 continue;
             }
-
             $wikis++;
-            [$dirty, $clean] = $this->linesOf($db, (string)$wakkaConfig['table_prefix'], $hosts);
-            $db->close();
-
+            [$dirty, $clean] = $this->linesOf($pages, $hosts);
             foreach ($dirty as $print => $line) {
                 $suspect[$print] = ($suspect[$print] ?? 0) + 1;
-                $samples[$print] = $samples[$print] ?? $line;
+                $samples[$print] ??= $line;
             }
             foreach (array_keys($clean) as $print) {
                 $innocent[$print] = true;
             }
-
             if ($onWiki !== null) {
-                $onWiki($folder, $wikis);
+                $onWiki($wiki['FOLDER'], $wikis);
             }
         }
 
@@ -144,15 +114,14 @@ class SpamFingerprints
             }
             if (isset($innocent[$print])) {
                 $dropped++;
-
                 continue;
             }
             $kept[$print] = $count;
         }
         arsort($kept);
 
-        $path = $this->path();
-        file_put_contents($path, (string)json_encode([
+        $path = $this->config->dataPath(self::FILE);
+        $this->storage->write($path, (string)json_encode([
             'builtAt' => date('Y-m-d H:i:s'),
             'wikis' => $wikis,
             'threshold' => $wikisForCampaign,
@@ -164,34 +133,22 @@ class SpamFingerprints
         return ['wikis' => $wikis, 'lines' => count($suspect), 'kept' => count($kept), 'dropped' => $dropped, 'path' => $path];
     }
 
-    /**
-     * @return array<string,int> fingerprint => how many wikis carry it
-     */
+    /** @return array<string, int> fingerprint => how many wikis carry it */
     public function load(): array
     {
-        if ($this->known !== null) {
-            return $this->known;
+        if ($this->known === null) {
+            $lines = $this->index()['lines'] ?? null;
+            $this->known = is_array($lines) ? array_map('intval', $lines) : [];
         }
-
-        $path = $this->path();
-        $index = is_file($path) ? json_decode((string)file_get_contents($path), true) : null;
-        $this->known = is_array($index['lines'] ?? null) ? $index['lines'] : [];
 
         return $this->known;
     }
 
-    /**
-     * @return array{builtAt:string,wikis:int,threshold:int,kept:int}|null
-     */
+    /** @return array{builtAt: string, wikis: int, threshold: int, kept: int}|null */
     public function about(): ?array
     {
-        $path = $this->path();
-        if (!is_file($path)) {
-            return null;
-        }
-
-        $index = json_decode((string)file_get_contents($path), true);
-        if (!is_array($index)) {
+        $index = $this->index();
+        if ($index === []) {
             return null;
         }
 
@@ -203,57 +160,55 @@ class SpamFingerprints
         ];
     }
 
-    /**
-     * The lines the most wikis carry, with a sample of one, for an operator who
-     * wants to see what the index is made of.
-     *
-     * @return array<int,array{print:string,wikis:int,line:string}>
-     */
+    /** @return list<array{print: string, wikis: int, line: string}> */
     public function widest(int $limit = 20): array
     {
         $samples = $this->samples();
         $rows = [];
         foreach (array_slice($this->load(), 0, max(1, $limit), true) as $print => $wikis) {
-            $rows[] = ['print' => $print, 'wikis' => $wikis, 'line' => (string)($samples[$print] ?? '')];
+            $rows[] = ['print' => (string)$print, 'wikis' => $wikis, 'line' => (string)($samples[$print] ?? '')];
         }
 
         return $rows;
     }
 
-    /**
-     * @return array<string,string> fingerprint => one of the lines behind it
-     */
+    /** @return array<string, string> */
     public function samples(): array
     {
-        $path = $this->path();
-        $index = is_file($path) ? json_decode((string)file_get_contents($path), true) : null;
+        $samples = $this->index()['samples'] ?? null;
 
-        return is_array($index['samples'] ?? null) ? $index['samples'] : [];
+        return is_array($samples) ? array_map('strval', $samples) : [];
+    }
+
+    /** @return array<string, mixed> */
+    private function index(): array
+    {
+        $path = $this->config->dataPath(self::FILE);
+        try {
+            $decoded = $this->storage->fileExists($path) ? json_decode($this->storage->read($path), true) : null;
+        } catch (\Throwable $throwable) {
+            $decoded = null;
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     /**
-     * The fingerprints this wiki carries, told apart by the page they sit on.
+     * The fingerprints a wiki carries, told apart by whether the page they sit on is condemned.
      *
-     * @return array{0:array<string,string>,1:array<string,bool>} the lines of its
-     *                                                            condemned pages, then those of the others
+     * @param list<array{tag: string, content: string, owner: string, revisions: int}> $pages
+     *
+     * @return array{0: array<string, string>, 1: array<string, bool>}
      */
-    private function linesOf(\mysqli $db, string $prefix, string $hosts): array
+    private function linesOf(array $pages, string $hosts): array
     {
-        $result = @$db->query(
-            'SELECT body FROM `' . $this->database->table($prefix, 'pages') . '`'
-            . ' WHERE latest = "Y" ORDER BY time DESC LIMIT ' . self::PAGES_READ
-        );
-
         $dirty = [];
         $clean = [];
-        while ($result && ($row = $result->fetch_assoc())) {
-            $body = (string)$row['body'];
+        foreach ($pages as $page) {
+            $body = $page['content'];
             $lines = preg_split(SpamCleaner::LINES, $body) ?: [];
-            $words = (int)preg_match_all(WikiStats::SPAM_VOCABULARY, $body);
-            $links = (int)preg_match_all('#https?://#i', $body);
-            $condemned = SpamCleaner::isSpamPage($body, $words, $links, $hosts)
+            $condemned = SpamCleaner::isSpamPage($body, (int)preg_match_all(WikiStats::SPAM_VOCABULARY, $body), (int)preg_match_all('#https?://#i', $body), $hosts)
                 || SpamCleaner::linkFarm($lines) !== [];
-
             foreach ($lines as $line) {
                 $print = self::fingerprint($line);
                 if ($print === null) {
@@ -268,10 +223,5 @@ class SpamFingerprints
         }
 
         return [$dirty, $clean];
-    }
-
-    private function path(): string
-    {
-        return $this->config->ensureBackupDir('spam') . DIRECTORY_SEPARATOR . self::FILE;
     }
 }

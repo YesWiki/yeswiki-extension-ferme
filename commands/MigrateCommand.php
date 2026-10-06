@@ -3,43 +3,54 @@
 namespace YesWiki\Ferme\Commands;
 
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use YesWiki\Ferme\Service\FarmMigrationWatch;
+use YesWiki\Ferme\Service\FarmCommand;
+use YesWiki\Ferme\Service\WikiMigrator;
 
-/**
- * The core's `migrate`, followed by the farm's own when the master just changed
- * version. The console loads the tools in alphabetical order and a command keeps
- * the last name registered, so this one stands in for autoupdate's.
- *
- * Nothing is done in the background here: whoever typed the command is watching,
- * and would rather see the wikis go by than find out from a log.
- */
-if (class_exists(\YesWiki\AutoUpdate\Commands\MigrateCommand::class)) {
-    class MigrateCommand extends \YesWiki\AutoUpdate\Commands\MigrateCommand
+/** `ferme:migrate`: runs every wiki's own `migrate`, which is what a farm owes its wikis after the shared Program was updated. */
+class MigrateCommand extends FarmCommand
+{
+    protected function configure(): void
     {
-        protected function execute(InputInterface $input, OutputInterface $output)
-        {
-            $status = parent::execute($input, $output);
+        $this
+            ->setName('ferme:migrate')
+            ->setDescription(_t('FERME_CLI_MIGRATE_DESCRIPTION'))
+            ->setHelp(_t('FERME_CLI_MIGRATE_HELP'))
+            ->addWikiSelectionOptions()
+            ->addDryRunOption();
+    }
 
-            try {
-                $watch = $this->wiki->services->get(FarmMigrationWatch::class);
-                if (!$watch->isDue()) {
-                    return $status;
-                }
-                $output->writeln(_t('FERME_MIGRATE_FARM_TOO') . ' ' . $watch->release());
-            } catch (\Throwable $throwable) {
-                $output->writeln('<comment>ferme: ' . $throwable->getMessage() . '</comment>');
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $started = microtime(true);
+        $wikis = $this->selectWikis($input);
+        if ($wikis === []) {
+            $this->warnNothingFound($input, $output);
 
-                return $status;
-            }
-
-            putenv(FarmMigrationWatch::RUNNING . '=1');
-            $farm = $this->getApplication()->find('ferme:update');
-            $farmStatus = $farm->run(new ArrayInput(['command' => 'ferme:update', '--migrate-only' => true]), $output);
-
-            return $status === Command::SUCCESS ? $farmStatus : $status;
+            return Command::SUCCESS;
         }
+        $migrator = $this->service(WikiMigrator::class);
+        $migrated = 0;
+        $failed = [];
+        foreach ($wikis as $wiki) {
+            try {
+                $result = $migrator->migrate($wiki['FOLDER'], $this->isDryRun($input));
+                $migrated++;
+                $output->writeln($this->dryRunPrefix($input) . '<info>' . $this->label($wiki) . '</info>');
+                foreach ($result['messages'] as $line) {
+                    $output->writeln('      ' . $line, OutputInterface::VERBOSITY_VERBOSE);
+                }
+            } catch (\Throwable $throwable) {
+                $failed[] = $this->label($wiki) . ' : ' . $throwable->getMessage();
+            }
+        }
+
+        return $this->renderSummary($output, _t('FERME_CLI_MIGRATE_SUMMARY'), [
+            _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+            _t('FERME_CLI_MIGRATED') => $migrated,
+            _t('FERME_CLI_FAILED') => count($failed),
+            _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+        ], $failed, $this->isDryRun($input));
     }
 }

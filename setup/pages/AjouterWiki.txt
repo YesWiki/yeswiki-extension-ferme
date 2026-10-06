@@ -1,6 +1,3 @@
-{{grid}}
-{{col size="2"}}{{nav class="nav-admin-wikis nav nav-pills nav-stacked" links="AjouterWiki, AdminWikis, ModelesWiki" titles="Nouveau wiki, Wikis, Modèles de wiki"}}{{end elem="col"}}
-{{col size="10"}}
-{{bazar vue="saisir" voirmenu="0" id="{FarmFormId}" }}
-{{end elem="col"}}
-{{end elem="grid"}}
+{{nav menu="MenuFerme"}}
+
+{{bazar view="saisir" showmenu="0" id="{FarmFormId}"}}

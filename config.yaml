@@ -2,10 +2,15 @@ parameters:
   bazar_farm_id: 1100
   yeswiki-farm-root-folder: '.'
   yeswiki-farm-admin-email: ''
-  yeswiki-farm-archive-url: ''
-  yeswiki-farm-backup-dir: 'private/backups/farm'
+  yeswiki-farm-prefix: 'yeswiki_'
+  yeswiki-farm-db-driver: ''
+  yeswiki-farm-db-host: ''
+  yeswiki-farm-db-port: ''
+  yeswiki-farm-db-admin-user: ''
+  yeswiki-farm-db-admin-password: ''
+  yeswiki-farm-extensions: []
+  yeswiki-farm-archive-on-delete: true
   yeswiki-farm-stats-on-visit: true
-  yeswiki-farm-stats-interval: 300
   yeswiki-farm-stats-per-visit: 100
   yeswiki-farm-spam-threshold: 3
   yeswiki-farm-spam-words: ''
@@ -27,100 +32,6 @@ parameters:
   yeswiki-farm-welcome-mail-body: ''
   contact_wikis:
     default_template: 'list-email.twig'
-  yeswiki-farm-lent-files: &sharedFiles
-    - 'javascripts'
-    - 'vendor'
-    - 'styles'
-    - 'docs'
-    - 'includes'
-    - 'lang'
-    - 'tests'
-    - 'setup'
-    - 'handlers'
-    - 'actions'
-    - 'formatters'
-    - 'templates'
-    - 'themes/margot'
-    - 'tools/aceditor'
-    - 'tools/attach'
-    - 'tools/autoupdate'
-    - 'tools/bazar'
-    - 'tools/contact'
-    - 'tools/helloworld'
-    - 'tools/lang'
-    - 'tools/login'
-    - 'tools/progressBar'
-    - 'tools/rss'
-    - 'tools/security'
-    - 'tools/syndication'
-    - 'tools/tableau'
-    - 'tools/tags'
-    - 'tools/templates'
-    - 'tools/toc'
-  yeswiki_symlinked_files: *sharedFiles
-  yeswiki_empty_folders:
-    - 'cache'
-    - 'custom'
-    - 'files'
-    - 'private'
-  yeswiki_files:
-    - 'index.php'
-    - 'composer.json'
-    - 'composer.lock'
-    - 'Dockerfile'
-    - 'docker-compose.yml'
-    - 'INSTALL.md'
-    - 'interwiki.conf'
-    - 'LICENSE'
-    - 'README.md'
-    - 'robots.txt'
-    - 'wakka.basic.css'
-    - 'wakka.css'
-    - 'wakka.php'
-    - 'yeswicli'
-    - 'actions'
-    - 'docs'
-    - 'docker'
-    - 'files/AdaLovelace_ada_byron.jpg'
-    - 'files/ElizabethJFeinler_elizabethfeinler.jpg'
-    - 'files/yeswiki-logo.png'
-    - 'files/ElizabethJFeinler_elizabethfeinler-2011.jpg'
-    - 'files/GererSite_modele_19880101000000_23001231235959.jpg'
-    - 'files/LovelaceAda_lovelace.png'
-    - 'files/PageHeader_bandeau_19880101000000_23001231235959.png'
-    - 'files/PageHeader_bandeau_19880101000000_23001231235959.webp'
-    - 'files/TesT2_presence-photo.png'
-    - 'files/UnBeauLogoPourYeswiki_yeswiki-logo.png'
-    - 'files/UnNouveauThemePourYeswiki_capture-décran-2020-02-12-à-13.16.33.png'
-    - 'files/YeswikidaY_yeswiki-logo.png'
-    - 'formatters'
-    - 'handlers'
-    - 'includes'
-    - 'javascripts'
-    - 'lang'
-    - 'setup'
-    - 'styles'
-    - 'templates'
-    - 'tests'
-    - 'themes/margot'
-    - 'tools/aceditor'
-    - 'tools/attach'
-    - 'tools/autoupdate'
-    - 'tools/bazar'
-    - 'tools/contact'
-    - 'tools/helloworld'
-    - 'tools/lang'
-    - 'tools/login'
-    - 'tools/progressBar'
-    - 'tools/rss'
-    - 'tools/security'
-    - 'tools/syndication'
-    - 'tools/tableau'
-    - 'tools/tags'
-    - 'tools/templates'
-    - 'tools/toc'
-    - 'tools/README.md'
-    - 'vendor'
   ferme_editable_config_params:
     - 'bazar_farm_id'
     - 'yeswiki-farm-root-folder'
@@ -128,22 +39,26 @@ parameters:
     - 'yeswiki-farm-admin-name'
     - 'yeswiki-farm-admin-pass'
     - 'yeswiki-farm-admin-email'
-    - 'yeswiki-farm-extra-themes'
-    - 'yeswiki-farm-extra-tools'
     - 'yeswiki-farm-homepage'
     - 'yeswiki-farm-default-WikiAdmin'
     - 'yeswiki-farm-password-WikiAdmin'
     - 'yeswiki-farm-email-WikiAdmin'
+    - 'yeswiki-farm-create-user'
+    - 'yeswiki-farm-prefix'
+    - 'yeswiki-farm-db-driver'
+    - 'yeswiki-farm-db-host'
+    - 'yeswiki-farm-db-port'
+    - 'yeswiki-farm-db-admin-user'
+    - 'yeswiki-farm-db-admin-password'
+    - 'yeswiki-farm-extensions'
+    - 'yeswiki-farm-archive-on-delete'
     - 'yeswiki-farm-spam-words'
     - 'yeswiki-farm-spam-hosts'
     - 'yeswiki-farm-stats-on-visit'
-    - 'yeswiki-farm-stats-interval'
     - 'yeswiki-farm-stats-per-visit'
     - 'yeswiki-farm-spam-threshold'
     - 'yeswiki-farm-archive-keep'
-    - 'yeswiki-farm-create-user'
     - 'yeswiki-farm-migrate-on-update'
-    - 'yeswiki-farm-prefix'
     - contact_wikis:
         - default_template
     - 'yeswiki-farm-mattermost-webhook'
@@ -159,10 +74,23 @@ parameters:
     - 'yeswiki-farm-donate-url'
     - 'yeswiki-farm-welcome-mail-subject'
     - 'yeswiki-farm-welcome-mail-body'
+
 services:
   _defaults:
     autowire: true
+    autoconfigure: true
     public: true
 
   YesWiki\Ferme\Service\:
     resource: 'services/*'
+    exclude: 'services/FarmCommand.php'
+
+  YesWiki\Ferme\Service\FarmSubscriber:
+    tags:
+      - { name: yeswiki.event_subscriber }
+
+  YesWiki\Ferme\Action\:
+    resource: 'actions/*'
+
+  YesWiki\Ferme\Controller\:
+    resource: 'controllers/*'

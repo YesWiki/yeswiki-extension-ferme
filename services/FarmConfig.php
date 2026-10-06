@@ -2,87 +2,98 @@
 
 namespace YesWiki\Ferme\Service;
 
-use YesWiki\Wiki;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use YesWiki\Kernel\Service\ConfigurationService;
 
+/** The farm's settings, and where each of its wikis lives. */
 class FarmConfig
 {
-    public const DEFAULT_BACKUP_DIR = 'private/backups/farm';
-    public const MODELS_DIR = 'custom/wiki-models';
+    public const DATA_DIR = 'private/backups/ferme';
+    public const CONFIG_FILES = ['yeswiki.config.php', 'wakka.config.php'];
+    public const BLANK_MODEL = 'default-content';
+    public const RESERVED_FOLDERS = ['cache', 'custom', 'files', 'private', 'src', 'vendor', 'extensions', 'themes', 'styles', 'javascripts', 'templates', 'tests', 'docs', 'lang', 'node_modules', 'binary', 'docker', 'api'];
 
-    protected $wiki;
-    protected $files;
+    /** @var array<string, array<string, mixed>> */
+    private array $wikiConfigCache = [];
 
-    protected $wikiConfigCache = [];
-
-    public function __construct(Wiki $wiki, FileSystem $files)
-    {
-        $this->wiki = $wiki;
-        $this->files = $files;
-        $this->init();
+    public function __construct(
+        private readonly ParameterBagInterface $params,
+        private readonly ConfigurationService $configurationService
+    ) {
     }
 
-    public function init(): void
+    /** A setting of the farm wiki, or the default when it says nothing. */
+    public function setting(string $key, mixed $default = null): mixed
     {
-        $this->applyRootDefaults();
-        $this->applyExtraDefaults();
-        $this->applyThemeDefaults();
-        $this->applyAclDefaults();
-        $this->applyModelDefaults();
-        $this->applyWikiAdminDefaults();
+        return $this->params->has($key) ? $this->params->get($key) : $default;
     }
 
+    /** A setting read as text. */
+    public function text(string $key, string $default = ''): string
+    {
+        $value = $this->setting($key, $default);
+
+        return is_scalar($value) ? trim((string)$value) : $default;
+    }
+
+    /** A setting read as a yes or a no. */
+    public function flag(string $key, bool $default = false): bool
+    {
+        $value = $this->setting($key, $default);
+
+        return is_bool($value) ? $value : filter_var($value, FILTER_VALIDATE_BOOL);
+    }
+
+    /**
+     * A setting read as a list.
+     *
+     * @return array<mixed>
+     */
+    public function list(string $key): array
+    {
+        $value = $this->setting($key, []);
+
+        return is_array($value) ? $value : [];
+    }
+
+    public function farmId(): string
+    {
+        $id = $this->text('bazar_farm_id', '1100');
+
+        return ctype_digit($id) ? $id : '1100';
+    }
+
+    public function instanceDir(): string
+    {
+        return rtrim(\defined('YESWIKI_INSTANCE_DIR') ? YESWIKI_INSTANCE_DIR : (string)getcwd(), '/');
+    }
+
+    /** The folder the wikis are made in, absolute. */
     public function rootFolder(): string
     {
-        $folder = $this->wiki->config['yeswiki-farm-root-folder'] ?? '.';
+        $folder = $this->text('yeswiki-farm-root-folder', '.');
+        if ($folder === '' || $folder === '.') {
+            return $this->instanceDir();
+        }
+        $path = str_starts_with($folder, '/') ? $folder : $this->instanceDir() . '/' . $folder;
 
-        return $folder !== '' ? $folder : '.';
+        return rtrim(self::normalise($path), '/');
     }
 
+    /** The address the wikis are served under, ending with a slash. */
     public function rootUrl(): string
     {
-        return $this->wiki->config['yeswiki-farm-root-url'] ?? '';
-    }
-
-    /** Where the updater and the config editor put their backups, under private/ by default. */
-    public function backupDir(): string
-    {
-        $dir = $this->wiki->config['yeswiki-farm-backup-dir'] ?? self::DEFAULT_BACKUP_DIR;
-        $dir = trim((string)$dir);
-        if ($dir === '') {
-            $dir = self::DEFAULT_BACKUP_DIR;
-        }
-        if (!str_starts_with($dir, DIRECTORY_SEPARATOR)) {
-            $dir = getcwd() . DIRECTORY_SEPARATOR . $dir;
+        $url = $this->text('yeswiki-farm-root-url');
+        if ($url === '') {
+            $url = str_replace(['wakka.php?wiki=', 'index.php?', '?'], '', $this->text('base_url'));
         }
 
-        return rtrim($dir, DIRECTORY_SEPARATOR);
+        return rtrim($url, '/') . '/';
     }
 
-    public function ensureBackupDir(string $subFolder = ''): string
+    public function wikiUrl(string $folder): string
     {
-        $dir = $this->backupDir() . ($subFolder === '' ? '' : DIRECTORY_SEPARATOR . $subFolder);
-        if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
-            throw new \RuntimeException(_t('FERME_CLI_CANNOT_CREATE_DIR') . ' ' . $dir);
-        }
-
-        return $dir;
-    }
-
-    public function archiveUrl(): string
-    {
-        return trim((string)($this->wiki->config['yeswiki-farm-archive-url'] ?? ''));
-    }
-
-    public function adminEmail(): string
-    {
-        return trim((string)($this->wiki->config['yeswiki-farm-admin-email'] ?? ''));
-    }
-
-    public function basePath(): string
-    {
-        return $this->rootFolder() === '.'
-            ? getcwd()
-            : getcwd() . DIRECTORY_SEPARATOR . $this->rootFolder();
+        return $this->rootUrl() . $folder . '/';
     }
 
     /** Refuse a folder or model name that would walk out of the folder it names. */
@@ -91,7 +102,7 @@ class FarmConfig
         if ($name === '' || strpbrk($name, "\\\0") !== false) {
             return false;
         }
-        if (!$nested && strpos($name, '/') !== false) {
+        if (!$nested && str_contains($name, '/')) {
             return false;
         }
         foreach (explode('/', $name) as $segment) {
@@ -103,269 +114,277 @@ class FarmConfig
         return true;
     }
 
+    /** A folder a new wiki may be given: a slug, and not one the farm wiki itself uses. */
+    public function isFreeName(string $folder): bool
+    {
+        if (preg_match('/^[a-zA-Z0-9_-]{1,50}$/', $folder) !== 1) {
+            return false;
+        }
+
+        return $this->rootFolder() !== $this->instanceDir() || !in_array(strtolower($folder), self::RESERVED_FOLDERS, true);
+    }
+
     public function wikiDir(string $folder): string
     {
         if (!self::isSafeName($folder, true)) {
             throw new \InvalidArgumentException(_t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"');
         }
 
-        return $this->files->getAbsolutePath($this->basePath() . DIRECTORY_SEPARATOR . $folder);
+        return self::normalise($this->rootFolder() . '/' . $folder);
     }
 
-    /** Where a model keeps its sql dump, its infos.json and the folders it hands to new wikis. */
-    public function modelDir(string $model): string
-    {
-        if (!self::isSafeName($model)) {
-            throw new \InvalidArgumentException(_t('FERME_INVALID_MODEL_NAME') . ' "' . $model . '"');
-        }
-
-        return self::MODELS_DIR . '/' . $model;
-    }
-
+    /** The configuration file of a wiki, the Doryphore name included for the wikis that still carry it. */
     public function wikiConfigFile(string $folder): string
     {
-        return $this->wikiDir($folder) . 'wakka.config.php';
+        return self::configFileIn($this->wikiDir($folder));
     }
 
+    public static function configFileIn(string $wikiDir): string
+    {
+        foreach (self::CONFIG_FILES as $name) {
+            if (is_file($wikiDir . '/' . $name)) {
+                return $wikiDir . '/' . $name;
+            }
+        }
+
+        return $wikiDir . '/' . self::CONFIG_FILES[0];
+    }
+
+    public function hasWiki(string $folder): bool
+    {
+        return self::isSafeName($folder, true) && is_file($this->wikiConfigFile($folder));
+    }
+
+    /** @return array<string, mixed> */
     public function readWikiConfig(string $folder): array
     {
-        if (array_key_exists($folder, $this->wikiConfigCache)) {
-            return $this->wikiConfigCache[$folder];
+        if (!array_key_exists($folder, $this->wikiConfigCache)) {
+            $this->wikiConfigCache[$folder] = $this->readConfigIn($this->wikiDir($folder));
         }
 
-        $wakkaConfig = [];
-        $path = $this->wikiConfigFile($folder);
-        if (file_exists($path)) {
-            include $path;
-        }
-
-        return $this->wikiConfigCache[$folder] = $wakkaConfig;
+        return $this->wikiConfigCache[$folder];
     }
 
-    public function theme($index): array
+    /** @return array<string, mixed> */
+    public function readConfigIn(string $wikiDir): array
     {
-        return $this->wiki->config['yeswiki-farm-themes'][$index];
+        $path = self::configFileIn($wikiDir);
+        if (!is_file($path)) {
+            return [];
+        }
+        $file = $this->configurationService->getConfiguration($path);
+        $file->load();
+        $parameters = $file->__get('_parameters');
+
+        return is_array($parameters) ? $parameters : [];
     }
 
-    public function acl($index): array
+    public function forgetWikiConfig(string $folder): void
     {
-        return $this->wiki->config['yeswiki-farm-acls'][$index];
+        unset($this->wikiConfigCache[$folder]);
     }
 
-    public function getModelLabels(): array
+    /** Where the farm keeps a file of its own, through Storage. */
+    public function dataPath(string $relative): string
     {
-        $models = [];
-        foreach ($this->wiki->config['yeswiki-farm-models'] as $model) {
-            if ($model != 'default-content') {
-                $json = \json_decode(\file_get_contents($this->modelDir($model) . '/infos.json'), true);
-            } else {
-                $json = [];
-                $json['label'] = _t('FERME_BASIC_INSTALL');
-            }
-            $models[$model] = $json['label'];
-        }
-
-        return $models;
+        return self::DATA_DIR . '/' . ltrim($relative, '/');
     }
 
-    private function applyRootDefaults(): void
+    /**
+     * The themes a new wiki may start with.
+     *
+     * @return array<int|string, array{label: string, theme: string, squelette: string, style: string, preset: string, screenshot: string}>
+     */
+    public function themes(): array
     {
-        if (!isset($this->wiki->config['yeswiki-farm-root-url'])) {
-            $this->wiki->config['yeswiki-farm-root-url'] = str_replace(
-                ['wakka.php?wiki=', '?'],
-                '',
-                $this->wiki->config['base_url']
-            );
-            $this->wiki->config['yeswiki-farm-root-folder'] = '.';
-        } elseif (!isset($this->wiki->config['yeswiki-farm-root-folder'])) {
-            throw new \RuntimeException('Il faut indiquer le chemin relatif des wikis avec la valeur "yeswiki-farm-root-folder" dans le fichier de configuration.');
-        }
-    }
-
-    private function applyExtraDefaults(): void
-    {
-        foreach (['yeswiki-farm-extra-themes', 'yeswiki-farm-extra-tools'] as $key) {
-            $this->wiki->config[$key] = $this->folderNames($this->wiki->config[$key] ?? []);
-        }
-
-        if (is_null($this->wiki->config['yeswiki_symlinked_files'])) {
-            $this->wiki->config['yeswiki_symlinked_files'] = [];
-        }
-    }
-
-    /** Folder names from a setting, without the [''] an emptied form field saves. */
-    private function folderNames($value): array
-    {
-        $names = [];
-        foreach (is_array($value) ? $value : [] as $name) {
-            $name = is_string($name) ? trim($name, " \t\n\r\0\x0B/") : '';
-            if ($name !== '' && $name !== '.' && $name !== '..') {
-                $names[] = $name;
-            }
-        }
-
-        return $names;
-    }
-
-    private function applyThemeDefaults(): void
-    {
-        if (
-            !isset($this->wiki->config['yeswiki-farm-themes'])
-            or !is_array($this->wiki->config['yeswiki-farm-themes'])
-        ) {
-            $this->wiki->config['yeswiki-farm-themes'][0]['label'] = 'Margot (theme de base)';
-            $this->wiki->config['yeswiki-farm-themes'][0]['screenshot'] = 'margot.jpg';
-            $this->wiki->config['yeswiki-farm-themes'][0]['theme'] = THEME_PAR_DEFAUT;
-            $this->wiki->config['yeswiki-farm-themes'][0]['squelette'] = SQUELETTE_PAR_DEFAUT;
-            $this->wiki->config['yeswiki-farm-themes'][0]['style'] = CSS_PAR_DEFAUT;
-
-            return;
-        }
-
-        foreach ($this->wiki->config['yeswiki-farm-themes'] as $key => $theme) {
-            $this->validateTheme($key, $theme);
-        }
-    }
-
-    private function validateTheme($key, array $theme): void
-    {
-        if (!isset($theme['label']) or empty($theme['label'])) {
-            throw new \RuntimeException('Au moins un label pour les themes de la ferme n\'a pas été bien renseigné.');
-        }
-
-        if (!isset($theme['screenshot']) || $theme['screenshot'] === '') {
-            throw new \RuntimeException('Au moins un screenshot pour les themes de la ferme n\'a pas été bien renseigné.');
-        }
-        if ($theme['screenshot'] !== false && !is_file('tools/ferme/screenshots/' . $theme['screenshot'])) {
-            $this->wiki->config['yeswiki-farm-themes'][$key]['screenshot'] = false;
-        }
-
-        if (!isset($theme['theme']) or empty($theme['theme'])) {
-            throw new \RuntimeException('Au moins un theme pour les themes de la ferme n\'a pas été bien renseigné.');
-        } elseif ($this->themeFileMissing($theme['theme'], '')) {
-            throw new \RuntimeException('Le dossier "themes/' . $theme['theme'] . '" n\'a pas été trouvé.');
-        }
-
-        if (!isset($theme['squelette']) or empty($theme['squelette'])) {
-            throw new \RuntimeException('Au moins un squelette pour les themes de la ferme n\'a pas été bien renseigné.');
-        } elseif ($this->themeFileMissing($theme['theme'], 'squelettes/' . $theme['squelette'])) {
-            throw new \RuntimeException('Le squelette "themes/' . $theme['theme'] . '/squelettes/' . $theme['squelette'] . '" n\'a pas été trouvé.');
-        }
-
-        if (!isset($theme['style']) or empty($theme['style'])) {
-            throw new \RuntimeException('Au moins un style css pour les themes de la ferme n\'a pas été bien renseigné.');
-        } elseif ($this->themeFileMissing($theme['theme'], 'styles/' . $theme['style'])) {
-            throw new \RuntimeException('Le style css "themes/' . $theme['theme'] . '/styles/' . $theme['style'] . '" n\'a pas été trouvé.');
-        }
-    }
-
-    private function themeFileMissing(string $theme, string $relative): bool
-    {
-        $path = 'themes/' . $theme . ($relative === '' ? '' : '/' . $relative);
-        if ($relative === '' ? is_dir($path) : is_file($path)) {
-            return false;
-        }
-
-        if ($theme !== 'yeswiki') {
-            return false;
-        }
-
-        $fallback = 'tools/templates/' . $path;
-
-        return $relative === '' ? !is_dir($fallback) : !is_file($fallback);
-    }
-
-    private function applyAclDefaults(): void
-    {
-        if (
-            !isset($this->wiki->config['yeswiki-farm-acls'])
-            or !is_array($this->wiki->config['yeswiki-farm-acls'])
-        ) {
-            $this->wiki->config['yeswiki-farm-acls'][0]['label'] = 'Wiki ouvert';
-            $this->wiki->config['yeswiki-farm-acls'][0]['read'] = '*';
-            $this->wiki->config['yeswiki-farm-acls'][0]['write'] = '*';
-            $this->wiki->config['yeswiki-farm-acls'][0]['comments'] = 'comments-closed';
-
-            return;
-        }
-
-        $required = [
-            'label' => 'Au moins un label pour les acls de la ferme n\'a pas été bien renseigné.',
-            'read' => 'Au moins un droit en lecture (read) n\'a pas été bien renseigné.',
-            'write' => 'Au moins un droit en écriture (write) n\'a pas été bien renseigné.',
-            'comments' => 'Au moins un droit des commentaires (comments) n\'a pas été bien renseigné.',
-        ];
-        foreach ($this->wiki->config['yeswiki-farm-acls'] as $acls) {
-            foreach ($required as $key => $message) {
-                if (!isset($acls[$key]) or empty($acls[$key])) {
-                    throw new \RuntimeException($message);
-                }
-            }
-        }
-    }
-
-    private function applyModelDefaults(): void
-    {
-        if (
-            !isset($this->wiki->config['yeswiki-farm-models'])
-            or !is_array($this->wiki->config['yeswiki-farm-models'])
-        ) {
-            $this->wiki->config['yeswiki-farm-models'][] = 'default-content';
-
-            return;
-        }
-
-        foreach ($this->wiki->config['yeswiki-farm-models'] as $key => $folder) {
-            if ($folder == 'default-content') {
+        $themes = [];
+        foreach ($this->list('yeswiki-farm-themes') as $key => $theme) {
+            if (!is_array($theme) || trim((string)($theme['label'] ?? '')) === '' || trim((string)($theme['theme'] ?? '')) === '') {
                 continue;
             }
-            if (!self::isSafeName($folder)) {
-                unset($this->wiki->config['yeswiki-farm-models'][$key]);
-                trigger_error('"' . $folder . '" n\'est pas un nom de modele valide.');
-
+            if (!$this->themeExists((string)$theme['theme'])) {
                 continue;
             }
-            $modelDir = $this->modelDir($folder);
-            if (!is_dir($modelDir)) {
-                unset($this->wiki->config['yeswiki-farm-models'][$key]);
-                trigger_error('le dossier "' . $modelDir . '" ne semble pas exister.');
-            } elseif (!is_file($modelDir . '/default-content.sql')) {
-                unset($this->wiki->config['yeswiki-farm-models'][$key]);
-                trigger_error('Le fichier sql "' . $modelDir . '/default-content.sql" n\'a pas été trouvé.');
-            }
+            $themes[$key] = [
+                'label' => (string)$theme['label'],
+                'theme' => (string)$theme['theme'],
+                'squelette' => (string)($theme['squelette'] ?? SQUELETTE_PAR_DEFAUT),
+                'style' => (string)($theme['style'] ?? CSS_PAR_DEFAUT),
+                'preset' => (string)($theme['preset'] ?? ''),
+                'screenshot' => is_string($theme['screenshot'] ?? null) ? (string)$theme['screenshot'] : '',
+            ];
         }
+
+        return $themes !== [] ? $themes : [0 => [
+            'label' => 'YesWiki',
+            'theme' => THEME_PAR_DEFAUT,
+            'squelette' => SQUELETTE_PAR_DEFAUT,
+            'style' => CSS_PAR_DEFAUT,
+            'preset' => '',
+            'screenshot' => '',
+        ]];
     }
 
-    private function applyWikiAdminDefaults(): void
+    private function themeExists(string $theme): bool
     {
-        $defaults = [
-            'yeswiki-farm-create-user' => false,
+        if (!self::isSafeName($theme)) {
+            return false;
+        }
+        $program = \defined('YESWIKI_PROGRAM_DIR') ? YESWIKI_PROGRAM_DIR : $this->instanceDir();
 
-            'yeswiki-farm-default-WikiAdmin' => 'WikiAdmin',
+        return is_dir($program . '/themes/' . $theme) || is_dir($this->instanceDir() . '/custom/themes/' . $theme);
+    }
 
-            'yeswiki-farm-password-WikiAdmin' => '',
+    /**
+     * The access rights a new wiki may start with.
+     *
+     * @return array<int|string, array{label: string, read: string, write: string, comments: string, create_user: bool}>
+     */
+    public function acls(): array
+    {
+        $acls = [];
+        foreach ($this->list('yeswiki-farm-acls') as $key => $acl) {
+            if (!is_array($acl) || trim((string)($acl['label'] ?? '')) === '') {
+                continue;
+            }
+            $acls[$key] = [
+                'label' => (string)$acl['label'],
+                'read' => (string)($acl['read'] ?? '*'),
+                'write' => (string)($acl['write'] ?? '*'),
+                'comments' => (string)($acl['comments'] ?? 'comments-closed'),
+                'create_user' => !empty($acl['create_user']),
+            ];
+        }
 
-            'yeswiki-farm-email-WikiAdmin' => 'bf_mail',
+        return $acls !== [] ? $acls : [0 => ['label' => _t('FERME_ACL_OPEN'), 'read' => '*', 'write' => '*', 'comments' => 'comments-closed', 'create_user' => false]];
+    }
 
-            'yeswiki-farm-prefix' => 'yeswiki_',
+    /**
+     * The additions a creator may tick: some text appended to a page of the new wiki.
+     *
+     * @return array<int|string, array{label: string, checked: bool, page: string, content: string}>
+     */
+    public function options(): array
+    {
+        $options = [];
+        foreach ($this->list('yeswiki-farm-options') as $key => $option) {
+            if (!is_array($option) || trim((string)($option['label'] ?? '')) === '' || trim((string)($option['page'] ?? '')) === '') {
+                continue;
+            }
+            $options[$key] = [
+                'label' => (string)$option['label'],
+                'checked' => !empty($option['checked']),
+                'page' => (string)$option['page'],
+                'content' => (string)($option['content'] ?? ''),
+            ];
+        }
 
-            'yeswiki-farm-admin-name' => '',
-            'yeswiki-farm-admin-pass' => '',
-            'yeswiki-farm-admin-email' => '',
+        return $options;
+    }
 
-            'yeswiki-farm-archive-url' => '',
-
-            'yeswiki-farm-backup-dir' => self::DEFAULT_BACKUP_DIR,
-        ];
-
-        foreach ($defaults as $key => $value) {
-            if (!isset($this->wiki->config[$key])) {
-                $this->wiki->config[$key] = $value;
+    /** @return array<string, mixed> settings every new wiki is given */
+    public function extraConfig(): array
+    {
+        $extra = [];
+        foreach ($this->list('yeswiki-farm-extra-config') as $key => $value) {
+            if (is_string($key) && $key !== '') {
+                $extra[$key] = $value;
             }
         }
 
-        if (!isset($this->wiki->config['yeswiki-farm-homepage'])) {
-            $this->wiki->config['yeswiki-farm-homepage'] = $this->wiki->config['root_page'];
+        return $extra;
+    }
+
+    /** @return list<string> extensions switched on in every new wiki */
+    public function extensions(): array
+    {
+        return array_values(array_filter(array_map(
+            static fn ($name): string => is_string($name) ? trim($name, " \t\n\r\0\x0B/") : '',
+            $this->list('yeswiki-farm-extensions')
+        ), static fn (string $name): bool => $name !== '' && self::isSafeName($name)));
+    }
+
+    public function homepage(): string
+    {
+        $page = $this->text('yeswiki-farm-homepage');
+
+        return $page !== '' ? $page : 'PagePrincipale';
+    }
+
+    public function adminEmail(): string
+    {
+        return $this->text('yeswiki-farm-admin-email');
+    }
+
+    public function tablePrefix(string $folder): string
+    {
+        $prefix = preg_replace('/[^A-Za-z0-9_]/', '_', $this->text('yeswiki-farm-prefix', 'yeswiki_')) ?? 'yeswiki_';
+
+        return $prefix . str_replace('-', '_', $folder) . '__';
+    }
+
+    /**
+     * What a new wiki's database is: its own database and account when the farm can create them, the farm's database under a prefix of its own otherwise.
+     *
+     * @return array{driver: string, host: string, port: string, database: string, user: string, password: string, prefix: string, provision: bool}
+     */
+    public function databaseFor(string $folder): array
+    {
+        $driver = $this->text('yeswiki-farm-db-driver');
+        if ($driver === '') {
+            $driver = $this->text('db_driver', 'mysql');
         }
+        $host = $this->text('yeswiki-farm-db-host');
+        $port = $this->text('yeswiki-farm-db-port');
+        $sameServer = $host === '' || $host === $this->text('db_host');
+        $host = $host !== '' ? $host : $this->text('db_host', 'localhost');
+        $port = $port !== '' ? $port : ($sameServer ? $this->text('db_port') : '');
+
+        if ($driver === 'sqlite') {
+            return ['driver' => 'sqlite', 'host' => '', 'port' => '', 'database' => '', 'user' => '', 'password' => '', 'prefix' => 'yeswiki_', 'provision' => false];
+        }
+
+        $slug = substr(strtolower(rtrim($this->tablePrefix($folder), '_')), 0, 60);
+        if ($this->text('yeswiki-farm-db-admin-user') !== '') {
+            return [
+                'driver' => $driver,
+                'host' => $host,
+                'port' => $port,
+                'database' => $slug,
+                'user' => substr($slug, 0, 32),
+                'password' => rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '='),
+                'prefix' => 'yeswiki_',
+                'provision' => true,
+            ];
+        }
+
+        return [
+            'driver' => $driver,
+            'host' => $host,
+            'port' => $port,
+            'database' => $this->text('db_database'),
+            'user' => $this->text('db_user'),
+            'password' => $this->text('db_password'),
+            'prefix' => $this->tablePrefix($folder),
+            'provision' => false,
+        ];
+    }
+
+    /** A path with its `.` and `..` resolved, without asking the disk. */
+    public static function normalise(string $path): string
+    {
+        $parts = [];
+        foreach (explode('/', str_replace('\\', '/', $path)) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                array_pop($parts);
+                continue;
+            }
+            $parts[] = $part;
+        }
+
+        return '/' . implode('/', $parts);
     }
 }

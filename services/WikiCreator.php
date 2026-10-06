@@ -2,534 +2,381 @@
 
 namespace YesWiki\Ferme\Service;
 
+use YesWiki\Admin\Command\DestroyCommand;
+use YesWiki\Admin\Service\DatabaseProvisioner;
 use YesWiki\Ferme\Exception\WikiCreationException;
-use YesWiki\Wiki;
+use YesWiki\Identity\Service\UserManager;
+use YesWiki\Kernel\Service\UrlFormatter;
 
+/** Creates a wiki of the farm: a new Instance of the shared Program, made by core's create-instance and installed by core's installer. */
 class WikiCreator
 {
-    protected $wiki;
-    protected $config;
-    protected $files;
-    protected $yeswicli;
-    protected $mattermost;
-    protected $lock;
-    protected $welcome;
+    public const ADMIN_GROUP = 'admins';
+
+    /** @var list<string> */
+    private array $warnings = [];
 
     public function __construct(
-        Wiki $wiki,
-        FarmConfig $config,
-        FileSystem $files,
-        Yeswicli $yeswicli,
-        MattermostNotifier $mattermost,
-        FolderLock $lock,
-        WelcomeMailer $welcome
+        private readonly FarmConfig $config,
+        private readonly InstanceConsole $console,
+        private readonly ModelLibrary $models,
+        private readonly WikiConfigEditor $editor,
+        private readonly FolderLock $lock,
+        private readonly MattermostNotifier $mattermost,
+        private readonly WelcomeMailer $welcome,
+        private readonly StatsRefresher $refresher,
+        private readonly UserManager $userManager,
+        private readonly UrlFormatter $urlFormatter,
+        private readonly InstanceDatabase $database
     ) {
-        $this->wiki = $wiki;
-        $this->config = $config;
-        $this->files = $files;
-        $this->yeswicli = $yeswicli;
-        $this->mattermost = $mattermost;
-        $this->lock = $lock;
-        $this->welcome = $welcome;
     }
 
-    public function createFromEntry(array $entry, string $fieldName, string $theme = '0', string $model = 'default-content'): void
+    /** @return list<string> what went wrong without stopping the creation */
+    public function warnings(): array
     {
-        $this->checkChoices($entry, $theme, $model);
+        return $this->warnings;
+    }
 
-        $entry = $this->resolveWikiName($entry, $fieldName);
-        $entry = $this->resolveEmail($entry, $fieldName);
+    /**
+     * Create the wiki an entry of the farm form describes.
+     *
+     * @param array<string, mixed> $entry what the creation form posted
+     */
+    public function createFromEntry(array $entry, string $fieldName, string $theme = '0', string $model = FarmConfig::BLANK_MODEL): string
+    {
+        $this->warnings = [];
+        $folder = trim((string)($entry[$fieldName] ?? ''));
+        if (!$this->config->isFreeName($folder)) {
+            throw new WikiCreationException(_t('FERME_INVALID_FOLDER_NAME') . ' "' . $folder . '"', $fieldName);
+        }
+        $options = $this->checkChoices($entry, $theme, $model);
+        $admin = $this->admin($entry, $fieldName, $folder);
 
-        if ($this->wiki->config['yeswiki-farm-create-user']) {
-            $this->createFarmUser($entry, $fieldName);
+        if ($this->config->flag('yeswiki-farm-create-user')) {
+            $this->createFarmUser($admin, $fieldName);
         }
 
-        $folder = $entry[$fieldName];
-        $destfolder = $this->config->wikiDir($folder);
-
-        if (!$this->lock->acquire($destfolder, _t('FERME_LOCK_CREATE'))) {
+        $dir = $this->config->wikiDir($folder);
+        if (!$this->lock->acquire($dir, _t('FERME_LOCK_CREATE'))) {
             throw new WikiCreationException(_t('FERME_FOLDER_BUSY') . ' ' . $folder, $fieldName);
         }
 
         try {
-            if (is_dir($destfolder)) {
-                throw new WikiCreationException(_t('FERME_ADDRESS_TAKEN_1') . ' ' . $this->config->rootUrl() . $folder . ' ' . _t('FERME_ADDRESS_TAKEN_2'), $fieldName);
+            if (file_exists($dir)) {
+                throw new WikiCreationException(_t('FERME_ADDRESS_TAKEN', ['url' => $this->config->wikiUrl($folder)]), $fieldName);
             }
-            if (!is_writable($this->config->rootFolder())) {
-                throw new WikiCreationException('Le dossier ' . $this->config->rootFolder() . ' n\'est pas accessible en écriture');
+            if (!is_dir($this->config->rootFolder()) || !is_writable($this->config->rootFolder())) {
+                throw new WikiCreationException(_t('FERME_ROOT_NOT_WRITABLE', ['folder' => $this->config->rootFolder()]));
             }
 
+            $installed = false;
+            $db = $this->config->databaseFor($folder);
             try {
-                $this->copyWikiFiles(getcwd() . DIRECTORY_SEPARATOR, $destfolder);
-            } catch (\Throwable $th) {
-                $this->files->remove($destfolder);
+                $this->console->createInstance($dir);
+                $archive = $model === FarmConfig::BLANK_MODEL ? '' : $this->models->placeInto($model, $dir);
+                $this->install($dir, $folder, $db, $entry, $admin, $archive);
+                $installed = true;
+                $this->configure($dir, $entry, $theme);
+                if ($archive !== '') {
+                    $this->ensureAccount($dir, $admin['name'], $admin['email'], $admin['password'], self::ADMIN_GROUP);
+                }
+                $this->addAccessAccount($dir, $entry, $admin['email']);
+                $this->enableExtensions($dir);
+            } catch (\Throwable $failed) {
+                $this->undo($dir, $db, $installed);
 
-                throw $th;
+                throw $failed instanceof WikiCreationException ? $failed : new WikiCreationException(_t('FERME_CREATION_FAILED') . ' ' . $failed->getMessage(), null, $failed);
             }
 
-            $prefix = $this->tablePrefix($entry, $fieldName);
-            $config = $this->buildWikiConfig($entry, $fieldName, $prefix, $this->resolveRights($entry, $fieldName), $this->config->theme($theme));
-            $this->writeWikiConfig($destfolder, $config);
-
-            $link = $this->createDbConnection();
-            $sqlReport = $this->createWikiDatabase($link, $prefix, [
-                'prefix' => $prefix,
-                'siteTitle' => $config['wakka_name'],
-                'WikiName' => $entry[$fieldName . '_wikiname'],
-                'hashedpassword' => md5($entry[$fieldName . '_password']),
-                'email' => $entry[$fieldName . '_email'],
-                'rootPage' => $config['root_page'],
-            ], $model);
-
-            $this->reportSql($sqlReport);
-
-            if ($model !== 'default-content') {
-                $this->copyModelFiles($model, $destfolder);
-            }
-
-            if (!empty($entry['access-username'])) {
-                $this->createWikiUser($link, $prefix, $entry, $fieldName);
-            }
-
-            if (!empty($entry['yeswiki-farm-options'])) {
-                $this->applyOptions($prefix, $entry['yeswiki-farm-options']);
-            }
-
-            $this->reportMigration($this->yeswicli->migrate($destfolder));
-
-            $this->createGroup($prefix, $entry);
-
+            $this->applyOptions($dir, $options);
+            $this->joinGroup($dir, $entry);
+            $this->refresher->remeasure($folder);
             $this->mattermost->created($entry, $folder);
-
-            $this->greet($entry, $fieldName);
+            $this->greet($entry, $admin['name']);
         } finally {
-            $this->lock->release($destfolder);
+            $this->lock->release($dir);
         }
+
+        return $dir;
     }
 
-    /** Send the welcome mail, without failing a creation that already succeeded. */
-    private function greet(array $entry, string $fieldName): void
+    /**
+     * Refuse a theme, model, access right or option the farm does not offer.
+     *
+     * @param array<string, mixed> $entry
+     *
+     * @return list<array{label: string, checked: bool, page: string, content: string}> the options ticked
+     */
+    private function checkChoices(array $entry, string $theme, string $model): array
     {
-        try {
-            $this->welcome->send($entry, (string)$entry[$fieldName . '_wikiname'], new \DateTimeImmutable('today'));
-        } catch (\Throwable $throwable) {
-            $this->warn(_t('FERME_WELCOME_MAIL_FAILED') . ' ' . $throwable->getMessage());
-        }
-    }
-
-    /** Refuse a theme, model, acl or option the farm does not offer. */
-    private function checkChoices(array $entry, string $theme, string $model): void
-    {
-        if ($model !== 'default-content' && !in_array($model, $this->wiki->config['yeswiki-farm-models'], true)) {
+        if (!array_key_exists($model, $this->models->choices())) {
             throw new WikiCreationException(_t('FERME_INVALID_MODEL_NAME') . ' "' . $model . '"');
         }
-
-        if (!isset($this->wiki->config['yeswiki-farm-themes'][$theme])) {
+        if (!array_key_exists($theme, $this->config->themes())) {
             throw new WikiCreationException(_t('FERME_INVALID_THEME') . ' "' . $theme . '"');
         }
-
-        $acl = $entry['yeswiki-farm-acls'] ?? '';
-        if (!is_scalar($acl) || !isset($this->wiki->config['yeswiki-farm-acls'][$acl])) {
+        $acl = $entry['yeswiki-farm-acls'] ?? array_key_first($this->config->acls());
+        if (!is_scalar($acl) || !array_key_exists((string)$acl, $this->config->acls())) {
             throw new WikiCreationException(_t('FERME_INVALID_ACL') . ' "' . (is_scalar($acl) ? $acl : '') . '"');
         }
 
-        foreach (array_filter(explode(',', (string)($entry['yeswiki-farm-options'] ?? ''))) as $option) {
-            if (!isset($this->wiki->config['yeswiki-farm-options'][$option])) {
-                throw new WikiCreationException(_t('FERME_INVALID_OPTION') . ' "' . $option . '"');
-            }
-        }
-    }
-
-    private function resolveWikiName(array $entry, string $fieldName): array
-    {
-        if ($entry[$fieldName . '_wikiname'] !== '{{folder}}') {
-            return $entry;
-        }
-
-        $entry[$fieldName . '_wikiname'] = genere_nom_wiki($entry[$fieldName], 0);
-        if ($this->wiki->LoadUser($entry[$fieldName . '_wikiname'])) {
-            throw new WikiCreationException(_t('FERME_USER_TAKEN_1') . ' ' . $entry[$fieldName . '_wikiname'] . ' ' . _t('FERME_USER_TAKEN_2'), $fieldName);
-        }
-
-        return $entry;
-    }
-
-    private function resolveEmail(array $entry, string $fieldName): array
-    {
-        $key = $fieldName . '_email';
-        if (!empty($entry[$key]) && !empty($entry[$entry[$key]])) {
-            $entry[$key] = $entry[$entry[$key]];
-        }
-
-        return $entry;
-    }
-
-    private function resolveRights(array $entry, string $fieldName): array
-    {
-        $rights = $this->config->acl($entry['yeswiki-farm-acls']);
-        $username = !empty($entry['access-username']) ? $entry['access-username'] : $entry[$fieldName . '_wikiname'];
-
-        foreach (['write', 'read', 'comments'] as $right) {
-            if ($rights[$right] == '{{user}}') {
-                $rights[$right] = $username;
-            }
-        }
-
-        return $rights;
-    }
-
-    private function tablePrefix(array $entry, string $fieldName): string
-    {
-        return empty($entry['bf_prefixe'])
-            ? $this->wiki->config['yeswiki-farm-prefix'] . str_replace('-', '_', $entry[$fieldName]) . '__'
-            : $entry['bf_prefixe'];
-    }
-
-    private function copyWikiFiles(string $srcfolder, string $destfolder): void
-    {
-        $symlinked = $this->wiki->config['yeswiki_symlinked_files'];
-
-        $this->makeDir($destfolder);
-        foreach ($this->wiki->config['yeswiki_empty_folders'] as $folder) {
-            if (!in_array($folder, $symlinked)) {
-                $this->makeDir($destfolder . $folder);
-            }
-        }
-
-        foreach ($this->wiki->config['yeswiki_files'] as $file) {
-            if (in_array($file, $symlinked)) {
+        $offered = $this->config->options();
+        $ticked = [];
+        $asked = $entry['yeswiki-farm-options'] ?? [];
+        foreach (is_array($asked) ? $asked : explode(',', is_scalar($asked) ? (string)$asked : '') as $key) {
+            $key = trim((string)$key);
+            if ($key === '') {
                 continue;
             }
-            if (!file_exists($srcfolder . $file)) {
-                $this->warn(_t('FERME_EXTRA_MISSING') . ' ' . $file);
-
-                continue;
+            if (!array_key_exists($key, $offered)) {
+                throw new WikiCreationException(_t('FERME_INVALID_OPTION') . ' "' . $key . '"');
             }
-            $this->makeDir(dirname($destfolder . $file));
-            $this->copyOrFail($srcfolder . $file, $destfolder . $file);
+            $ticked[] = $offered[$key];
         }
 
-        foreach ($symlinked as $file) {
-            $this->linkOrFail($srcfolder . $file, $destfolder . $file);
-        }
-        $this->linkOrFail($srcfolder . WikiSymlinker::GUARD_SOURCE, $destfolder . WikiSymlinker::GUARD_LINK);
-
-        foreach (['themes' => 'yeswiki-farm-extra-themes', 'tools' => 'yeswiki-farm-extra-tools'] as $parent => $configKey) {
-            foreach ($this->wiki->config[$configKey] as $dir) {
-                if (in_array($parent . '/' . $dir, $symlinked)) {
-                    continue;
-                }
-                $source = $srcfolder . $parent . DIRECTORY_SEPARATOR . $dir;
-                if (!file_exists($source)) {
-                    $this->warn(_t('FERME_EXTRA_MISSING') . ' ' . $parent . '/' . $dir);
-
-                    continue;
-                }
-                $this->copyOrFail($source, $destfolder . $parent . DIRECTORY_SEPARATOR . $dir);
-            }
-        }
+        return $ticked;
     }
 
-    private function copyModelFiles(string $model, string $destfolder): void
+    /**
+     * The first account of the new wiki, as the farm or the creator names it.
+     *
+     * @param array<string, mixed> $entry
+     *
+     * @return array{name: string, email: string, password: string}
+     */
+    private function admin(array $entry, string $fieldName, string $folder): array
     {
-        foreach (['files', 'custom'] as $dir) {
-            $source = $this->config->modelDir($model) . '/' . $dir;
-            if (is_dir($source)) {
-                $this->copyOrFail($source, $destfolder . $dir);
-            }
-        }
-    }
-
-    /** Copies a folder, and names the missing files rather than handing over a half-installed wiki. */
-    private function copyOrFail(string $source, string $dest): void
-    {
-        if ($this->files->copyRecursive($source, $dest) === true) {
-            return;
+        $name = trim((string)($this->config->text('yeswiki-farm-default-WikiAdmin') !== '' ? $this->config->text('yeswiki-farm-default-WikiAdmin') : ($entry[$fieldName . '_wikiname'] ?? '')));
+        $name = $name === '{{folder}}' || $name === '' ? $folder : $name;
+        if (preg_match('/^[^!#@<>\\\\\/][^<>\\\\\/]{2,}$/', $name) !== 1 || strlen($name) > 80) {
+            throw new WikiCreationException(_t('FERME_CLI_BAD_USER_NAME') . ' "' . $name . '"', $fieldName . '_wikiname');
         }
 
-        throw new WikiCreationException(_t('FERME_COPY_INCOMPLETE') . ' ' . $source . ' : ' . $this->files->failureSummary());
-    }
-
-    /** What the wiki borrows from the farm rather than copying, folder above included. */
-    private function linkOrFail(string $source, string $dest): void
-    {
-        $this->makeDir(dirname($dest));
-        if (is_link($dest) || symlink($source, $dest)) {
-            return;
+        $email = trim((string)($entry[$fieldName . '_email'] ?? ''));
+        $configured = $this->config->text('yeswiki-farm-email-WikiAdmin', 'bf_mail');
+        if ($email === '' || (!filter_var($email, FILTER_VALIDATE_EMAIL) && isset($entry[$email]))) {
+            $email = trim((string)($entry[$email !== '' ? $email : $configured] ?? $entry[$configured] ?? ''));
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new WikiCreationException(_t('FERME_CLI_BAD_EMAIL') . ' "' . $email . '"', $fieldName . '_email');
         }
 
-        throw new WikiCreationException(_t('FERME_SYMLINK_FAILED') . ' ' . $dest);
-    }
-
-    private function makeDir(string $dir): void
-    {
-        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-            throw new WikiCreationException(_t('FERME_CLI_CANNOT_CREATE_DIR') . ' ' . $dir);
+        $password = $this->config->text('yeswiki-farm-password-WikiAdmin');
+        $password = $password !== '' ? $password : (string)($entry[$fieldName . '_password'] ?? '');
+        if (strlen($password) < 5) {
+            throw new WikiCreationException(_t('FERME_PASSWORD_TOO_SHORT'), $fieldName . '_password');
         }
+
+        return ['name' => $name, 'email' => $email, 'password' => $password];
     }
 
-    private function buildWikiConfig(array $entry, string $fieldName, string $prefix, array $rights, array $theme): array
+    /** @param array{name: string, email: string, password: string} $admin */
+    private function createFarmUser(array $admin, string $fieldName): void
     {
-        $config = [
-            'wakka_version' => $this->wiki->config['wakka_version'],
-            'wikini_version' => $this->wiki->config['wikini_version'],
-            'yeswiki_version' => $this->wiki->config['yeswiki_version'],
-            'yeswiki_release' => $this->wiki->config['yeswiki_release'],
-            'debug' => $this->wiki->config['debug'],
-            'mysql_host' => $this->wiki->config['mysql_host'],
-            'mysql_database' => $this->wiki->config['mysql_database'],
-            'mysql_user' => $this->wiki->config['mysql_user'],
-            'mysql_password' => $this->wiki->config['mysql_password'],
-            'table_prefix' => $prefix,
-            'root_page' => $this->wiki->config['yeswiki-farm-homepage'],
-            'wakka_name' => addslashes($entry['bf_titre']),
-            'base_url' => $this->config->rootUrl() . $entry[$fieldName] . '/?',
-            'rewrite_mode' => $this->wiki->config['rewrite_mode'],
-            'meta_keywords' => $this->wiki->config['meta_keywords'],
-            'meta_description' => $this->wiki->config['meta_description'],
-            'action_path' => 'actions',
-            'handler_path' => 'handlers',
-            'header_action' => 'header',
-            'footer_action' => 'footer',
-            'navigation_links' => $this->wiki->config['navigation_links'],
-            'referrers_purge_time' => $this->wiki->config['referrers_purge_time'],
-            'pages_purge_time' => $this->wiki->config['pages_purge_time'],
-            'default_write_acl' => $rights['write'],
-            'default_read_acl' => $rights['read'],
-            'default_comment_acl' => $rights['comments'],
-            'preview_before_save' => $this->wiki->config['preview_before_save'],
-            'allow_raw_html' => $this->wiki->config['allow_raw_html'],
-            'default_language' => $this->wiki->config['default_language'],
-            'favorite_theme' => $theme['theme'],
-            'favorite_style' => $theme['style'],
-            'favorite_squelette' => $theme['squelette'],
-            'favorite_preset' => $theme['preset'] ?? '',
-            'favorite_background_image' => $theme['bg-img'] ?? '',
-            'source_url' => $this->wiki->href('', $entry['id_fiche'] ?? genere_nom_wiki($entry['bf_titre'])),
-            'db_charset' => 'utf8mb4',
+        if ($this->userManager->getOneByName($admin['name']) !== null) {
+            throw new WikiCreationException(_t('FERME_USER_TAKEN', ['name' => $admin['name']]), $fieldName . '_wikiname');
+        }
+        $this->userManager->create($admin['name'], $admin['email'], $admin['password']);
+    }
+
+    /**
+     * Run the new wiki's own `core:install`, passwords given through its environment rather than its command line.
+     *
+     * @param array{driver: string, host: string, port: string, database: string, user: string, password: string, prefix: string, provision: bool} $db
+     * @param array<string, mixed>                                                                                                                 $entry
+     * @param array{name: string, email: string, password: string}                                                                                 $admin
+     */
+    private function install(string $dir, string $folder, array $db, array $entry, array $admin, string $archive): void
+    {
+        $arguments = [
+            'core:install',
+            '--driver=' . $db['driver'],
+            '--table-prefix=' . $db['prefix'],
+            '--base-url=' . $this->config->wikiUrl($folder) . '?',
+            '--root-page=' . $this->config->homepage(),
+            '--wiki-name=' . FarmMailer::titleOf($entry),
+            '--language=' . $this->config->text('default_language', 'fr'),
+            '--admin-name=' . $admin['name'],
+            '--admin-email=' . $admin['email'],
         ];
-
-        if (
-            isset($this->wiki->config['yeswiki-farm-extra-config'])
-            and is_array($this->wiki->config['yeswiki-farm-extra-config'])
-        ) {
-            $extraConfig = $this->wiki->config['yeswiki-farm-extra-config'];
-            $config = array_merge($config, $extraConfig);
-            $config[WikiConfigEditor::LOCKED_PARAMS] = WikiConfigEditor::lockParams($extraConfig, array_keys($extraConfig));
-        }
-
-        if (isset($entry['bf_description'])) {
-            $config['meta_description'] = addslashes(
-                substr(
-                    str_replace('<br>', ' ', strip_tags($entry['bf_description'], '<br>')),
-                    0,
-                    150
-                )
-            );
-        }
-
-        return $config;
-    }
-
-    private function writeWikiConfig(string $destfolder, array $config): void
-    {
-        $configCode = "<?php\n// wakka.config.php " . _t('CREATED') . ' ' . date('Y-m-d H:i:s') . "\n// " .
-            _t('DONT_CHANGE_YESWIKI_VERSION_MANUALLY') . " !\n\n\$wakkaConfig = ";
-        $configCode .= var_export($config, true) . ";\n?>";
-
-        if ($fp = @fopen($destfolder . 'wakka.config.php', 'w')) {
-            fwrite($fp, $configCode);
-            fclose($fp);
-        } else {
-            throw new \Exception('Ecriture du fichier de configuration impossible');
-        }
-    }
-
-    private function createDbConnection(): \mysqli
-    {
-        $link = mysqli_connect(
-            $this->wiki->config['mysql_host'],
-            $this->wiki->config['mysql_user'],
-            $this->wiki->config['mysql_password'],
-            $this->wiki->config['mysql_database'],
-            isset($this->wiki->config['mysql_port']) ? $this->wiki->config['mysql_port'] : ini_get('mysqli.default_port')
-        );
-        mysqli_set_charset($link, 'utf8mb4');
-
-        if (mysqli_character_set_name($link) != 'utf8mb4') {
-            mysqli_query($link, 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
-        }
-
-        return $link;
-    }
-
-    private function createWikiDatabase(\mysqli $link, string $prefix, array $replacements, string $model): string
-    {
-        $notExistingTables = array_filter(
-            WikiRepository::WIKI_TABLES,
-            function ($tableName) use ($link, $prefix) {
-                return mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE '$prefix$tableName'")) === 0;
+        $env = ['ADMIN_PASSWORD' => $admin['password']];
+        if ($db['driver'] !== 'sqlite') {
+            array_push($arguments, '--db-host=' . $db['host'], '--db-database=' . $db['database'], '--db-user=' . $db['user']);
+            if ($db['port'] !== '') {
+                $arguments[] = '--db-port=' . $db['port'];
             }
-        );
-
-        $modelFile = $model === 'default-content'
-            ? 'setup/sql/default-content.sql'
-            : $this->config->modelDir($model) . '/default-content.sql';
-
-        mysqli_begin_transaction($link);
-        mysqli_autocommit($link, false);
-        try {
-            $sqlReport = $this->runSqlFile($link, 'setup/sql/create-tables.sql', $replacements) . '<hr />';
-            $sqlReport .= $this->runSqlFile($link, $modelFile, $replacements);
-        } catch (\Throwable $th) {
-            $this->resetSQLTransactionWhenError($link, $notExistingTables, $prefix);
-            throw $th;
+            $env['DB_PASSWORD'] = $db['password'];
         }
-        mysqli_commit($link);
-        mysqli_autocommit($link, true);
+        if ($db['provision']) {
+            $arguments[] = '--db-admin-user=' . $this->config->text('yeswiki-farm-db-admin-user');
+            $env['DB_ADMIN_PASSWORD'] = $this->config->text('yeswiki-farm-db-admin-password');
+        }
+        if ($archive !== '') {
+            $arguments[] = '--from-archive=' . $archive;
+        }
 
-        return $sqlReport;
+        $this->console->mustRun($dir, $arguments, $env);
     }
 
-    private function resetSQLTransactionWhenError($link, $notExistingTables, $prefix): void
+    /**
+     * What the farm decides for every new wiki: access rights, theme, description and the settings it imposes.
+     *
+     * @param array<string, mixed> $entry
+     */
+    private function configure(string $dir, array $entry, string $theme): void
     {
-        mysqli_rollback($link);
-        mysqli_autocommit($link, true);
-        foreach ($notExistingTables as $tableName) {
+        $acl = $this->config->acls()[(string)($entry['yeswiki-farm-acls'] ?? array_key_first($this->config->acls()))];
+        $username = trim((string)($entry['access-username'] ?? '')) !== '' ? trim((string)$entry['access-username']) : '';
+        $rights = [];
+        foreach (['write' => 'default_write_acl', 'read' => 'default_read_acl', 'comments' => 'default_comment_acl'] as $right => $key) {
+            $rights[$key] = $acl[$right] === '{{user}}' ? ($username !== '' ? $username : '@admins') : $acl[$right];
+        }
+        $chosen = $this->config->themes()[$theme];
+        $set = $rights + [
+            'favorite_theme' => $chosen['theme'],
+            'favorite_squelette' => $chosen['squelette'],
+            'favorite_style' => $chosen['style'],
+            'favorite_preset' => $chosen['preset'],
+            'ferme_entry' => $this->urlFormatter->href('', (string)($entry['tag'] ?? ''), null, false),
+        ];
+        $description = trim(strip_tags(str_replace('<br>', ' ', (string)($entry['bf_description'] ?? ''))));
+        if ($description !== '') {
+            $set['meta_description'] = mb_substr($description, 0, 150);
+        }
+        $extra = $this->config->extraConfig();
+        if ($extra !== []) {
+            $set += $extra;
+            $set[WikiConfigEditor::LOCKED_PARAMS] = WikiConfigEditor::lockParams($this->editor->load($dir), array_keys($extra));
+        }
+        $this->editor->patch($dir, $set);
+    }
+
+    /** Create an account in the wiki, or give it this password, and put it in a group. */
+    public function ensureAccount(string $dir, string $name, string $email, string $password, string $group = ''): void
+    {
+        $env = ['YESWIKI_USER_PASSWORD' => $password];
+        $created = $this->console->run($dir, ['user:create', $name, $email, ...($group === '' ? [] : ['--group=' . $group])], $env);
+        if ($created['status'] === 0) {
+            return;
+        }
+        $updated = $this->console->run($dir, ['user:update', $name, '--email=' . $email], $env);
+        if ($updated['status'] !== 0) {
+            throw new \RuntimeException('user:create: ' . $created['output']);
+        }
+        if ($group !== '') {
+            $this->console->mustRun($dir, ['user:add-to-group', $name, $group]);
+        }
+    }
+
+    /**
+     * The account a protected wiki is read with, when the creator asked for one.
+     *
+     * @param array<string, mixed> $entry
+     */
+    private function addAccessAccount(string $dir, array $entry, string $email): void
+    {
+        $name = trim((string)($entry['access-username'] ?? ''));
+        $password = (string)($entry['access-password'] ?? '');
+        if ($name !== '' && $password !== '') {
+            $this->ensureAccount($dir, $name, $email, $password);
+        }
+    }
+
+    private function enableExtensions(string $dir): void
+    {
+        foreach ($this->config->extensions() as $extension) {
+            $result = $this->console->run($dir, ['extension:enable', $extension]);
+            if ($result['status'] !== 0) {
+                $this->warnings[] = $extension . ': ' . $result['output'];
+            }
+        }
+    }
+
+    /** @param list<array{label: string, checked: bool, page: string, content: string}> $options */
+    private function applyOptions(string $dir, array $options): void
+    {
+        foreach ($options as $option) {
             try {
-                if (
-                    mysqli_num_rows(mysqli_query($link, "SHOW TABLES LIKE \"$prefix$tableName\";")) !== 0
-                    && mysqli_num_rows(mysqli_query($link, "SELECT * FROM `$prefix$tableName`;")) === 0
-                ) {
-                    mysqli_query($link, "DROP TABLE IF EXISTS `$prefix$tableName`;");
+                $this->console->task($dir, 'append-to-page', ['tag' => $option['page'], 'content' => $option['content']]);
+            } catch (\Throwable $failed) {
+                $this->warnings[] = $option['label'] . ': ' . $failed->getMessage();
+            }
+        }
+    }
+
+    /**
+     * Put the people an entry field names in a group of the new wiki.
+     *
+     * @param array<string, mixed> $entry
+     */
+    private function joinGroup(string $dir, array $entry): void
+    {
+        $group = $this->config->list('yeswiki-farm-group');
+        $name = trim((string)($group['groupname'] ?? ''));
+        $field = (string)($group['group_members_field'] ?? '');
+        if ($name === '' || $field === '') {
+            return;
+        }
+        $members = $entry[$field] ?? '';
+        foreach (array_filter(array_map('trim', is_array($members) ? $members : explode(',', (string)$members))) as $member) {
+            $result = $this->console->run($dir, ['user:add-to-group', (string)$member, $name]);
+            if ($result['status'] !== 0) {
+                $this->warnings[] = $member . ': ' . $result['output'];
+            }
+        }
+    }
+
+    /** @param array<string, mixed> $entry */
+    private function greet(array $entry, string $username): void
+    {
+        try {
+            $this->welcome->send($entry, $username, new \DateTimeImmutable('today'));
+        } catch (\Throwable $throwable) {
+            $this->warnings[] = _t('FERME_WELCOME_MAIL_FAILED') . ' ' . $throwable->getMessage();
+        }
+    }
+
+    /**
+     * Leave nothing behind when the creation failed halfway: core drops what the install made, the folder goes after.
+     *
+     * @param array{driver: string, host: string, port: string, database: string, user: string, password: string, prefix: string, provision: bool} $db
+     */
+    private function undo(string $dir, array $db, bool $installed): void
+    {
+        try {
+            if ($installed) {
+                $config = $this->config->readConfigIn($dir);
+                $arguments = ['core:destroy', '--keep-archive', '--confirm=' . DestroyCommand::hostOf((string)($config['base_url'] ?? ''))];
+                $env = [];
+                if ($db['provision']) {
+                    $arguments[] = '--db-admin-user=' . $this->config->text('yeswiki-farm-db-admin-user');
+                    $env['DB_ADMIN_PASSWORD'] = $this->config->text('yeswiki-farm-db-admin-password');
+                } else {
+                    $arguments[] = '--keep-database';
                 }
-            } catch (\Throwable $th2) {
+                $this->console->run($dir, $arguments, $env);
+                if (!$db['provision'] && $db['driver'] !== 'sqlite') {
+                    $this->database->dropOwnTables($config, $dir);
+                }
+            } elseif ($db['provision']) {
+                (new DatabaseProvisioner())->destroy($this->config->text('yeswiki-farm-db-admin-user'), $this->config->text('yeswiki-farm-db-admin-password'), [
+                    'db_driver' => $db['driver'],
+                    'db_host' => $db['host'],
+                    'db_port' => $db['port'],
+                    'db_database' => $db['database'],
+                    'db_user' => $db['user'],
+                ]);
             }
-        }
-    }
-
-    public function runSqlFile($dblink, $sqlFile, $replacements = [])
-    {
-        $sqlReport = '<h4>' . _t('FERME_REPORT') . ' ' . $sqlFile . '</h4>';
-        if (!$sql = file_get_contents($sqlFile)) {
-            throw new \Exception(_t('SQL_FILE_NOT_FOUND') . ' "' . $sqlFile . '".');
+        } catch (\Throwable $ignored) {
+            error_log('ferme: ' . $ignored->getMessage());
         }
 
-        foreach ($replacements as $keyword => $replace) {
-            $sql = str_replace('{{' . $keyword . '}}', mysqli_real_escape_string($dblink, $replace), $sql);
-        }
-
-        $index = 1;
-        if (!mysqli_multi_query($dblink, $sql)) {
-            throw new \Exception(str_replace(['{num}', '{file}', '{errorMsg}'], [$index, $sqlFile, mysqli_error($dblink)], _t('FERME_INSERTION_ERROR')));
-        }
-        $sqlReport .= $this->insertionReport($index, mysqli_affected_rows($dblink));
-
-        while (mysqli_more_results($dblink)) {
-            $index++;
-            if (!mysqli_next_result($dblink)) {
-                throw new \Exception(str_replace(['{num}', '{file}', '{errorMsg}'], [$index, $sqlFile, mysqli_error($dblink)], _t('FERME_INSERTION_ERROR')));
+        try {
+            if (is_dir($dir)) {
+                $this->console->removeInstance($dir);
             }
-            $sqlReport .= $this->insertionReport($index, mysqli_affected_rows($dblink));
+        } catch (\Throwable $ignored) {
+            error_log('ferme: ' . $ignored->getMessage());
         }
-
-        return $sqlReport;
-    }
-
-    private function insertionReport(int $index, int $rows): string
-    {
-        return str_replace(['{num}', '{nbRows}'], [$index, $rows], _t('FERME_INSERTION')) . '<br/>';
-    }
-
-    /** @param array<int,string> $errors */
-    private function reportMigration(array $errors): void
-    {
-        if (empty($errors)) {
-            return;
-        }
-
-        $message = _t('FERME_MIGRATION_FAILED') . '<br /><pre>' . htmlspecialchars(implode("\n", $errors)) . '</pre>';
-        if (function_exists('flash')) {
-            flash($message, 'danger');
-        } else {
-            $this->wiki->SetMessage($message);
-        }
-    }
-
-    private function warn(string $message): void
-    {
-        if (function_exists('flash')) {
-            flash($message, 'warning');
-        } else {
-            $this->wiki->SetMessage($message);
-        }
-    }
-
-    private function reportSql(string $sqlReport): void
-    {
-        if (empty($_GET['debug']) && $this->wiki->config['debug'] != 'yes') {
-            return;
-        }
-
-        if (function_exists('flash')) {
-            flash($sqlReport, 'success');
-        } else {
-            $this->wiki->SetMessage($sqlReport);
-        }
-    }
-
-    private function createFarmUser(array $entry, string $fieldName): void
-    {
-        if ($this->wiki->LoadUser($entry[$fieldName . '_wikiname'])) {
-            throw new WikiCreationException(_t('FERME_USER_TAKEN_1') . ' ' . $entry[$fieldName . '_wikiname'] . ' ' . _t('FERME_USER_TAKEN_3'), $fieldName . '_wikiname');
-        }
-
-        $this->wiki->Query(
-            'insert into ' . $this->wiki->config['table_prefix'] . 'users set ' .
-                'signuptime = now(), ' .
-                "name = '" . mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName . '_wikiname']) . "', " .
-                "email = '" . mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName . '_email']) . "', " .
-                "password = md5('" . mysqli_real_escape_string($this->wiki->dblink, $entry[$fieldName . '_password']) . "')"
-        );
-    }
-
-    private function createWikiUser(\mysqli $link, string $prefix, array $entry, string $fieldName): void
-    {
-        $this->wiki->Query("INSERT INTO `{$prefix}users` " .
-            '(`name`, `password`, `email`, `motto`, `revisioncount`, `changescount`, `doubleclickedit`, `signuptime`, `show_comments`) ' .
-            "VALUES ('" . mysqli_real_escape_string($link, $entry['access-username']) . "', " .
-            "md5('" . mysqli_real_escape_string($link, $entry['access-password']) . "'), " .
-            "'" . $entry[$fieldName . '_email'] . "', '', '20', '50', 1, now(), 2);");
-    }
-
-    private function applyOptions(string $prefix, string $options): void
-    {
-        foreach (explode(',', $options) as $option) {
-            $this->wiki->Query('UPDATE `' . $prefix . 'pages` SET body=CONCAT(body, "'
-                . $this->wiki->config['yeswiki-farm-options'][$option]['content'] . '") WHERE tag="'
-                . $this->wiki->config['yeswiki-farm-options'][$option]['page'] . '" AND latest="Y";');
-        }
-    }
-
-    private function createGroup(string $prefix, array $entry): void
-    {
-        if (
-            !isset($this->wiki->config['yeswiki-farm-group'])
-            || !is_array($this->wiki->config['yeswiki-farm-group'])
-        ) {
-            return;
-        }
-
-        $groupName = $this->wiki->config['yeswiki-farm-group']['groupname'];
-        $resource = GROUP_PREFIX . $groupName;
-        $tripletable = $prefix . 'triples';
-
-        $this->wiki->Query('DELETE FROM `' . $tripletable . '` WHERE `resource`="' . $resource
-            . '" and `property`="' . WIKINI_VOC_ACLS_URI . '";');
-
-        $users = $entry[$this->wiki->config['yeswiki-farm-group']['group_members_field']];
-        $this->wiki->Query('INSERT INTO `' . $tripletable . '` (`resource`, `property`, `value`)'
-            . ' VALUES (\'' . $resource . '\', \'' . WIKINI_VOC_ACLS_URI . '\', \''
-            . implode("\n", explode(',', $users)) . '\');');
     }
 }

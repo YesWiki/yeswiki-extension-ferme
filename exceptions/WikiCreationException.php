@@ -2,22 +2,14 @@
 
 namespace YesWiki\Ferme\Exception;
 
-use YesWiki\Bazar\Exception\RequiredFieldsException;
+use YesWiki\Content\Exception\EntryValidationException;
 
-/**
- * A wiki that could not be created. It extends RequiredFieldsException because that is
- * the only failure bazar answers by reopening the form with what the visitor typed.
- */
-class WikiCreationException extends RequiredFieldsException
+/** A wiki that could not be created: the entry form opens again with what the visitor typed. */
+class WikiCreationException extends EntryValidationException
 {
-    /** @var string|null the input to clear, when one of them is to blame */
-    private $blamedField;
-
-    public function __construct(string $message, ?string $blamedField = null)
+    public function __construct(string $message, private readonly ?string $blamedField = null, ?\Throwable $previous = null)
     {
-        parent::__construct([]);
-        $this->message = $message;
-        $this->blamedField = $blamedField;
+        parent::__construct($message, 0, $previous);
     }
 
     public function getBlamedField(): ?string

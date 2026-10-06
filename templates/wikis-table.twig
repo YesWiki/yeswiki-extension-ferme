@@ -1,746 +1,274 @@
-{{ include_javascript("tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.js") }}
-{{ include_javascript("tools/templates/libs/vendor/datatables/jquery.dataTables.min.js") }}
-{{ include_css("tools/templates/libs/vendor/datatables/dataTables.bootstrap.min.css") }}
-<h2>{{ _t("FERME_ALL_WIKIS_ADMIN") }}</h2>
-<style>
-#wikis-table_processing {
-    position: fixed;
-    transform: translate(-50%, -50%);
-    margin: 0;
-    z-index: 1000;
-}
-.ferme-dashboard {
-    --ferme-accent: var(--primary-color, #1a89a0);
-    --ferme-line: rgba(127, 127, 127, 0.22);
-    --ferme-soft: rgba(127, 127, 127, 0.07);
-    margin-bottom: 16px;
-}
-.ferme-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
-    gap: 10px;
-    margin-bottom: 14px;
-}
-.ferme-tile {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 10px 12px;
-    border: 1px solid var(--ferme-line);
-    border-radius: 10px;
-    background: var(--ferme-soft);
-    line-height: 1.15;
-    transition: border-color .15s, box-shadow .15s;
-}
-.ferme-tile-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: .8em;
-    opacity: .7;
-}
-.ferme-tile strong {
-    font-size: 1.5em;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
-.ferme-total-filter {
-    cursor: pointer;
-}
-.ferme-total-filter:hover {
-    border-color: var(--ferme-accent);
-}
-.ferme-total-filter.active {
-    border-color: var(--ferme-accent);
-    box-shadow: inset 0 0 0 1px var(--ferme-accent);
-}
-.ferme-total-filter.active .ferme-tile-label {
-    color: var(--ferme-accent);
-    opacity: 1;
-}
-.ferme-toolbar {
-    border: 1px solid var(--ferme-line);
-    border-radius: 10px;
-    padding: 4px 12px;
-}
-.ferme-filter-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 8px;
-    padding: 8px 0;
-}
-.ferme-filter-row + .ferme-filter-row {
-    border-top: 1px solid var(--ferme-line);
-}
-#ferme-lifetime-chips.ferme-filter-row {
-    border-top: 0;
-}
-.ferme-filter-label {
-    flex: 0 0 110px;
-    font-size: .85em;
-    opacity: .7;
-}
-.ferme-chips {
-    display: contents;
-}
-.ferme-chip,
-.ferme-lifetime-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border: 1px solid var(--ferme-line);
-    border-radius: 999px;
-    background: transparent;
-    color: inherit;
-    font-size: .85em;
-    line-height: 1.5;
-    transition: background-color .15s, border-color .15s, color .15s;
-}
-.ferme-chip:hover,
-.ferme-lifetime-chip:hover {
-    border-color: var(--ferme-accent);
-}
-.ferme-chip .badge,
-.ferme-lifetime-chip .badge {
-    background: var(--ferme-soft);
-    color: inherit;
-    font-weight: 600;
-}
-.ferme-chip-danger i { color: #c0392b; }
-.ferme-chip-warning i { color: #d68910; }
-.ferme-chip-info i { color: #2e86c1; }
-.ferme-chip-default i { opacity: .6; }
-.ferme-chip.active,
-.ferme-lifetime-chip.active {
-    background: var(--ferme-accent);
-    border-color: var(--ferme-accent);
-    color: #fff;
-}
-.ferme-chip.active i,
-.ferme-lifetime-chip.active i {
-    color: inherit;
-    opacity: 1;
-}
-.ferme-chip.active .badge,
-.ferme-lifetime-chip.active .badge {
-    background: rgba(255, 255, 255, 0.25);
-}
-.ferme-sort-row select.form-control,
-.ferme-sort-row .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    width: auto;
-    height: 30px;
-    padding: 3px 12px;
-    border: 1px solid var(--ferme-line);
-    border-radius: 999px;
-    background: transparent;
-    color: inherit;
-    font-size: .85em;
-    box-shadow: none;
-}
-.ferme-sort-row select.form-control {
-    display: inline-block;
-    padding-right: 28px;
-}
-.ferme-sort-row select.form-control:hover,
-.ferme-sort-row .btn:hover {
-    border-color: var(--ferme-accent);
-}
-.ferme-figures {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px 10px;
-    white-space: nowrap;
-}
-.ferme-figure {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-.ferme-figure i {
-    opacity: 0.55;
-}
-.ferme-sparkline {
-    vertical-align: middle;
-}
-.ferme-muted {
-    opacity: 0.6;
-}
-.ferme-identity strong {
-    display: block;
-}
-.ferme-open-wiki {
-    margin-left: 6px;
-    font-size: 0.85em;
-    opacity: 0.55;
-}
-.ferme-open-wiki:hover,
-.ferme-open-wiki:focus {
-    opacity: 1;
-}
-.ferme-identity small {
-    display: block;
-    opacity: 0.75;
-}
-#wikis-table td {
-    vertical-align: middle;
-}
-.ferme-detail {
-    padding: 4px 2px;
-}
-.ferme-detail-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 4px 18px;
-}
-.ferme-detail-cell i {
-    opacity: 0.55;
-}
-.ferme-detail-note {
-    font-size: 0.9em;
-    margin-top: 6px;
-}
-.ferme-progress {
-    float: right;
-    opacity: 0.7;
-    font-weight: normal;
-}
-.ferme-detail-title {
-    margin-top: 12px;
-    font-weight: bold;
-}
-.ferme-spam-pages {
-    margin: 4px 0 0;
-    padding-left: 18px;
-    max-height: 240px;
-    overflow-y: auto;
-}
-.ferme-spam-pages li {
-    line-height: 1.7;
-}
-.ferme-calendar {
-    margin-top: 4px;
-    max-width: 780px;
-}
-#wikis-table thead th.ferme-sortable {
-    cursor: pointer;
-    white-space: nowrap;
-}
-#wikis-table thead th.ferme-sortable:hover {
-    text-decoration: underline;
-}
-.ferme-sort-arrow {
-    opacity: 0.6;
-    margin-left: 4px;
-}
-.ferme-bulk {
-    margin-top: 10px;
-    padding: 10px 14px 12px;
-    border: 1px solid rgba(127, 127, 127, 0.3);
-    border-radius: 4px;
-}
-.ferme-bulk-head {
-    font-weight: bold;
-    margin-bottom: 8px;
-}
-.ferme-bulk-groups {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 10px 24px;
-}
-.ferme-bulk-title {
-    font-size: 0.85em;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    opacity: 0.6;
-    margin-bottom: 3px;
-}
-.ferme-bulk-action {
-    display: block;
-    padding: 3px 0;
-}
-.ferme-bulk-action i {
-    opacity: 0.55;
-}
-#wikis-table tbody tr {
-    cursor: pointer;
-}
-#wikis-table tbody tr.ferme-open > td,
-#wikis-table tbody tr.ferme-child > td {
-    background-color: rgba(127, 127, 127, 0.12);
-}
-#wikis-table tbody tr.ferme-open > td {
-    border-bottom: 0;
-}
-@media (max-width: 767px) {
-    #wikis-table,
-    #wikis-table tbody,
-    #wikis-table tr,
-    #wikis-table td {
-        display: block;
-        width: auto;
+{% import _self as ferme %}
+{{ include_css('extensions/ferme/styles/ferme.css') }}
+{{ include_javascript('extensions/ferme/javascripts/wikis-table.js') }}
+{% set pageUrl = url({}) %}
+{% set pageQuery = (pageUrl|split('?', 2))[1]|default('') %}
+<div class="ferme" id="ferme-wikis">
+  <script type="application/json" class="ferme-config">{{ {
+    api: api,
+    csrf: csrfToken,
+    query: {ferme_search: state.search, ferme_filter: state.filter, ferme_lifetime: state.lifetime},
+    filtered: filtered,
+    i18n: {
+      close: _t('FERME_UPGRADE_CLOSE'),
+      cancel: _t('FERME_CANCEL'),
+      start: _t('FERME_RUN_START'),
+      pending: _t('FERME_UPGRADE_PENDING'),
+      running: _t('FERME_UPGRADING_STATUS'),
+      done: _t('FERME_UPGRADE_SUCCESS'),
+      failed: _t('FERME_UPGRADE_ERROR'),
+      summary: _t('FERME_RUN_SUMMARY'),
+      nothingSelected: _t('FERME_SEARCH_IMPORT_NONE'),
+      selectAll: _t('FERME_SELECT_ALL_N'),
+      selectNone: _t('FERME_SELECT_NONE'),
+      selecting: _t('FERME_SELECTING'),
+      selected: _t('FERME_SELECTED_COUNT'),
+      loading: _t('FERME_STATS_LOADING'),
+      download: _t('FERME_ARCHIVE_DOWNLOAD'),
+      archiveMade: _t('FERME_ARCHIVE_MADE'),
+      mailSubject: _t('FERME_MAIL_SUBJECT'),
+      mailBody: _t('FERME_MAIL_BODY'),
+      mailPlaceholders: _t('FERME_MAIL_PLACEHOLDERS'),
+      mailSend: _t('FERME_MAIL_SEND'),
+      mailEmpty: _t('FERME_MAIL_EMPTY'),
+      searchIntro: _t('FERME_SEARCH_INTRO'),
+      searchScanning: _t('FERME_SEARCH_SCANNING'),
+      searchImport: _t('FERME_SEARCH_IMPORT_SELECTED'),
+      searchImported: _t('FERME_SEARCH_IMPORTED_STATUS'),
+      searchError: _t('FERME_SEARCH_NETWORK_ERROR'),
+      searchNone: _t('FERME_SEARCH_NOTHING'),
+      searchEmail: _t('FERME_SEARCH_EMAIL'),
+      neverMeasured: _t('FERME_SEARCH_NEVER_EDITED'),
+      folder: _t('FERME_CLI_COL_FOLDER'),
+      pages: _t('FERME_SORT_PAGES'),
+      entries: _t('FERME_SORT_ENTRIES'),
+      users: _t('FERME_SORT_USERS'),
+      lastActivity: _t('FERME_SORT_ACTIVITY'),
+      detailError: _t('FERME_DETAIL_ERROR'),
+      actions: {
+        'migrate': {title: _t('FERME_MIGRATE_SELECTED'), intro: _t('FERME_MIGRATE_INTRO')},
+        'refresh-stats': {title: _t('FERME_REFRESH_STATS_SELECTED'), intro: _t('FERME_REFRESH_STATS_INTRO')},
+        'archive': {title: _t('FERME_ARCHIVE_SELECTED'), intro: _t('FERME_ARCHIVE_INTRO')},
+        'hibernate': {title: _t('FERME_HIBERNATE_SELECTED'), intro: _t('FERME_HIBERNATE_INTRO'), danger: true},
+        'wake': {title: _t('FERME_WAKE_SELECTED'), intro: _t('FERME_WAKE_INTRO')},
+        'admin-add': {title: _t('FERME_ADMIN_ADD_SELECTED'), intro: _t('FERME_ADMIN_ADD_SELECTED_INTRO')},
+        'admin-remove': {title: _t('FERME_ADMIN_REMOVE_SELECTED'), intro: _t('FERME_ADMIN_REMOVE_SELECTED_INTRO'), danger: true},
+        'clean-spam-dry': {title: _t('FERME_CLEAN_DRY_SELECTED'), intro: _t('FERME_CLEAN_DRY_INTRO')},
+        'clean-spam': {title: _t('FERME_CLEAN_SELECTED'), intro: _t('FERME_CLEAN_INTRO'), danger: true},
+        'delete': {title: _t('FERME_DELETE_SELECTED_WIKIS'), intro: _t('FERME_DELETE_SELECTED_WARNING'), danger: true, confirm: _t('FERME_DELETE_CONFIRM_BTN')},
+        'mail': {title: _t('FERME_MAIL_SELECTED'), intro: _t('FERME_MAIL_INTRO')},
+        'lifetime': {title: _t('FERME_LIFETIME_CHANGE'), intro: _t('FERME_LIFETIME_CHANGE_INTRO')},
+        'search': {title: _t('FERME_SEARCH_FOR_WIKIS'), intro: _t('FERME_SEARCH_INTRO')}
+      }
     }
-    #wikis-table thead {
-        display: none;
-    }
-    #wikis-table tr {
-        border-bottom: 1px solid rgba(127, 127, 127, 0.3);
-        padding: 6px 0;
-    }
-    .ferme-filter-label {
-        flex-basis: 100%;
-    }
-}
-</style>
-<div class="ferme-dashboard">
-    <div id="ferme-totals" class="ferme-tiles"></div>
-    <div class="ferme-toolbar">
-        <div id="ferme-chips-row" class="ferme-filter-row hide">
-            <span class="ferme-filter-label">{{ _t("FERME_WATCH") }}</span>
-            <div id="ferme-chips" class="ferme-chips"></div>
-        </div>
-        <div id="ferme-lifetime-chips" class="ferme-filter-row hide"></div>
-        <div id="ferme-lifetime-states" class="ferme-filter-row hide"></div>
-        <div class="ferme-filter-row ferme-sort-row">
-            <label for="ferme-sort" class="ferme-filter-label" style="font-weight:normal; margin:0;">{{ _t("FERME_SORT_BY") }}</label>
-            <select id="ferme-sort" class="form-control input-sm">
-                <option value="title">{{ _t("FERME_SORT_TITLE") }}</option>
-                <option value="referent">{{ _t("FERME_WIKI_OWNER") }}</option>
-                <option value="lastActivity">{{ _t("FERME_SORT_ACTIVITY") }}</option>
-                <option value="activity">{{ _t("FERME_SORT_TOTAL_ACTIVITY") }}</option>
-                <option value="entries">{{ _t("FERME_SORT_ENTRIES") }}</option>
-                <option value="pages">{{ _t("FERME_SORT_PAGES") }}</option>
-                <option value="users">{{ _t("FERME_SORT_USERS") }}</option>
-                <option value="forms">{{ _t("FERME_SORT_FORMS") }}</option>
-                <option value="diskBytes">{{ _t("FERME_SORT_DISK") }}</option>
-            </select>
-            <button type="button" id="ferme-direction" class="btn btn-default btn-sm">
-                <i class="fas fa-arrow-up"></i> <span id="ferme-direction-label"></span>
-            </button>
-        </div>
+  }|json_encode|raw }}</script>
+
+  <div class="ferme-tiles">
+    <div class="ferme-tile"><span class="ferme-tile__value">{{ totals.wikis }}</span><span class="ferme-tile__label">{{ _t('FERME_TOTAL_WIKIS') }}</span></div>
+    <div class="ferme-tile"><span class="ferme-tile__value">{{ totals.running }}</span><span class="ferme-tile__label">{{ _t('FERME_STATUS_RUNNING') }}</span></div>
+    <div class="ferme-tile"><span class="ferme-tile__value">{{ totals.hibernating }}</span><span class="ferme-tile__label">{{ _t('FERME_STATUS_HIBERNATE') }}</span></div>
+    <div class="ferme-tile"><span class="ferme-tile__value">{{ totals.entries }}</span><span class="ferme-tile__label">{{ _t('FERME_SORT_ENTRIES') }}</span></div>
+    <div class="ferme-tile"><span class="ferme-tile__value">{{ totals.pages }}</span><span class="ferme-tile__label">{{ _t('FERME_SORT_PAGES') }}</span></div>
+    <div class="ferme-tile"><span class="ferme-tile__value">{{ totals.users }}</span><span class="ferme-tile__label">{{ _t('FERME_SORT_USERS') }}</span></div>
+    <div class="ferme-tile"><span class="ferme-tile__value">{{ totals.disk }}</span><span class="ferme-tile__label">{{ _t('FERME_STATS_DISK') }}</span></div>
+    {% if totals.measured < totals.wikis %}
+      <p class="ferme-tiles__note">{{ _t('FERME_TOTALS_PARTIAL', {measured: totals.measured, wikis: totals.wikis}) }}</p>
+    {% endif %}
+  </div>
+
+  <form class="ferme-toolbar" method="get" action="{{ pageUrl }}">
+    {% if pageQuery != '' and '=' not in pageQuery %}<input type="hidden" name="wiki" value="{{ pageQuery }}">{% endif %}
+    {% if state.filter %}<input type="hidden" name="ferme_filter" value="{{ state.filter }}">{% endif %}
+    {% if state.lifetime %}<input type="hidden" name="ferme_lifetime" value="{{ state.lifetime }}">{% endif %}
+    <label class="ferme-toolbar__search">
+      <span class="ferme-visually-hidden">{{ _t('FERME_SEARCH_LABEL') }}</span>
+      <input type="search" class="yw-input" name="ferme_search" value="{{ state.search }}" placeholder="{{ _t('FERME_SEARCH_LABEL') }}">
+    </label>
+    <label class="ferme-toolbar__sort">
+      <span>{{ _t('FERME_SORT_BY') }}</span>
+      <select class="yw-input" name="ferme_sort" data-ferme-autosubmit>
+        {% for sort in sorts %}
+          <option value="{{ sort }}"{% if sort == state.sort %} selected{% endif %}>{{ _t('FERME_SORT_' ~ {title: 'TITLE', referent: 'REFERENT', lastActivity: 'ACTIVITY', activity: 'TOTAL_ACTIVITY', entries: 'ENTRIES', pages: 'PAGES', users: 'USERS', forms: 'FORMS', diskBytes: 'DISK'}[sort]) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <select class="yw-input ferme-toolbar__way" name="ferme_way" data-ferme-autosubmit aria-label="{{ _t('FERME_SORT_BY') }}">
+      <option value="asc"{% if state.way == 'asc' %} selected{% endif %}>{{ _t('FERME_SORT_ASC') }}</option>
+      <option value="desc"{% if state.way == 'desc' %} selected{% endif %}>{{ _t('FERME_SORT_DESC') }}</option>
+    </select>
+    <button type="submit" class="yw-btn yw-btn--sm">{{ icon('loupe') }} {{ _t('FERME_SEARCH_LABEL') }}</button>
+    {% if state.search or state.filter or state.lifetime %}
+      <a class="yw-btn yw-btn--sm" href="{{ clearUrl }}">{{ icon('x') }} {{ _t('FERME_FILTER_CLEAR') }}</a>
+    {% endif %}
+    <button type="button" class="yw-btn yw-btn--sm ferme-toolbar__end" data-ferme-search>{{ icon('server') }} {{ _t('FERME_SEARCH_FOR_WIKIS') }}</button>
+  </form>
+
+  {% for group in [{label: _t('FERME_WATCH'), chips: chips}, {label: _t('FERME_LIFETIME'), chips: lifetimeChips}, {label: _t('FERME_LIFETIME_STATE'), chips: stateChips}] %}
+    {% if group.chips is not empty %}
+      <div class="ferme-chips">
+        <span class="ferme-chips__label">{{ group.label }}</span>
+        {% for chip in group.chips %}
+          <a class="ferme-chip ferme-chip--{{ chip.kind }}{% if chip.active %} ferme-chip--active{% endif %}" href="{{ chip.url }}"{% if chip.active %} aria-current="true"{% endif %}>
+            {{ icon(chip.icon) }} {{ chip.label }} <span class="ferme-chip__count">{{ chip.count }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <div class="ferme-selection" hidden>
+    <span class="ferme-selection__count"></span>
+    <button type="button" class="yw-btn yw-btn--sm" data-ferme-select-all>{{ _t('FERME_SELECT_ALL_N', {n: filtered}) }}</button>
+    <button type="button" class="yw-btn yw-btn--sm" data-ferme-select-none>{{ _t('FERME_SELECT_NONE') }}</button>
+    <div class="yw-dropdown">
+      <button type="button" class="yw-btn yw-btn--sm yw-btn--primary" data-yw-dropdown-toggle aria-expanded="false">{{ _t('FERME_SELECTION_ACTIONS') }} <span class="yw-dropdown__caret"></span></button>
+      <ul class="yw-dropdown__menu">
+        {{ ferme.actionItems(farmAdmin, lifetimeEnabled, lifetimeKinds, null) }}
+      </ul>
     </div>
-</div>
-<div class="table-responsive">
-    <table id="wikis-table"
-           class="no-dblclick datatable table table-condensed table-striped prevent-auto-init"
-           data-api-url="{{ api_url }}"
-           data-i18n-see="{{ _t("BAZ_SEE_ENTRY") }}"
-           data-i18n-edit="{{ _t("BAZ_MODIFIER") }}"
-           data-i18n-delete="{{ _t("BAZ_SUPPRIMER") }}">
+  </div>
+
+  {% if rows is empty %}
+    <p class="yw-alert yw-alert--info">{{ total == 0 ? _t('FERME_NO_WIKIS') : _t('FERME_NO_WIKI_MATCHES') }}</p>
+  {% else %}
+    <div class="ferme-table-wrap">
+      <table class="yw-table ferme-table">
         <thead>
-            <tr>
-                <th data-orderable="false" data-sortable="false"></th>
-                <th class="ferme-sortable" data-sort="title">{{ _t("FERME_WIKI_NAME") }}</th>
-                <th class="ferme-sortable" data-sort="entries">{{ _t("FERME_STATS_CONTENT") }}</th>
-                <th class="ferme-sortable" data-sort="lastActivity">{{ _t("FERME_SORT_ACTIVITY") }}</th>
-                <th class="ferme-sortable" data-sort="diskBytes">{{ _t("FERME_STATS_DISK") }}</th>
-                <th data-orderable="false" data-sortable="false">{{ _t("FERME_WIKI_ACTION") }}</th>
-            </tr>
+          <tr>
+            <th class="ferme-table__check"><input type="checkbox" data-ferme-check-page aria-label="{{ _t('FERME_SELECT_PAGE') }}"></th>
+            <th>{{ _t('FERME_WIKI_NAME') }}</th>
+            <th>{{ _t('FERME_WIKI_OWNER') }}</th>
+            <th>{{ _t('FERME_STATS_CONTENT') }}</th>
+            <th>{{ _t('FERME_SORT_ACTIVITY') }}</th>
+            <th>{{ _t('FERME_STATS_DISK') }}</th>
+            <th><span class="ferme-visually-hidden">{{ _t('FERME_WIKI_ACTION') }}</span></th>
+          </tr>
         </thead>
         <tbody>
+        {% for row in rows %}
+          {% set stats = row.stats %}
+          <tr class="ferme-row{% if row.status.asleep %} ferme-row--asleep{% endif %}" data-folder="{{ row.folder }}" data-tag="{{ row.tag }}" data-title="{{ row.title }}" data-mail="{{ row.mail }}">
+            <td class="ferme-table__check"><input type="checkbox" data-ferme-check aria-label="{{ row.title }}"></td>
+            <td class="ferme-table__wiki">
+              <a class="ferme-table__title" href="{{ row.viewUrl }}">{{ row.title }}</a>
+              {% if row.folder %}
+                <a class="ferme-table__folder" href="{{ row.url ?: '#' }}" target="_blank" rel="noopener" title="{{ _t('FERME_OPEN_WIKI') }}">{{ icon('external-link') }} {{ row.folder }}</a>
+              {% endif %}
+              <div class="ferme-badges">
+                {% if row.status.asleep %}<span class="yw-label">{{ icon('moon') }} {{ row.status.label }}</span>{% endif %}
+                {% if row.lifetime %}
+                  {% if row.lifetime.archived %}
+                    <span class="yw-label yw-label--danger" title="{{ _t('FERME_LIFETIME_PURGE_ON') }} {{ row.lifetime.purgeLabel }}">{{ icon('box') }} {{ _t('FERME_LIFETIME_ARCHIVED') }}</span>
+                  {% elseif row.lifetime.kind != 'permanent' %}
+                    <span class="yw-label{% if row.lifetime.expiring %} yw-label--warning{% else %} yw-label--info{% endif %}">{{ icon('hourglass') }} {{ row.lifetime.label }}{% if row.lifetime.expiresLabel %} · {{ row.lifetime.expiresLabel }}{% endif %}</span>
+                  {% endif %}
+                {% endif %}
+                {% for problem in row.problems %}<span class="yw-label yw-label--danger">{{ icon('alert-triangle') }} {{ problem.label }}</span>{% endfor %}
+                {% if row.error %}<span class="yw-label yw-label--danger" title="{{ row.error }}">{{ icon('alert-triangle') }} {{ row.error|length > 60 ? row.error|slice(0, 60) ~ '…' : row.error }}</span>{% endif %}
+                {% if stats %}
+                  {% if stats.toUpdate %}<span class="yw-label yw-label--danger">{{ icon('refresh') }} {{ _t('FERME_CHIP_TO_UPDATE') }}</span>{% endif %}
+                  {% if stats.suspect %}<span class="yw-label yw-label--danger" title="{{ stats.suspectWhy|join(', ') }}">{{ icon('ban') }} {{ _t('FERME_CHIP_SUSPECT') }}</span>{% endif %}
+                  {% if stats.spammed %}<span class="yw-label yw-label--warning" title="{{ stats.spamHosts }}">{{ icon('link') }} {{ _t('FERME_CHIP_SPAMMED') }} ({{ stats.spamPages }})</span>{% endif %}
+                  {% if stats.neverEdited %}<span class="yw-label">{{ icon('seedling') }} {{ _t('FERME_CHIP_UNCHANGED') }}</span>{% endif %}
+                  {% if stats.dormant %}<span class="yw-label">{{ icon('moon') }} {{ _t('FERME_CHIP_DORMANT') }}</span>{% endif %}
+                  {% if stats.heavyArchives %}<span class="yw-label yw-label--warning">{{ icon('box') }} {{ _t('FERME_CHIP_HEAVY_ARCHIVES') }}</span>{% endif %}
+                  {% if stats.failed %}<span class="yw-label yw-label--danger" title="{{ stats.error }}">{{ icon('alert-triangle') }} {{ _t('FERME_CHIP_FAILED') }}</span>{% endif %}
+                {% endif %}
+                {% if row.admin %}
+                  <span class="yw-label{% if row.admin.present %} yw-label--success{% endif %}" title="{{ _t('FERME_WIKI_ADMIN') }} {{ row.admin.name }}">{{ icon('user') }} {{ row.admin.present ? _t('FERME_ADMIN_PRESENT') : _t('FERME_ADMIN_ABSENT') }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="ferme-table__owner">
+              {{ row.referent }}
+              {% if row.mail %}<a class="ferme-table__mail" href="mailto:{{ row.mail }}">{{ row.mail }}</a>{% endif %}
+            </td>
+            <td class="ferme-table__numbers">
+              {% if stats %}
+                <span title="{{ _t('FERME_SORT_ENTRIES') }}">{{ icon('list-details') }} {{ stats.entries }}</span>
+                <span title="{{ _t('FERME_SORT_PAGES') }}">{{ icon('file-text') }} {{ stats.pages }}</span>
+                <span title="{{ _t('FERME_SORT_USERS') }}">{{ icon('users') }} {{ stats.users }}</span>
+              {% else %}
+                <span class="ferme-muted">{{ _t('FERME_STATS_NEVER_MEASURED') }}</span>
+              {% endif %}
+            </td>
+            <td class="ferme-table__activity">
+              {% if stats %}
+                <span class="ferme-sparkline-wrap">{{ stats.sparkline|raw }}</span>
+                <span class="ferme-muted">{{ stats.lastActivityAge }}</span>
+              {% endif %}
+            </td>
+            <td class="ferme-table__disk">
+              {% if stats %}<span title="{{ stats.diskDetail }}">{{ stats.disk }}</span>{% endif %}
+            </td>
+            <td class="ferme-table__actions">
+              <button type="button" class="yw-btn yw-btn--sm" data-ferme-detail aria-expanded="false" title="{{ _t('FERME_STATS_DETAIL') }}">{{ icon('chevron-down') }}<span class="ferme-visually-hidden">{{ _t('FERME_STATS_DETAIL') }}</span></button>
+              <div class="yw-dropdown">
+                <button type="button" class="yw-btn yw-btn--sm" data-yw-dropdown-toggle aria-expanded="false" title="{{ _t('FERME_WIKI_ACTION') }}">{{ icon('menu-2') }}<span class="ferme-visually-hidden">{{ _t('FERME_WIKI_ACTION') }}</span></button>
+                <ul class="yw-dropdown__menu yw-dropdown__menu--right">
+                  {% if row.url %}<li><a href="{{ row.url }}" target="_blank" rel="noopener">{{ icon('external-link') }} {{ _t('FERME_HOOK_OPEN_WIKI') }}</a></li>{% endif %}
+                  <li><a href="{{ row.viewUrl }}">{{ icon('eye') }} {{ _t('FERME_HOOK_SEE_ENTRY') }}</a></li>
+                  <li><a href="{{ row.editUrl }}">{{ icon('pencil') }} {{ _t('FERME_EDIT_ENTRY') }}</a></li>
+                  <li class="yw-dropdown__divider"></li>
+                  {{ ferme.actionItems(farmAdmin, lifetimeEnabled, lifetimeKinds, row) }}
+                </ul>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
         </tbody>
-    </table>
-</div>
-<!-- /.table-responsive -->
-<div class="clearfix" style="margin-top:10px;">
-    <div class="checkbox" style="display:inline-block; margin-right:10px;">
-        <label>
-            <input type="checkbox" id="select-all-wikis">
-            <span>{{ _t("FERME_SELECT_PAGE") }}</span>
-        </label>
+      </table>
     </div>
-    <button id="btn-select-everything" type="button" class="btn btn-default btn-sm" style="margin-right:10px;">
-        <i class="fas fa-check-double"></i> <span id="select-everything-label">{{ _t("FERME_SELECT_ALL") }}</span>
-    </button>
-    <button id="btn-select-none" type="button" class="btn btn-link btn-sm" style="display:none; margin-right:10px;">
-        {{ _t("FERME_SELECT_NONE") }}
-    </button>
-</div>
-<div id="ferme-bulk" class="ferme-bulk" style="display:none;">
-    <div class="ferme-bulk-head">
-        {{ _t("FERME_SELECTION_ACTIONS") }}
-        <span id="bulk-selected-count" class="badge"></span>
+  {% endif %}
+
+  {% if pageLinks is not empty %}
+    <nav class="yw-pagination ferme-pagination" aria-label="{{ _t('FERME_PAGES') }}">
+      {% for link in pageLinks %}
+        <a class="yw-pagination__link{% if link.current %} ferme-pagination__current{% endif %}" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.number }}</a>
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+  <div class="yw-modal ferme-modal" id="ferme-wikis-modal" tabindex="-1" role="dialog" aria-labelledby="ferme-modal-title">
+    <div class="yw-modal__dialog yw-modal__dialog--lg">
+      <div class="yw-modal__content">
+        <div class="yw-modal__header">
+          <h3 class="yw-modal__title" id="ferme-modal-title"></h3>
+          <button type="button" class="yw-close" data-yw-dismiss="modal" aria-label="{{ _t('FERME_UPGRADE_CLOSE') }}">&times;</button>
+        </div>
+        <div class="yw-modal__body ferme-modal__body"></div>
+        <div class="yw-modal__footer ferme-modal__footer"></div>
+      </div>
     </div>
-    <div class="ferme-bulk-groups">
-        <div>
-            <div class="ferme-bulk-title">{{ _t("FERME_BULK_UPDATE") }}</div>
-            <a href="#" class="ferme-bulk-action" id="btn-upgrade-selected"><i class="fas fa-sync-alt fa-fw"></i> {{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-upgrade-extensions-selected"><i class="fas fa-puzzle-piece fa-fw"></i> {{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-recover-custom-selected"><i class="fas fa-undo fa-fw"></i> {{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-refresh-stats-selected"><i class="fas fa-chart-bar fa-fw"></i> {{ _t("FERME_REFRESH_STATS_SELECTED") }}</a>
-        </div>
-        <div>
-            <div class="ferme-bulk-title">{{ _t("FERME_BULK_CONTENT") }}</div>
-            <a href="#" class="ferme-bulk-action" id="btn-clean-spam-dry"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_DRY_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-clean-spam"><i class="fas fa-broom fa-fw"></i> {{ _t("FERME_CLEAN_SELECTED") }}</a>
-        </div>
-        <div>
-            <div class="ferme-bulk-title">{{ _t("FERME_BULK_PEOPLE") }}</div>
-            <a href="#" class="ferme-bulk-action" id="btn-admin-add-selected"><i class="fas fa-user-plus fa-fw"></i> {{ _t("FERME_ADMIN_ADD_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-admin-remove-selected"><i class="fas fa-user-minus fa-fw"></i> {{ _t("FERME_ADMIN_REMOVE_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-mail-selected"><i class="fas fa-envelope fa-fw"></i> {{ _t("FERME_MAIL_SELECTED") }}</a>
-        </div>
-        <div>
-            <div class="ferme-bulk-title">{{ _t("FERME_BULK_LIFE") }}</div>
-            <a href="#" class="ferme-bulk-action" id="btn-archive-selected"><i class="fas fa-file-archive fa-fw"></i> {{ _t("FERME_ARCHIVE_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-hibernate-selected"><i class="fas fa-moon fa-fw"></i> {{ _t("FERME_HIBERNATE_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action" id="btn-wake-selected"><i class="fas fa-sun fa-fw"></i> {{ _t("FERME_WAKE_SELECTED") }}</a>
-            <a href="#" class="ferme-bulk-action text-danger" id="btn-delete-selected"><i class="fas fa-trash fa-fw"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}</a>
-        </div>
-    </div>
+  </div>
 </div>
-<div id="upgrade-wikis-config"
-     style="display:none"
-     data-upgrade-url="{{ upgrade_api_url }}"
-     data-upgrade-extensions-url="{{ upgrade_extensions_api_url }}"
-     data-recover-custom-url="{{ recover_custom_api_url }}"
-     data-refresh-stats-url="{{ refresh_stats_api_url }}"
-     data-activity-url="{{ activity_api_url }}"
-     data-csrf-token-url="{{ csrf_token_api_url }}"
-     data-mail-url="{{ mail_api_url }}"
-     data-import-url="{{ import_api_url }}"
-     data-delete-url="{{ delete_api_url }}"
-     data-search-url="{{ search_api_url }}"
-     data-archive-url="{{ archive_api_url }}"
-     data-select-url="{{ select_api_url }}"
-     data-clean-spam-url="{{ clean_spam_api_url }}"
-     data-spam-pages-url="{{ spam_pages_api_url }}"
-     data-approve-spam-url="{{ approve_spam_api_url }}"
-     data-hibernate-url="{{ hibernate_api_url }}"
-     data-lifetime-url="{{ lifetime_api_url }}"
-     data-chip-expiring="{{ _t("FERME_CHIP_EXPIRING") }}"
-     data-chip-ongoing="{{ _t("FERME_CHIP_ONGOING") }}"
-     data-i18n-lifetime-filter="{{ _t("FERME_LIFETIME") }}"
-     data-i18n-lifetime-states="{{ _t("FERME_LIFETIME_STATE") }}"
-     data-i18n-lifetime-short="{{ _t("FERME_LIFETIME_SHORT") }}"
-     data-i18n-lifetime-long="{{ _t("FERME_LIFETIME_LONG") }}"
-     data-i18n-lifetime-permanent="{{ _t("FERME_LIFETIME_PERMANENT") }}"
-     data-chip-archived="{{ _t("FERME_LIFETIME_ARCHIVED") }}"
-     data-i18n-purge-on="{{ _t("FERME_LIFETIME_PURGE_ON") }}"
-     data-i18n-lifetime-renew="{{ _t("FERME_LIFETIME_RENEW") }}"
-     data-i18n-lifetime-to-short="{{ _t("FERME_LIFETIME_TO_SHORT") }}"
-     data-i18n-lifetime-to-long="{{ _t("FERME_LIFETIME_TO_LONG") }}"
-     data-i18n-lifetime-to-permanent="{{ _t("FERME_LIFETIME_TO_PERMANENT") }}"
-     data-wake-url="{{ wake_api_url }}"
-     data-admin-add-url="{{ admin_add_api_url }}"
-     data-admin-remove-url="{{ admin_remove_api_url }}"
-     data-csrf-token="{{ csrfToken({"id": "main", "refresh": false}) }}"
-     data-pending="{{ _t("FERME_UPGRADE_PENDING") }}"
-     data-in-progress="{{ _t("FERME_UPGRADING_STATUS") }}"
-     data-success="{{ _t("FERME_UPGRADE_SUCCESS") }}"
-     data-error="{{ _t("FERME_UPGRADE_ERROR") }}"
-     data-delete-warning="{{ _t("FERME_DELETE_SELECTED_WARNING") }}"
-     data-delete-confirm-btn="{{ _t("FERME_DELETE_CONFIRM_BTN") }}"
-     data-deleting="{{ _t("FERME_DELETING_STATUS") }}"
-     data-delete-success="{{ _t("FERME_DELETE_SUCCESS") }}"
-     data-delete-error="{{ _t("FERME_DELETE_ERROR") }}"
-     data-cancel="{{ _t("FERME_CANCEL") }}"
-     data-close="{{ _t("FERME_UPGRADE_CLOSE") }}"
-     data-search-scanning="{{ _t("FERME_SEARCH_SCANNING") }}"
-     data-search-imported-status="{{ _t("FERME_SEARCH_IMPORTED_STATUS") }}"
-     data-search-network-error="{{ _t("FERME_SEARCH_NETWORK_ERROR") }}"
-     data-i18n-never-edited="{{ _t("FERME_SEARCH_NEVER_EDITED") }}"
-     data-i18n-import-selected="{{ _t("FERME_SEARCH_IMPORT_SELECTED") }}"
-     data-i18n-import-none="{{ _t("FERME_SEARCH_IMPORT_NONE") }}"
-     data-admin-add-selected="{{ _t("FERME_ADMIN_ADD_SELECTED") }}"
-     data-admin-remove-selected="{{ _t("FERME_ADMIN_REMOVE_SELECTED") }}"
-     data-admin-add-intro="{{ _t("FERME_ADMIN_ADD_SELECTED_INTRO") }}"
-     data-admin-remove-intro="{{ _t("FERME_ADMIN_REMOVE_SELECTED_INTRO") }}"
-     data-admin-added="{{ _t("FERME_ADMIN_ADDED_STATUS") }}"
-     data-admin-removed="{{ _t("FERME_ADMIN_REMOVED_STATUS") }}"
-     data-admin-error="{{ _t("FERME_ADMIN_ERROR_STATUS") }}"
-     data-upgrade-title="{{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}"
-     data-upgrade-intro="{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}"
-     data-upgrade-ext-title="{{ _t("FERME_UPGRADE_EXTENSIONS_SELECTED") }}"
-     data-upgrade-ext-intro="{{ _t("FERME_UPGRADE_EXTENSIONS_INTRO") }}"
-     data-recover-title="{{ _t("FERME_RECOVER_CUSTOM_SELECTED") }}"
-     data-total-wikis="{{ _t("FERME_TOTAL_WIKIS") }}"
-     data-i18n-filter-by="{{ _t("FERME_FILTER_BY") }}"
-     data-i18n-total-running="{{ _t("FERME_STATUS_RUNNING") }}"
-     data-i18n-total-hibernating="{{ _t("FERME_STATUS_HIBERNATE") }}"
-     data-total-users="{{ _t("FERME_SORT_USERS") }}"
-     data-total-entries="{{ _t("FERME_SORT_ENTRIES") }}"
-     data-total-pages="{{ _t("FERME_SORT_PAGES") }}"
-     data-total-forms="{{ _t("FERME_SORT_FORMS") }}"
-     data-total-disk="{{ _t("FERME_STATS_DISK") }}"
-     data-chip-to-update="{{ _t("FERME_CHIP_TO_UPDATE") }}"
-     data-chip-dormant="{{ _t("FERME_CHIP_DORMANT") }}"
-     data-chip-unchanged="{{ _t("FERME_CHIP_UNCHANGED") }}"
-     data-chip-heavy-archives="{{ _t("FERME_CHIP_HEAVY_ARCHIVES") }}"
-     data-chip-suspect="{{ _t("FERME_CHIP_SUSPECT") }}"
-     data-chip-failed="{{ _t("FERME_CHIP_FAILED") }}"
-     data-chip-unmeasured="{{ _t("FERME_CHIP_UNMEASURED") }}"
-     data-chip-hibernating="{{ _t("FERME_CHIP_HIBERNATING") }}"
-     data-chip-spammed="{{ _t("FERME_CHIP_SPAMMED") }}"
-     data-i18n-spam-words="{{ _t("FERME_STATS_SPAM_WORDS") }}"
-     data-i18n-spam-links="{{ _t("FERME_STATS_SPAM_LINKS") }}"
-     data-archive-title="{{ _t("FERME_ARCHIVE_SELECTED") }}"
-     data-archive-intro="{{ _t("FERME_ARCHIVE_INTRO") }}"
-     data-i18n-download="{{ _t("FERME_ARCHIVE_DOWNLOAD") }}"
-     data-clean-title="{{ _t("FERME_CLEAN_SELECTED") }}"
-     data-clean-intro="{{ _t("FERME_CLEAN_INTRO") }}"
-     data-clean-dry-title="{{ _t("FERME_CLEAN_DRY_SELECTED") }}"
-     data-clean-dry-intro="{{ _t("FERME_CLEAN_DRY_INTRO") }}"
-     data-hibernate-title="{{ _t("FERME_HIBERNATE_SELECTED") }}"
-     data-hibernate-intro="{{ _t("FERME_HIBERNATE_INTRO") }}"
-     data-wake-title="{{ _t("FERME_WAKE_SELECTED") }}"
-     data-wake-intro="{{ _t("FERME_WAKE_INTRO") }}"
-     data-i18n-status="{{ _t("FERME_STATUS") }}"
-     data-i18n-select-all="{{ _t("FERME_SELECT_ALL") }}"
-     data-i18n-select-all-n="{{ _t("FERME_SELECT_ALL_N") }}"
-     data-i18n-selecting="{{ _t("FERME_SELECTING") }}"
-     data-i18n-never-measured="{{ _t("FERME_STATS_NEVER_MEASURED") }}"
-     data-i18n-measured-at="{{ _t("FERME_STATS_MEASURED_AT") }}"
-     data-i18n-installed-at="{{ _t("FERME_STATS_INSTALLED_AT") }}"
-     data-i18n-edited-pages="{{ _t("FERME_STATS_EDITED_PAGES") }}"
-     data-i18n-sort-asc="{{ _t("FERME_SORT_ASC") }}"
-     data-i18n-sort-desc="{{ _t("FERME_SORT_DESC") }}"
-     data-i18n-admin-present="{{ _t("FERME_ADMIN_PRESENT") }}"
-     data-i18n-admin-absent="{{ _t("FERME_ADMIN_ABSENT") }}"
-     data-i18n-admin-none="{{ _t("FERME_ADMIN_NONE") }}"
-     data-i18n-admin-add="{{ _t("FERME_ADMIN_ADD_ACCOUNT") }}"
-     data-i18n-admin-remove="{{ _t("FERME_ADMIN_REMOVE_ACCOUNT") }}"
-     data-i18n-update-to="{{ _t("FERME_UPDATE_TO") }}"
-     data-i18n-version-different="{{ _t("FERME_VERSION_DIFFERENT") }}"
-     data-i18n-files="{{ _t("FERME_STATS_FILES") }}"
-     data-i18n-archives="{{ _t("FERME_STATS_ARCHIVES") }}"
-     data-i18n-detail="{{ _t("FERME_STATS_DETAIL") }}"
-     data-i18n-open-wiki="{{ _t("FERME_OPEN_WIKI") }}"
-     data-recover-intro="{{ _t("FERME_RECOVER_CUSTOM_INTRO") }}"
-     data-refresh-title="{{ _t("FERME_REFRESH_STATS_SELECTED") }}"
-     data-refresh-intro="{{ _t("FERME_REFRESH_STATS_INTRO") }}"
-     data-i18n-loading="{{ _t("FERME_STATS_LOADING") }}"
-     data-i18n-run-summary="{{ _t("FERME_RUN_SUMMARY") }}"
-     data-i18n-totals-partial="{{ _t("FERME_TOTALS_PARTIAL") }}"
-     data-i18n-mail-no-address="{{ _t("FERME_MAIL_NO_ADDRESS") }}"
-     data-i18n-mail-sending="{{ _t("FERME_MAIL_SENDING") }}"
-     data-i18n-mail-sent="{{ _t("FERME_MAIL_SENT") }}"></div>
-{{ include_javascript("tools/ferme/javascripts/wikis-table.js") }}
-<div class="modal fade"
-     id="upgrade-selected-modal"
-     tabindex="-1"
-     role="dialog"
-     aria-labelledby="upgrade-selected-modal-label"
-     data-backdrop="static"
-     data-keyboard="false">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title" id="upgrade-selected-modal-label">
-                    <i id="upgrade-selected-modal-icon" class="fas fa-sync-alt"></i>
-                    <span id="upgrade-selected-modal-label-text">{{ _t("FERME_UPGRADE_SELECTED_WIKIS") }}</span>
-                    <small class="ferme-progress"></small>
-                </h4>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted" id="upgrade-selected-intro">{{ _t("FERME_UPGRADE_SELECTED_INTRO") }}</p>
-                <div id="upgrade-wikis-list"
-                     class="list-group"
-                     style="max-height:400px;
-                            overflow-y:auto"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button"
-                        id="btn-close-upgrade-modal"
-                        class="btn btn-default"
-                        data-dismiss="modal"
-                        disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="modal fade"
-     id="delete-selected-modal"
-     tabindex="-1"
-     role="dialog"
-     aria-labelledby="delete-selected-modal-label"
-     data-backdrop="static"
-     data-keyboard="false">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title" id="delete-selected-modal-label">
-                    <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_SELECTED_WIKIS") }}
-                    <small class="ferme-progress"></small>
-                </h4>
-            </div>
-            <div class="modal-body">
-                <div id="delete-confirm-stage">
-                    <div class="alert alert-danger">{{ _t("FERME_DELETE_SELECTED_WARNING") }}</div>
-                    <div id="delete-wikis-preview"
-                         class="list-group"
-                         style="max-height:300px;
-                                overflow-y:auto"></div>
-                </div>
-                <div id="delete-progress-stage" style="display:none">
-                    <div id="delete-wikis-list"
-                         class="list-group"
-                         style="max-height:400px;
-                                overflow-y:auto"></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div id="delete-footer-confirm">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">{{ _t("FERME_CANCEL") }}</button>
-                    <button type="button" id="btn-start-delete" class="btn btn-danger">
-                        <i class="fas fa-trash"></i> {{ _t("FERME_DELETE_CONFIRM_BTN") }}
-                    </button>
-                </div>
-                <div id="delete-footer-progress" style="display:none">
-                    <button type="button"
-                            id="btn-close-delete-modal"
-                            class="btn btn-default"
-                            data-dismiss="modal"
-                            disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="modal fade"
-     id="mail-selected-modal"
-     tabindex="-1"
-     role="dialog"
-     aria-labelledby="mail-selected-modal-label"
-     data-backdrop="static"
-     data-keyboard="false">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title" id="mail-selected-modal-label">
-                    <i class="fas fa-envelope"></i> {{ _t("FERME_MAIL_SELECTED") }}
-                    <small class="ferme-progress"></small>
-                </h4>
-            </div>
-            <div class="modal-body">
-                <div id="mail-compose-stage">
-                    <p class="text-muted">{{ _t("FERME_MAIL_INTRO") }}</p>
-                    <div class="form-group">
-                        <label for="mail-subject">{{ _t("FERME_MAIL_SUBJECT") }}</label>
-                        <input type="text" class="form-control" id="mail-subject" maxlength="200">
-                    </div>
-                    <div class="form-group">
-                        <label for="mail-body">{{ _t("FERME_MAIL_BODY") }}</label>
-                        <textarea class="form-control" id="mail-body" rows="9"></textarea>
-                        <span class="help-block">{{ _t("FERME_MAIL_PLACEHOLDERS") }} <code>{title}</code> <code>{url}</code> <code>{referent}</code> <code>{folder}</code> <code>{lastActivity}</code> <code>{entries}</code> <code>{pages}</code> <code>{users}</code> <code>{files}</code></span>
-                    </div>
-                    <div id="mail-recipients" class="help-block"></div>
-                </div>
-                <div id="mail-progress-stage" style="display:none">
-                    <div id="mail-wikis-list"
-                         class="list-group"
-                         style="max-height:400px;
-                                overflow-y:auto"></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div id="mail-footer-compose">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">{{ _t("FERME_CANCEL") }}</button>
-                    <button type="button" id="btn-start-mail" class="btn btn-primary">
-                        <i class="fas fa-paper-plane"></i> {{ _t("FERME_MAIL_SEND") }}
-                    </button>
-                </div>
-                <div id="mail-footer-progress" style="display:none">
-                    <button type="button"
-                            id="btn-close-mail-modal"
-                            class="btn btn-default"
-                            data-dismiss="modal"
-                            disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="modal fade"
-     id="admin-selected-modal"
-     tabindex="-1"
-     role="dialog"
-     aria-labelledby="admin-selected-modal-label"
-     data-backdrop="static"
-     data-keyboard="false">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title" id="admin-selected-modal-label">
-                    <i id="admin-selected-modal-icon" class="fas fa-user-plus"></i>
-                    <span id="admin-selected-modal-label-text"></span>
-                    <small class="ferme-progress"></small>
-                </h4>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted" id="admin-selected-intro"></p>
-                <div id="admin-wikis-list"
-                     class="list-group"
-                     style="max-height:400px;
-                            overflow-y:auto"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button"
-                        id="btn-close-admin-modal"
-                        class="btn btn-default"
-                        data-dismiss="modal"
-                        disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
-            </div>
-        </div>
-    </div>
-</div>
-<hr />
-<button id="btn-search-wikis" type="button" class="btn btn-primary">
-    <i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}
-</button>
-<div class="modal fade"
-     id="search-wikis-modal"
-     tabindex="-1"
-     role="dialog"
-     aria-labelledby="search-wikis-modal-label"
-     data-backdrop="static"
-     data-keyboard="false">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title" id="search-wikis-modal-label">
-                    <i class="fas fa-search-plus"></i> {{ _t("FERME_SEARCH_FOR_WIKIS") }}
-                </h4>
-            </div>
-            <div class="modal-body">
-                <div id="search-loading-stage"
-                     class="text-center text-muted"
-                     style="padding:20px 0">
-                    <i class="fas fa-spinner fa-spin fa-2x"></i>
-                    <p style="margin-top:10px">{{ _t("FERME_SEARCH_SCANNING") }}</p>
-                </div>
-                <div id="search-results-stage" style="display:none">
-                    <div id="search-summary" class="alert"></div>
-                    <p class="text-muted">{{ _t("FERME_SEARCH_INTRO") }}</p>
-                    <div class="checkbox">
-                        <label>
-                            <input type="checkbox" id="search-select-all">
-                            <span>{{ _t("FERME_SELECT_ALL") }}</span>
-                        </label>
-                    </div>
-                    <div id="search-wikis-list"
-                         class="list-group"
-                         style="max-height:400px;
-                                overflow-y:auto"></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button"
-                        id="btn-import-selected"
-                        class="btn btn-primary"
-                        disabled>
-                    <i class="fas fa-file-import"></i> <span id="import-selected-label">{{ _t("FERME_SEARCH_IMPORT_NONE") }}</span>
-                </button>
-                <button type="button"
-                        id="btn-close-search-modal"
-                        class="btn btn-default"
-                        data-dismiss="modal"
-                        disabled>{{ _t("FERME_UPGRADE_CLOSE") }}</button>
-            </div>
-        </div>
-    </div>
-</div>
+
+{% macro actionItems(farmAdmin, lifetimeEnabled, lifetimeKinds, row) %}
+  <li><button type="button" data-ferme-action="migrate">{{ icon('refresh') }} {{ _t('FERME_MIGRATE_SELECTED') }}</button></li>
+  <li><button type="button" data-ferme-action="refresh-stats">{{ icon('chart-bar') }} {{ _t('FERME_REFRESH_STATS_SELECTED') }}</button></li>
+  <li><button type="button" data-ferme-action="archive">{{ icon('download') }} {{ _t('FERME_ARCHIVE_SELECTED') }}</button></li>
+  {% if row is null or not row.status.asleep %}
+    <li><button type="button" data-ferme-action="hibernate">{{ icon('moon') }} {{ _t('FERME_HIBERNATE_SELECTED') }}</button></li>
+  {% endif %}
+  {% if row is null or row.status.asleep %}
+    <li><button type="button" data-ferme-action="wake">{{ icon('sun') }} {{ _t('FERME_WAKE_SELECTED') }}</button></li>
+  {% endif %}
+  {% if farmAdmin %}
+    {% if row is null or not row.admin or not row.admin.present %}
+      <li><button type="button" data-ferme-action="admin-add">{{ icon('user-plus') }} {{ _t('FERME_ADMIN_ADD_SELECTED') }}</button></li>
+    {% endif %}
+    {% if row is null or not row.admin or row.admin.present %}
+      <li><button type="button" data-ferme-action="admin-remove">{{ icon('user') }} {{ _t('FERME_ADMIN_REMOVE_SELECTED') }}</button></li>
+    {% endif %}
+  {% endif %}
+  <li><button type="button" data-ferme-action="clean-spam-dry">{{ icon('eye') }} {{ _t('FERME_CLEAN_DRY_SELECTED') }}</button></li>
+  <li><button type="button" data-ferme-action="clean-spam">{{ icon('eraser') }} {{ _t('FERME_CLEAN_SELECTED') }}</button></li>
+  <li><button type="button" data-ferme-action="mail">{{ icon('mail') }} {{ _t('FERME_MAIL_SELECTED') }}</button></li>
+  {% if lifetimeEnabled %}
+    {% for kind in lifetimeKinds %}
+      <li><button type="button" data-ferme-action="lifetime" data-ferme-kind="{{ kind.kind }}">{{ icon('hourglass') }} {{ _t('FERME_LIFETIME_TO_' ~ kind.kind|upper) }}</button></li>
+    {% endfor %}
+  {% endif %}
+  <li class="yw-dropdown__divider"></li>
+  <li><button type="button" class="ferme-danger" data-ferme-action="delete">{{ icon('trash') }} {{ _t('FERME_DELETE_SELECTED_WIKIS') }}</button></li>
+{% endmacro %}

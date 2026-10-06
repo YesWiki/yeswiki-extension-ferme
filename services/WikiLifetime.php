@@ -2,11 +2,12 @@
 
 namespace YesWiki\Ferme\Service;
 
-use YesWiki\Bazar\Service\EntryManager;
-use YesWiki\Core\Service\PageManager;
-use YesWiki\Wiki;
+use YesWiki\Content\Entity\PageType;
+use YesWiki\Content\Service\PageManager;
+use YesWiki\Files\Service\Storage;
+use YesWiki\Kernel\Service\UrlFormatter;
 
-/** How long a farm wiki lives: its kind, its deadline, its renewal, kept on its bazar entry. */
+/** How long a farm wiki lives: its kind, its deadline and its renewal, kept on the entry that describes it. */
 class WikiLifetime
 {
     public const SHORT = 'short';
@@ -25,44 +26,39 @@ class WikiLifetime
     public const LONG_DAYS = 365;
     public const GRACE_DAYS = 180;
     public const REMINDERS = [30, 7];
-    public const KEY_FILE = 'private/ferme-lifetime.key';
+    public const KEY_FILE = 'private/keys/ferme-lifetime.key';
 
-    private $wiki;
-    private $entryManager;
-    private $pageManager;
-
-    public function __construct(Wiki $wiki, EntryManager $entryManager, PageManager $pageManager)
-    {
-        $this->wiki = $wiki;
-        $this->entryManager = $entryManager;
-        $this->pageManager = $pageManager;
+    public function __construct(
+        private readonly FarmConfig $config,
+        private readonly PageManager $pageManager,
+        private readonly UrlFormatter $urlFormatter,
+        private readonly Storage $storage
+    ) {
     }
 
     public function isEnabled(): bool
     {
-        return filter_var($this->wiki->config['yeswiki-farm-lifetime'] ?? false, FILTER_VALIDATE_BOOL);
+        return $this->config->flag('yeswiki-farm-lifetime');
     }
 
     public function days(string $kind): int
     {
-        $key = $kind === self::SHORT ? 'yeswiki-farm-lifetime-short' : 'yeswiki-farm-lifetime-long';
-        $default = $kind === self::SHORT ? self::SHORT_DAYS : self::LONG_DAYS;
-
-        return max(1, (int)($this->wiki->config[$key] ?? $default));
+        return $kind === self::SHORT
+            ? max(1, (int)$this->config->text('yeswiki-farm-lifetime-short', (string)self::SHORT_DAYS))
+            : max(1, (int)$this->config->text('yeswiki-farm-lifetime-long', (string)self::LONG_DAYS));
     }
 
     public function graceDays(): int
     {
-        return max(0, (int)($this->wiki->config['yeswiki-farm-lifetime-grace'] ?? self::GRACE_DAYS));
+        return max(0, (int)$this->config->text('yeswiki-farm-lifetime-grace', (string)self::GRACE_DAYS));
     }
 
+    /** @return list<int> days before the deadline a reminder goes out, furthest first */
     public function reminders(): array
     {
-        $days = $this->wiki->config['yeswiki-farm-lifetime-reminders'] ?? self::REMINDERS;
-        $days = is_array($days) ? $days : explode(',', (string)$days);
-        $days = array_values(array_unique(array_filter(array_map('intval', $days), function (int $day) {
-            return $day > 0;
-        })));
+        $days = $this->config->setting('yeswiki-farm-lifetime-reminders', self::REMINDERS);
+        $days = is_array($days) ? $days : explode(',', is_scalar($days) ? (string)$days : '');
+        $days = array_values(array_unique(array_filter(array_map('intval', $days), static fn (int $day): bool => $day > 0)));
         rsort($days);
 
         return $days === [] ? self::REMINDERS : $days;
@@ -73,11 +69,13 @@ class WikiLifetime
         return $this->reminders()[0];
     }
 
+    /** @return list<string> */
     public function choices(bool $isAdmin): array
     {
         return $isAdmin ? [self::SHORT, self::LONG, self::PERMANENT] : [self::SHORT, self::LONG];
     }
 
+    /** @return array<string, string> */
     public function start(string $kind, \DateTimeImmutable $today): array
     {
         if ($kind === self::PERMANENT) {
@@ -92,16 +90,23 @@ class WikiLifetime
         ];
     }
 
+    /**
+     * Where an entry stands in its lifetime, or null when it has none.
+     *
+     * @param array<string, mixed> $entry
+     *
+     * @return array{kind: string, renewedAt: string, expiresAt: string, daysLeft: ?int, archived: bool, archivedAt: string, archive: string, purgeAt: string, expiring: bool, canRenew: bool}|null
+     */
     public function describe(array $entry, \DateTimeImmutable $today): ?array
     {
         $kind = (string)($entry[self::KIND] ?? '');
         if (!in_array($kind, [self::SHORT, self::LONG, self::PERMANENT], true)) {
             return null;
         }
-
         $expires = $this->date($entry[self::EXPIRES_AT] ?? null);
         $archived = $this->date($entry[self::ARCHIVED_AT] ?? null);
         $daysLeft = $expires === null ? null : (int)$today->diff($expires)->format('%r%a');
+        $expiring = $archived === null && $daysLeft !== null && $daysLeft <= $this->renewWindow();
 
         return [
             'kind' => $kind,
@@ -112,18 +117,22 @@ class WikiLifetime
             'archivedAt' => $archived === null ? '' : $archived->format('Y-m-d'),
             'archive' => (string)($entry[self::ARCHIVE] ?? ''),
             'purgeAt' => $archived === null ? '' : $archived->modify('+' . $this->graceDays() . ' days')->format('Y-m-d'),
-            'expiring' => $archived === null && $daysLeft !== null && $daysLeft <= $this->renewWindow(),
-            'canRenew' => $archived === null && $daysLeft !== null && $daysLeft <= $this->renewWindow(),
+            'expiring' => $expiring,
+            'canRenew' => $expiring,
         ];
     }
 
+    /**
+     * @param array<string, mixed> $entry
+     *
+     * @return array<string, string>
+     */
     public function renewed(array $entry, \DateTimeImmutable $today, ?string $kind = null): array
     {
-        $kind = $kind ?? (string)($entry[self::KIND] ?? self::LONG);
+        $kind ??= (string)($entry[self::KIND] ?? self::LONG);
         if ($kind === self::PERMANENT) {
             return [self::KIND => self::PERMANENT, self::RENEWED_AT => $today->format('Y-m-d'), self::EXPIRES_AT => '', self::REMINDED => ''];
         }
-
         $expires = $this->date($entry[self::EXPIRES_AT] ?? null);
         $from = $expires !== null && $expires > $today && $kind === ($entry[self::KIND] ?? null) ? $expires : $today;
 
@@ -135,10 +144,14 @@ class WikiLifetime
         ];
     }
 
-    /** Renew an entry from its owner's side: refused on an archived, permanent or not yet due wiki. */
-    public function renew(string $idFiche, \DateTimeImmutable $today): array
+    /**
+     * Renew an entry from its owner's side: refused on an archived, permanent or not yet due wiki.
+     *
+     * @return array<string, mixed>
+     */
+    public function renew(string $tag, \DateTimeImmutable $today): array
     {
-        $entry = $this->entry($idFiche);
+        $entry = $this->entry($tag);
         $state = $this->describe($entry, $today);
         if ($state === null || $state['kind'] === self::PERMANENT || $state['archived']) {
             throw new \RuntimeException(_t('FERME_LIFETIME_CANNOT_RENEW'));
@@ -147,13 +160,17 @@ class WikiLifetime
             throw new \RuntimeException(_t('FERME_LIFETIME_TOO_EARLY', ['date' => $this->date($state['expiresAt'])?->format('d/m/Y') ?? '']));
         }
 
-        return $this->write($idFiche, $this->renewed($entry, $today));
+        return $this->write($tag, $this->renewed($entry, $today));
     }
 
-    /** Set an entry's kind, or renew it without waiting, from the farm's admin side. */
-    public function change(string $idFiche, string $kind, \DateTimeImmutable $today): array
+    /**
+     * Set an entry's kind, or renew it at once, from the farm's admin side.
+     *
+     * @return array<string, mixed>
+     */
+    public function change(string $tag, string $kind, \DateTimeImmutable $today): array
     {
-        $entry = $this->entry($idFiche);
+        $entry = $this->entry($tag);
         if (!empty($entry[self::ARCHIVED_AT])) {
             throw new \RuntimeException(_t('FERME_LIFETIME_CANNOT_RENEW'));
         }
@@ -161,43 +178,49 @@ class WikiLifetime
             throw new \InvalidArgumentException(_t('FERME_LIFETIME_INVALID') . ' "' . $kind . '"');
         }
 
-        return $this->write($idFiche, $this->renewed($entry, $today, $kind));
+        return $this->write($tag, $this->renewed($entry, $today, $kind));
     }
 
-    public function write(string $idFiche, array $changes): array
+    /**
+     * Write lifetime keys on the entry, which are no field of the form and so go straight into its body.
+     *
+     * @param array<string, string> $changes
+     *
+     * @return array<string, mixed>
+     */
+    public function write(string $tag, array $changes): array
     {
-        $entry = array_merge($this->entry($idFiche), $changes);
-        foreach ($entry as $key => $value) {
-            if (in_array($key, self::KEYS, true) && ($value === '' || $value === null) && $key !== self::REMINDED) {
+        $entry = array_merge($this->entry($tag), $changes);
+        foreach (self::KEYS as $key) {
+            if ($key !== self::REMINDED && array_key_exists($key, $entry) && ($entry[$key] === '' || $entry[$key] === null)) {
                 unset($entry[$key]);
             }
         }
-        unset($entry['html_data'], $entry['url'], $entry['semantic'], $entry['user'], $entry['owner']);
-        $this->pageManager->save($idFiche, json_encode($entry), '', true);
+        $entry['updated_at'] = date('Y-m-d H:i:s');
+        $this->pageManager->save($tag, $entry, '', true);
 
         return $entry;
     }
 
-    public function token(string $idFiche, string $expiresAt): string
+    public function token(string $tag, string $expiresAt): string
     {
-        return hash_hmac('sha256', $idFiche . '|' . $expiresAt, $this->secret());
+        return hash_hmac('sha256', $tag . '|' . $expiresAt, $this->secret());
     }
 
+    /** @param array<string, mixed> $entry */
     public function tokenIsValid(array $entry, string $token): bool
     {
         $expires = (string)($entry[self::EXPIRES_AT] ?? '');
 
-        return $expires !== '' && $token !== '' && hash_equals($this->token((string)$entry['id_fiche'], $expires), $token);
+        return $expires !== '' && $token !== '' && hash_equals($this->token((string)($entry['tag'] ?? ''), $expires), $token);
     }
 
+    /** @param array<string, mixed> $entry */
     public function renewUrl(array $entry): string
     {
-        $idFiche = (string)($entry['id_fiche'] ?? '');
+        $tag = (string)($entry['tag'] ?? '');
 
-        return $this->wiki->href('', 'api/ferme/lifetime/renew', [
-            'id' => $idFiche,
-            'token' => $this->token($idFiche, (string)($entry[self::EXPIRES_AT] ?? '')),
-        ], false);
+        return $this->urlFormatter->href('', 'api/ferme/lifetime/renew', ['id' => $tag, 'token' => $this->token($tag, (string)($entry[self::EXPIRES_AT] ?? ''))], false);
     }
 
     public function label(string $kind): string
@@ -205,19 +228,25 @@ class WikiLifetime
         return _t('FERME_LIFETIME_' . strtoupper($kind));
     }
 
-    public function entry(string $idFiche): array
+    /**
+     * The entry describing a wiki, as stored.
+     *
+     * @return array<string, mixed>
+     */
+    public function entry(string $tag): array
     {
-        $entry = $this->entryManager->isEntry($idFiche) ? $this->entryManager->getOne($idFiche, false, null, false, true) : null;
-        if (empty($entry)) {
-            throw new \RuntimeException(_t('FERME_MAIL_NO_ENTRY') . ' ' . $idFiche);
+        $page = $this->pageManager->getOne($tag, null, false, true);
+        $body = is_array($page['body'] ?? null) ? $page['body'] : [];
+        if ($page === null || ($page['type'] ?? '') !== PageType::ENTRY || (string)($body['form_id'] ?? '') !== $this->config->farmId()) {
+            throw new \RuntimeException(_t('FERME_MAIL_NO_ENTRY') . ' ' . $tag);
         }
 
-        return $entry;
+        return $body + ['tag' => $tag];
     }
 
-    private function date($value): ?\DateTimeImmutable
+    private function date(mixed $value): ?\DateTimeImmutable
     {
-        if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+        if (!is_string($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
             return null;
         }
 
@@ -226,19 +255,14 @@ class WikiLifetime
 
     private function secret(): string
     {
-        $secret = @file_get_contents(self::KEY_FILE);
-        if (is_string($secret) && strlen($secret) >= 32) {
-            return $secret;
+        if ($this->storage->fileExists(self::KEY_FILE)) {
+            $secret = $this->storage->read(self::KEY_FILE);
+            if (strlen($secret) >= 32) {
+                return $secret;
+            }
         }
-
         $secret = bin2hex(random_bytes(32));
-        if (!is_dir(dirname(self::KEY_FILE))) {
-            @mkdir(dirname(self::KEY_FILE), 0700, true);
-        }
-        if (@file_put_contents(self::KEY_FILE, $secret, LOCK_EX) === false) {
-            throw new \RuntimeException(_t('FERME_CLI_CANNOT_CREATE_DIR') . ' ' . self::KEY_FILE);
-        }
-        @chmod(self::KEY_FILE, 0600);
+        $this->storage->write(self::KEY_FILE, $secret);
 
         return $secret;
     }

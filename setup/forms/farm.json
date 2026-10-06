@@ -1,0 +1,73 @@
+{
+  "label": "Ferme à wikis",
+  "description": "Formulaire de création des wikis de la ferme",
+  "lang": "fr-FR",
+  "entry_title_template": "{{bf_titre}}",
+  "template": [
+    {
+      "type": "texte",
+      "name": "bf_titre",
+      "label": "Titre du wiki",
+      "size": "60",
+      "max_chars": "255",
+      "sub_type": "text",
+      "required": "1",
+      "read_access": "*",
+      "write_access": "*"
+    },
+    {
+      "type": "texte",
+      "name": "bf_description",
+      "label": "Description courte",
+      "size": "60",
+      "max_chars": "255",
+      "sub_type": "text",
+      "required": "1",
+      "read_access": "*",
+      "write_access": "*"
+    },
+    {
+      "type": "texte",
+      "name": "bf_referent",
+      "label": "Nom de la personne référente du wiki",
+      "size": "60",
+      "max_chars": "255",
+      "sub_type": "text",
+      "required": "1",
+      "read_access": "*",
+      "write_access": "*"
+    },
+    {
+      "type": "champs_mail",
+      "name": "bf_mail",
+      "label": "Email de la personne référente du wiki",
+      "show_contact_form": "form",
+      "send_email": "0",
+      "required": "1",
+      "read_access": "%",
+      "write_access": "*"
+    },
+    {
+      "type": "yeswiki",
+      "name": "bf_dossier-wiki",
+      "label": "Adresse URL du wiki",
+      "email_field": "bf_mail",
+      "required": "1",
+      "read_access": "*",
+      "write_access": "*"
+    },
+    {
+      "type": "labelhtml",
+      "form_text": "<div class=\"yw-alert yw-alert--info\">Les données personnelles collectées (nom et adresse mail) ne seront pas diffusées. Leur utilisation se limite à un usage interne pour diffuser des informations importantes (cf. <a href=\"{UtilisationDonnees}\" target=\"_blank\">Politique de gestion des données</a>).<br>Vous pouvez demander la suppression de votre wiki et de vos données en passant par <a href=\"{Contact}\">le formulaire de contact</a>.</div>"
+    },
+    {
+      "type": "radio",
+      "linked_object": "ListeOuiNon",
+      "name": "bf_accord",
+      "label": "Je donne mon accord pour que ces données soient collectées",
+      "required": "1",
+      "read_access": "%",
+      "write_access": "*"
+    }
+  ]
+}

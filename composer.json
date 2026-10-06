@@ -1,0 +1,24 @@
+{
+    "name": "yeswiki/extension-ferme",
+    "type": "yeswiki-extension",
+    "description": "Wiki farm run from a form: creates, archives, puts to sleep and deletes the wikis of a farm sharing one YesWiki program",
+    "license": "AGPL-3.0-or-later",
+    "require": {
+        "php": ">=8.3",
+        "ext-pdo": "*",
+        "ext-zip": "*"
+    },
+    "extra": {
+        "yeswiki": {
+            "label": {
+                "fr": "Ferme à wikis",
+                "en": "Wiki farm"
+            },
+            "description": {
+                "fr": "Une ferme à wikis pilotée par un formulaire : chaque fiche crée un wiki qui partage le programme YesWiki de la ferme. Modèles, archives, mise en sommeil, durée de vie, anti-spam, statistiques et notifications.",
+                "en": "A wiki farm run from a form: each entry creates a wiki sharing the farm's YesWiki program. Models, archives, hibernation, lifetimes, anti-spam, statistics and notifications."
+            },
+            "requires-extensions": []
+        }
+    }
+}

@@ -1,66 +1,63 @@
 <?php
 
-use YesWiki\Core\Controller\CsrfTokenController;
+namespace YesWiki\Ferme\Action;
+
+use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use YesWiki\Core\YesWikiAction;
-use YesWiki\Ferme\Service\FarmService;
+use YesWiki\Ferme\Service\FarmTable;
+use YesWiki\Identity\Service\AclService;
+use YesWiki\Kernel\Component\Category;
+use YesWiki\Kernel\Component\Component;
+use YesWiki\Kernel\Component\ProvidesComponents;
+use YesWiki\Kernel\Performable\RegisteredAction;
+use YesWiki\Kernel\Service\UrlFormatter;
 
-class AdminWikisAction extends YesWikiAction
+/** `{{adminwikis}}`: the farm's wikis, their numbers, and what can be done to each of them. */
+class AdminWikisAction extends YesWikiAction implements RegisteredAction, ProvidesComponents
 {
-    public function run()
+    public static function performableName(): string
     {
-        $output = '';
-        if ($this->wiki->UserIsAdmin()) {
-            $farm = $this->getService(FarmService::class);
+        return 'adminwikis';
+    }
 
-            if (isset($_GET['maj']) and !empty($_GET['maj'])) {
-                try {
-                    if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $_GET['maj'])) {
-                        throw new Exception(_t('FERME_INVALID_FOLDER_NAME') . ' "' . $_GET['maj'] . '"');
-                    }
-                    if (!$this->getService(CsrfTokenController::class)->checkToken('main', 'GET', 'csrf-token', false)) {
-                        throw new Exception(_t('FERME_INVALID_CSRF'));
-                    }
-                    $farm->updateWiki($_GET['maj']);
-                    $output .= $this->render('@templates/alert-message.twig', [
-                        'type' => 'success',
-                        'message' => _t('FERME_WIKI') . $_GET['maj'] . _t('FERME_UPDATED'),
-                    ]);
-                } catch (Throwable $th) {
-                    $output .= $this->render('@templates/alert-message.twig', [
-                        'type' => 'danger',
-                        'message' => _t('FERME_WIKI') . $_GET['maj'] . ' : ' . $th->getMessage(),
-                    ]);
-                }
-            }
+    public function components(): array
+    {
+        return [
+            Component::for('adminwikis')
+                ->category(Category::Admin)
+                ->label(_t('FERME_ADMINWIKIS_LABEL'))
+                ->description(_t('FERME_ADMINWIKIS_DESCRIPTION'))
+                ->icon('server')
+                ->previewHeight('200px')
+                ->adminOnly(),
+        ];
+    }
 
-            return $output . $this->render(
-                '@ferme/wikis-table.twig',
-                [
-                    'api_url' => $this->wiki->href('', 'api/ferme/wikis'),
-                    'upgrade_api_url' => $this->wiki->href('', 'api/ferme/wikis/upgrade'),
-                    'upgrade_extensions_api_url' => $this->wiki->href('', 'api/ferme/wikis/upgrade-extensions'),
-                    'recover_custom_api_url' => $this->wiki->href('', 'api/ferme/wikis/recover-custom'),
-                    'refresh_stats_api_url' => $this->wiki->href('', 'api/ferme/wikis/refresh-stats'),
-                    'activity_api_url' => $this->wiki->href('', 'api/ferme/wikis/activity'),
-                    'csrf_token_api_url' => $this->wiki->href('', 'api/ferme/csrf-token'),
-                    'mail_api_url' => $this->wiki->href('', 'api/ferme/wikis/mail'),
-                    'import_api_url' => $this->wiki->href('', 'api/ferme/wikis/import'),
-                    'delete_api_url' => $this->wiki->href('', 'api/ferme/wikis/delete'),
-                    'search_api_url' => $this->wiki->href('', 'api/ferme/wikis/search'),
-                    'archive_api_url' => $this->wiki->href('', 'api/ferme/wikis/archive'),
-                    'select_api_url' => $this->wiki->href('', 'api/ferme/wikis/select'),
-                    'clean_spam_api_url' => $this->wiki->href('', 'api/ferme/wikis/clean-spam'),
-                    'spam_pages_api_url' => $this->wiki->href('', 'api/ferme/wikis/spam-pages'),
-                    'approve_spam_api_url' => $this->wiki->href('', 'api/ferme/wikis/approve-spam-page'),
-                    'hibernate_api_url' => $this->wiki->href('', 'api/ferme/wikis/hibernate'),
-                    'wake_api_url' => $this->wiki->href('', 'api/ferme/wikis/wake'),
-                    'admin_add_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-add'),
-                    'admin_remove_api_url' => $this->wiki->href('', 'api/ferme/wikis/admin-remove'),
-                    'lifetime_api_url' => $this->wiki->href('', 'api/ferme/wikis/lifetime'),
-                ]
-            );
+    public function formatArguments($arg): array
+    {
+        return [];
+    }
+
+    public function run(): string
+    {
+        if (!$this->getService(AclService::class)->isAdmin()) {
+            return $this->render('@core/alert-message.twig', ['type' => 'danger', 'message' => _t('FERME_ADMIN_REQUIRED')]);
         }
+        $urls = $this->getService(UrlFormatter::class);
 
-        return '<div class="alert alert-danger">' . _t('FERME_ADMIN_REQUIRED') . '</div>';
+        return $this->render('@ferme/wikis-table.twig', $this->getService(FarmTable::class)->view($this->getRequest()->query->all()) + [
+            'csrfToken' => $this->getService(CsrfTokenManager::class)->getToken('main')->getValue(),
+            'api' => [
+                'run' => $urls->href('', 'api/ferme/wikis/run'),
+                'delete' => $urls->href('', 'api/ferme/wikis/delete'),
+                'mail' => $urls->href('', 'api/ferme/wikis/mail'),
+                'lifetime' => $urls->href('', 'api/ferme/wikis/lifetime'),
+                'select' => $urls->href('', 'api/ferme/wikis/select'),
+                'search' => $urls->href('', 'api/ferme/wikis/search'),
+                'import' => $urls->href('', 'api/ferme/wikis/import'),
+                'detail' => $urls->href('', 'api/ferme/wikis/detail'),
+                'approve' => $urls->href('', 'api/ferme/wikis/approve-spam-page'),
+            ],
+        ]);
     }
 }

@@ -1,6 +1,27 @@
-<h2>{{ _t('FERME_EMAIL_USERS') }}</h2>
-<ul>
-    {% for wiki in wikiList %}
-        <li>{{ wiki }}</li>
-    {% endfor %}
-</ul>
+{{ include_css('extensions/ferme/styles/ferme.css') }}
+{% set mails = wikiList|map(wiki => wiki.mail)|filter(mail => mail is not empty) %}
+<div class="ferme ferme-contacts">
+  <h2>{{ _t('FERME_EMAIL_USERS') }}</h2>
+  {% if wikiList is empty %}
+    <p class="ferme-muted">{{ _t('FERME_NO_WIKIS') }}</p>
+  {% else %}
+    <label class="yw-form-label" for="ferme-contacts-all">{{ _t('FERME_CONTACTS_ALL') }}</label>
+    <textarea class="yw-input ferme-contacts__all" id="ferme-contacts-all" rows="3" readonly onfocus="this.select()">{{ mails|join(', ') }}</textarea>
+    <div class="ferme-table-wrap">
+      <table class="yw-table ferme-table">
+        <thead>
+          <tr><th>{{ _t('FERME_WIKI_NAME') }}</th><th>{{ _t('FERME_WIKI_OWNER') }}</th><th>{{ _t('FERME_WIKI_OWNER_MAIL') }}</th></tr>
+        </thead>
+        <tbody>
+          {% for wiki in wikiList %}
+            <tr>
+              <td>{% if wiki.url %}<a href="{{ wiki.url }}" target="_blank" rel="noopener">{{ wiki.title ?: wiki.folder }}</a>{% else %}{{ wiki.title ?: wiki.folder }}{% endif %}</td>
+              <td>{{ wiki.referent }}</td>
+              <td>{% if wiki.mail %}<a href="mailto:{{ wiki.mail }}">{{ wiki.mail }}</a>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>

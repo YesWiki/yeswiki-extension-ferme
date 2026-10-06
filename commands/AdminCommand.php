@@ -7,21 +7,13 @@ use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use YesWiki\Ferme\Service\AbstractFarmCommand;
 use YesWiki\Ferme\Service\FarmAdminAccount;
-use YesWiki\Wiki;
+use YesWiki\Ferme\Service\FarmCommand;
 
-class AdminCommand extends AbstractFarmCommand
+/** `ferme:admin`: creates or removes an account in each wiki of the farm, through each wiki's own `user:*` commands. */
+class AdminCommand extends FarmCommand
 {
-    protected $account;
-
-    public function __construct(Wiki &$wiki)
-    {
-        parent::__construct($wiki);
-        $this->account = $wiki->services->get(FarmAdminAccount::class);
-    }
-
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('ferme:admin')
@@ -30,17 +22,17 @@ class AdminCommand extends AbstractFarmCommand
             ->addOption('user', 'u', InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_USER'))
             ->addOption('password', null, InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_PASSWORD'))
             ->addOption('email', 'e', InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_USER_EMAIL'))
-            ->addOption('group', 'g', InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_GROUP'), ADMIN_GROUP)
+            ->addOption('group', 'g', InputOption::VALUE_REQUIRED, _t('FERME_CLI_OPT_GROUP'), FarmAdminAccount::ADMIN_GROUP)
             ->addOption('remove', null, InputOption::VALUE_NONE, _t('FERME_CLI_OPT_REMOVE'))
             ->addWikiSelectionOptions()
             ->addDryRunOption();
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $remove = (bool)$input->getOption('remove');
-        $name = trim((string)($input->getOption('user') ?: ($this->wiki->config['yeswiki-farm-admin-name'] ?? '')));
-        $password = (string)($input->getOption('password') ?: ($this->wiki->config['yeswiki-farm-admin-pass'] ?? ''));
+        $name = trim((string)($input->getOption('user') ?: $this->farmConfig->text('yeswiki-farm-admin-name')));
+        $password = (string)($input->getOption('password') ?: $this->farmConfig->text('yeswiki-farm-admin-pass'));
         $group = trim((string)$input->getOption('group'));
         $email = trim((string)($input->getOption('email') ?: $this->farmConfig->adminEmail()));
         $email = $email === '' ? null : $email;
@@ -51,30 +43,23 @@ class AdminCommand extends AbstractFarmCommand
 
             return Command::FAILURE;
         }
-
         $wikis = $this->selectWikis($input);
-        if (empty($wikis)) {
+        if ($wikis === []) {
             $this->warnNothingFound($input, $output);
 
             return Command::SUCCESS;
         }
 
+        $account = $this->service(FarmAdminAccount::class);
         $dryRun = $this->isDryRun($input);
-        $output->writeln($this->dryRunPrefix($input) . _t(
-            $remove ? 'FERME_CLI_ADMIN_REMOVE_INTRO' : 'FERME_CLI_ADMIN_ADD_INTRO'
-        ) . ' "' . $name . '" / "' . $group . '" : ' . count($wikis));
-
+        $output->writeln($this->dryRunPrefix($input) . _t($remove ? 'FERME_CLI_ADMIN_REMOVE_INTRO' : 'FERME_CLI_ADMIN_ADD_INTRO') . ' "' . $name . '" / "' . $group . '" : ' . count($wikis));
         $rows = [];
         $counts = [];
         $failed = [];
-
         foreach ($wikis as $wiki) {
             $label = $this->label($wiki);
             try {
-                $result = $remove
-                    ? $this->account->removeUser($wiki['PATH'], $name, $group, $dryRun)
-                    : $this->account->ensureUser($wiki['PATH'], $name, $password, $email, $group, $dryRun);
-
+                $result = $remove ? $account->removeUser($wiki['PATH'], $name, $group, $dryRun) : $account->ensureUser($wiki['PATH'], $name, $password, $email, $group, $dryRun);
                 $counts['user:' . $result['user']] = ($counts['user:' . $result['user']] ?? 0) + 1;
                 $counts['group:' . $result['group']] = ($counts['group:' . $result['group']] ?? 0) + 1;
                 $rows[] = [$label, _t('FERME_CLI_STATE_' . strtoupper($result['user'])), _t('FERME_CLI_STATE_' . strtoupper($result['group']))];
@@ -83,11 +68,7 @@ class AdminCommand extends AbstractFarmCommand
                 $rows[] = [$label, '<error>' . _t('FERME_CLI_FAILED') . '</error>', $th->getMessage()];
             }
         }
-
-        $table = new Table($output);
-        $table->setHeaders([_t('FERME_CLI_COL_URL'), _t('FERME_CLI_COL_USER'), _t('FERME_CLI_COL_GROUP')]);
-        $table->setRows($rows);
-        $table->render();
+        (new Table($output))->setHeaders([_t('FERME_CLI_COL_URL'), _t('FERME_CLI_COL_USER'), _t('FERME_CLI_COL_GROUP')])->setRows($rows)->render();
 
         $counters = [_t('FERME_CLI_WIKIS_FOUND') => count($wikis)];
         foreach ($counts as $key => $value) {
@@ -98,13 +79,10 @@ class AdminCommand extends AbstractFarmCommand
         return $this->renderSummary($output, _t('FERME_CLI_ADMIN_SUMMARY'), $counters, $failed, $dryRun);
     }
 
-    /**
-     * Same rule as YesWiki's own setup/install.php, so a name this accepts is a
-     * name the wiki will let log in.
-     */
+    /** The same rule as the installer's, so a name this accepts is one the wiki lets log in. */
     private function validate(string $name, string $password, string $group, ?string $email, bool $remove): ?string
     {
-        if ($name === '' || strlen($name) > 80 || !preg_match('/^[^!#@<>\\\\\/][^<>\\\\\/]{2,}$/', $name)) {
+        if ($name === '' || strlen($name) > 80 || preg_match('/^[^!#@<>\\\\\/][^<>\\\\\/]{2,}$/', $name) !== 1) {
             return _t('FERME_CLI_BAD_USER_NAME') . ' "' . $name . '"';
         }
         if (!$remove && $password === '') {

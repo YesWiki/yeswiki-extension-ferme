@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g. v4.4.0)'
+        description: 'Tag to build (e.g. v5.0.0)'
         required: true
 
 env:
@@ -60,6 +60,7 @@ jobs:
             --exclude='.twig-cs-fixer.cache' \
             --exclude='.DS_Store' \
             . /tmp/release/${EXTENSION}/
+          php -r '$f = $argv[1]; $m = json_decode(file_get_contents($f), true); $m["version"] = ltrim($argv[2], "v"); file_put_contents($f, json_encode($m, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");' /tmp/release/${EXTENSION}/composer.json "$TAG"
           cd /tmp/release
           zip -r "$GITHUB_WORKSPACE/$ARCHIVE_NAME" ${EXTENSION}/
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV

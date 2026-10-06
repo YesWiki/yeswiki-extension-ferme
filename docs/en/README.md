@@ -1,96 +1,121 @@
 # ferme extension
 
-Creates and manages YesWiki wikis from a bazar form.
+Runs a wiki farm from a form: each entry of the farm form is a wiki, and saving a new entry creates it.
+
+## How a farm works on Ectoplasme
+
+A farm is one YesWiki **Program** (the code: `src/`, `vendor/`, `themes/`, `extensions/`) serving several **Instances** (the wikis). The farm wiki is an Instance. Each wiki it creates is another Instance, in the farm's folder: an `index.php` loading the shared Program, its own `yeswicli`, its `yeswiki.config.php`, its `cache/`, `custom/`, `files/` and `private/` folders, and its database. No code is copied into a wiki and no symbolic link is made.
+
+The farm does none of this by hand. It asks core:
+
+- **Creating a wiki** runs `core:create-instance` to make the folder, then the new wiki's own `core:install` to create its database, its configuration and its first account. The farm then sets the theme, access rights and settings it imposes in that configuration, and switches on the extensions listed in `yeswiki-farm-extensions` with `extension:enable`.
+- **Creating a wiki from a model** places the model's archive in the new wiki's `private/backups/` and runs `core:install --from-archive`, which restores its pages, entries, files and settings and rewrites its links. The creator's account is then added with `user:create`.
+- **Deleting a wiki** runs the wiki's own `core:destroy`: an archive first (kept in the farm's `private/backups/ferme/deleted/`, unless `yeswiki-farm-archive-on-delete` is `false`), then its database and account. The farm removes the folder afterwards.
+- **Archiving a wiki** runs its `core:archive`. The archive stays in that wiki's `private/backups/` and can be downloaded from the wikis screen.
+- **The super admin account and the referents' accounts** go through the wiki's `user:create`, `user:update`, `user:add-to-group` and `user:delete`.
+- **Hibernation** writes `wiki_status: hibernate` in the wiki's configuration through core's ConfigurationService. Core's HibernationService then refuses every write.
+
+### Updating the code of the farm
+
+The Program is updated once for every wiki, from the Instance that owns it (the one where the Program and the Instance are the same folder, see ADR-0007): `/admin/updates` or `./yeswicli upgrade` there. Each wiki then has to run its own migrations. The farm notices the new version on its housekeeping sweep and runs `migrate` in every wiki in the background, once per version (switch it off with `yeswiki-farm-migrate-on-update: false`). `ferme:migrate` does the same from a shell, and the wikis screen has a "Migrate" action per wiki.
+
+### Databases
+
+- When `yeswiki-farm-db-admin-user` and `yeswiki-farm-db-admin-password` are set, each wiki gets a database and an account of its own, created by `core:install --db-admin-user` and dropped by `core:destroy`. This is what core recommends: a wiki holds credentials to its own database and nothing else.
+- Otherwise each wiki shares the farm's database and credentials under a table prefix of its own (`yeswiki-farm-prefix` followed by the folder name). Deleting such a wiki drops its tables only.
+- With `yeswiki-farm-db-driver: sqlite`, each wiki keeps an SQLite file in its `private/` folder, which goes with the folder.
+
+## What was removed, and why
+
+- **Symbolic links and file copies** (`yeswiki_symlinked_files`, `yeswiki-farm-lent-files`, `yeswiki_files`, `yeswiki_empty_folders`, `yeswiki-farm-extra-themes`, `yeswiki-farm-extra-tools`, `ferme:symlink`): a wiki loads the shared Program, there is nothing to copy or link. Themes come from the Program or from the wiki's `custom/themes/`, extensions from the Program's `extensions/` or the wiki's `custom/extensions/`.
+- **`ferme:update` and the per wiki "Update" button**: a wiki no longer has code of its own to bring up to date. They are replaced by `ferme:migrate` and the "Migrate" action.
+- **The `client/` extension** that stopped a farm wiki from updating lent code: core refuses a core update from any Instance but the one owning the Program.
+- **The `custom` folder put aside during updates**: core sets a Doryphore `custom/` aside itself when a wiki moves to Ectoplasme.
+- **Extension versions checked against the repository**: each wiki upgrades its own `custom/extensions/` with `./yeswicli upgrade <extension>`.
+- **SQL dump models** (`custom/wiki-models/`, `yeswiki-farm-models`): a model is now a full archive of a wiki. Models made on Doryphore have to be made again.
+- **`yeswiki-farm-backup-dir`, `yeswiki-farm-archive-url`, `yeswiki-farm-stats-interval`**: the farm's files live in its `private/backups/ferme/`, and the statistics follow the wiki's housekeeping sweep (every 30 minutes).
+- **The warning on an entry's deletion page**: deleting a farm entry, from any screen, now deletes its wiki. Its archive is kept in `private/backups/ferme/deleted/`.
 
 ## Actions
 
 ### `{{adminwikis}}`
 
-Lists the farm's wikis. Open it from "Gestion ferme à wikis" in the cog menu.
+The farm's wikis, on the AdminWikis page. The figures come from the last measurement (see Statistics).
 
-- Filter with the labels at the top, sort with the menu or the column headers.
-- Unfold a wiki to see its detail. On a spammed wiki, "this is not spam" approves a page.
-- A wiki's ⋯ menu lets you view, edit, update or delete it.
-
-Actions on the selection:
-
-- update, or update extensions only
-- restore a wiki after an interrupted update
-- recompute statistics
-- look for or clean spam
-- add or remove the super admin account
-- email the people responsible
-- back up
-- hibernate (read only) or wake
-- delete
-
-"Look for other wikis on this server" imports installed wikis that have no entry.
+- The labels at the top filter the wikis, the menu and the column headers sort them.
+- Unfold a wiki to see its activity over a year, its suspicious pages (each one can be marked as not spam) and its archives.
+- Each wiki's menu opens it, shows or edits its entry, migrates it, measures it again, archives it, puts it to sleep or wakes it, adds or removes the super admin, cleans its spam, writes to its referent, changes its lifetime, or deletes it.
+- Select wikis, or every wiki the filter keeps, to do the same to all of them.
+- "Look for other wikis on this server" lists the wikis found in the farm's folder that have no entry, and gives an entry to those you pick.
 
 ### Creation form
 
-Form 1100 in input mode creates a wiki.
+The AjouterWiki page shows form 1100 (`bazar_farm_id`). Its `yeswiki` field asks for the address of the wiki and, unless the farm sets them, the name, email and password of its first account. It also offers the farm's themes, models, access rights, options and lifetimes when there are several.
 
 ### `{{generatemodel}}`
 
-Turns an existing wiki into an install model.
+The farm's models, on the ModelesWiki page. A model is a full archive of a wiki: its pages, entries, files and settings. Make one from a wiki of the farm, or from any wiki where you have an administrator account (the archive is fetched the way `core:clone` fetches one). Rename a model, choose whether creators are offered it, or delete it.
 
-1. Enter the source wiki URL, click "Importer".
-2. Click "Générer le fichier MySQL modèle pour ce wiki".
-3. Add the model to `yeswiki-farm-models`:
+### `{{contactwikis}}`
 
-```php
-'yeswiki-farm-models' => [
-  'default-content',
-  'model-name',
-],
-```
+The referents of the farm's wikis and their email addresses.
 
 ## Configuration
 
-Most settings are edited in "Gestion du site" > "Fichier de conf" > "Ferme à wikis". These are set in `wakka.config.php` only: `yeswiki-farm-themes`, `-acls`, `-options`, `-models`, `-extra-config`, `yeswiki_symlinked_files`.
+Most settings are edited in the settings screen, under "ferme". These are set in `yeswiki.config.php` only: `yeswiki-farm-themes`, `yeswiki-farm-acls`, `yeswiki-farm-options`, `yeswiki-farm-extra-config`, `yeswiki-farm-group`.
 
-### Super admin account
-
-```php
-'yeswiki-farm-admin-name' => 'SuperAdmin',
-'yeswiki-farm-admin-pass' => 'password',
-```
-
-Each wiki then gets a button to add or remove this account.
-
-### Wiki folder and URL
+### Folder and address
 
 ```php
 'yeswiki-farm-root-folder' => 'wikis',
 'yeswiki-farm-root-url' => 'https://my.farm.url/wikis/',
 ```
 
-Create the folder first. Both settings must point to the same place.
+The folder is relative to the farm wiki's folder, or absolute. Create it first, and point the web server at it so that `https://my.farm.url/wikis/<folder>/` reaches `<folder>/index.php`. With `.`, the wikis are made next to the farm's own folders, and folder names like `files` or `private` are refused.
 
-### Copied themes and extensions
+### Database
 
 ```php
-'yeswiki-farm-extra-themes' => ['mytheme'],
-'yeswiki-farm-extra-tools' => [],
+'yeswiki-farm-db-driver' => '',
+'yeswiki-farm-db-host' => '',
+'yeswiki-farm-db-port' => '',
+'yeswiki-farm-db-admin-user' => 'root',
+'yeswiki-farm-db-admin-password' => '…',
+'yeswiki-farm-prefix' => 'yeswiki_',
 ```
 
-Install them on the farm first.
+Empty driver, host and port mean the farm's own.
+
+### First account of each wiki
+
+```php
+'yeswiki-farm-default-WikiAdmin' => '',
+'yeswiki-farm-password-WikiAdmin' => '',
+'yeswiki-farm-email-WikiAdmin' => 'bf_mail',
+'yeswiki-farm-create-user' => false,
+```
+
+Empty name or password: the creator chooses them. `email-WikiAdmin` names the entry field holding the email. `create-user` also creates that account in the farm wiki.
+
+### Super admin account
+
+```php
+'yeswiki-farm-admin-name' => 'SuperAdmin',
+'yeswiki-farm-admin-pass' => 'password',
+'yeswiki-farm-admin-email' => 'admin@example.org',
+```
+
+Each wiki then gets a button to add or remove this account, in its `admins` group.
 
 ### Theme choice
 
 ```php
 'yeswiki-farm-themes' => [
-  [
-    'label' => 'Margot',
-    'screenshot' => 'margot.jpg',
-    'theme' => 'margot',
-    'squelette' => '1col.tpl.html',
-    'style' => 'margot.css',
-  ],
+  ['label' => 'YesWiki', 'theme' => 'yeswiki', 'squelette' => '1col.twig', 'style' => 'yeswiki.css', 'preset' => '', 'screenshot' => ''],
 ],
 ```
 
-`screenshot`: a file in `tools/ferme/screenshots/`, or `false`.
+A theme is offered only when its folder exists in the Program's `themes/` or the farm's `custom/themes/`. A `screenshot` is a file name in the farm's `custom/ferme/screenshots/`.
 
 ### Access rights
 
@@ -101,33 +126,34 @@ Install them on the farm first.
 ],
 ```
 
+`{{user}}` is the account the creator chooses when `create_user` is set.
+
 ### Additions offered at creation
 
 ```php
 'yeswiki-farm-options' => [
-  [
-    'label' => 'Add a pad',
-    'checked' => false,
-    'page' => 'PageMenuHaut',
-    'content' => " - [[EtherPad Pad]]\n",
-  ],
+  ['label' => 'Add a pad', 'checked' => false, 'page' => 'PagePrincipale', 'content' => "\n[[https://pad.example.org Pad]]\n"],
 ],
 ```
+
+The content is appended to that page of the new wiki, which is created when missing.
 
 ### Other settings
 
 ```php
 'yeswiki-farm-homepage' => 'PagePrincipale',
-'yeswiki-farm-extra-config' => ['BAZ_ADRESSE_MAIL_ADMIN' => 'admin@example.org'],
+'yeswiki-farm-extensions' => ['contrib'],
+'yeswiki-farm-extra-config' => ['contact_from' => 'admin@example.org'],
+'yeswiki-farm-archive-on-delete' => true,
 'yeswiki-farm-archive-keep' => 604800,
 'yeswiki-farm-mattermost-webhook' => '',
 'yeswiki-farm-migrate-on-update' => true,
 ```
 
-- `extra-config`: settings given to created wikis.
-- `archive-keep`: how long backups are kept, in seconds, 0 for ever.
-- `mattermost-webhook`: notifies a channel on each creation or deletion.
-- `migrate-on-update`: migrates the wikis when the master wiki is updated.
+- `extensions`: switched on in every new wiki.
+- `extra-config`: settings given to every new wiki, locked in its settings screen.
+- `archive-keep`: how long a wiki's archives are kept, in seconds, 0 for ever.
+- `mattermost-webhook`: notifies a channel on each creation and deletion.
 
 ### Welcome mail
 
@@ -136,12 +162,7 @@ Install them on the farm first.
 'yeswiki-farm-welcome-mail-body' => '',
 ```
 
-When a wiki is created, its referent gets its address and the admin username. For a limited-lifetime wiki, the mail also gives the deadline.
-
-- Empty: default text. `\n` for a line break.
-- Placeholders: `{title}` `{url}` `{referent}` `{folder}` `{username}` `{lifetime}` `{expires}` `{daysLeft}` `{donateUrl}`.
-- A line holding `{lifetime}`, `{expires}` or `{daysLeft}` is left out for a permanent wiki.
-- If the farm sets the admin password (`yeswiki-farm-password-WikiAdmin`), the line holding `{username}` is left out.
+When a wiki is created, its referent gets its address and the admin username. Empty means the default text, `\n` is a line break. Placeholders: `{title}` `{url}` `{referent}` `{folder}` `{username}` `{lifetime}` `{expires}` `{daysLeft}` `{donateUrl}`. A line holding `{lifetime}`, `{expires}` or `{daysLeft}` is left out for a permanent wiki, and the line holding `{username}` when the farm sets the password.
 
 ### Limited-lifetime wikis
 
@@ -151,58 +172,41 @@ When a wiki is created, its referent gets its address and the admin username. Fo
 'yeswiki-farm-lifetime-long' => 365,
 'yeswiki-farm-lifetime-grace' => 180,
 'yeswiki-farm-lifetime-reminders' => [30, 7],
-'yeswiki-farm-lifetime-mail-subject' => '',
-'yeswiki-farm-lifetime-mail-body' => '',
-'yeswiki-farm-lifetime-archived-subject' => '',
-'yeswiki-farm-lifetime-archived-body' => '',
 'yeswiki-farm-donate-url' => 'https://example.org/donate',
 ```
 
-At creation, people choose between a quick test and a yearly test. An admin can also create a permanent wiki.
+People choose between a quick test and a yearly test. An admin can also create a permanent wiki.
 
-- Quick test: deleted with no backup on its deadline.
-- Yearly test: on its deadline, the wiki is backed up to `private/backups/farm/expired/` and closed. The backup and the entry are deleted after `grace` days.
-- Mails go out `reminders` days before the deadline, with a link to renew. Another one goes out on archiving. Their texts are configurable (`mail-*`, `archived-*`), `\n` for a line break.
-- In the last month, a "Renew" button also shows on the wiki's entry.
-- Mail placeholders: `{title}` `{url}` `{referent}` `{lifetime}` `{expires}` `{daysLeft}` `{renewUrl}` `{pages}` `{entries}` `{users}` `{files}` `{lastActivity}` `{donateUrl}`.
-- In `{{adminwikis}}`, the "Lifetime" row filters by kind (quick test, yearly test, permanent), the "Deadline" row below by state (deadline far off, expiring soon, archived). A wiki's ⋯ menu renews it or changes its lifetime.
-
-Existing wikis stay permanent.
-
-### Files shared by symbolic link
-
-```php
-'yeswiki_symlinked_files' => ['javascripts', 'vendor', 'styles', 'includes', 'lang', 'tools/bazar'],
-```
-
-Created wikis share this code with the farm instead of copying it. `[]` to copy everything. `ferme:symlink` does the same for existing wikis.
+- Quick test: deleted with no archive on its deadline.
+- Yearly test: on its deadline, archived into `private/backups/ferme/expired/` and deleted. The archive and the entry go after `grace` days.
+- Mails go out `reminders` days before the deadline, with a link to renew, and on archiving. Their texts are `yeswiki-farm-lifetime-mail-subject`, `-mail-body`, `-archived-subject` and `-archived-body`.
+- Wikis registered after the fact stay permanent.
 
 ## Commands
 
-Run from the farm root. `--wiki` targets a single wiki, `--dry-run` shows without doing anything.
+Run from the farm wiki's folder. `--wiki` targets one wiki, `--dry-run` shows without doing anything.
 
-- `ferme:list`: lists wikis. `--import` creates missing entries, `--skip-suspect` leaves out suspect ones.
-- `ferme:update`: brings wikis to the master version. `--workers=4` runs several at once.
-- `ferme:symlink`: shares the farm's code with existing wikis. `--undo` to revert.
-- `ferme:config`: `--set key=value`, `--unset key`, `--smtp`.
-- `ferme:admin`: creates or removes (`--remove`) an admin account in each wiki.
-- `ferme:clean-spam`: cleans spam.
-- `ferme:spam-index`: finds spam copied across several wikis.
-- `ferme:stats`: updates statistics.
+- `ferme:list`: lists the wikis in the farm's folder. `--import` gives an entry to those that have none.
+- `ferme:migrate`: runs each wiki's migrations.
+- `ferme:config`: `--set key=value`, `--unset key`, `--smtp` (copies the farm's mail settings).
+- `ferme:admin`: creates or removes (`--remove`) an account in each wiki.
+- `ferme:clean-spam`: cleans spam. `--stuck` lists what no rule can clean, `--approved` the pages marked as not spam.
+- `ferme:spam-index`: learns the lines of links pasted across several wikis.
+- `ferme:stats`: measures the wikis.
 - `ferme:lifetime`: sends reminders, deletes and archives expired wikis. `--list` shows deadlines.
-
-Start with `--dry-run`.
 
 ### Statistics
 
-On a large farm, set `yeswiki-farm-stats-on-visit` to `false` and add to cron:
+The farm measures a hundred wikis (`yeswiki-farm-stats-per-visit`) after each housekeeping sweep of the farm wiki. On a large farm, set `yeswiki-farm-stats-on-visit` to `false` and add to cron:
 
 ```
-*/15 * * * * cd /path/to/farm && php includes/commands/console ferme:stats --stale=10m
+*/15 * * * * cd /path/to/farm && ./yeswicli ferme:stats --stale=10m
 ```
 
 ### Spam
 
 - `yeswiki-farm-spam-threshold`: score from which a wiki is suspect (default 3).
-- `yeswiki-farm-spam-words`: suspect vocabulary.
+- `yeswiki-farm-spam-words`: suspect vocabulary, as a regular expression.
 - `yeswiki-farm-spam-hosts`: domains to treat as spam, for example `[/.]example\.com`.
+
+Cleaning deletes the pages a robot created and strips the spam lines from the pages it edited, which are then closed to writers. What it removes is written first to `private/backups/ferme/spam/`.

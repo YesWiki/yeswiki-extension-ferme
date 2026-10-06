@@ -6,42 +6,22 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use YesWiki\Ferme\Service\AbstractFarmCommand;
-use YesWiki\Ferme\Service\FolderLock;
+use YesWiki\Ferme\Service\FarmCommand;
 use YesWiki\Ferme\Service\LifetimeSweeper;
 use YesWiki\Ferme\Service\SpamCleaner;
 use YesWiki\Ferme\Service\SpamFingerprints;
 use YesWiki\Ferme\Service\StatsRefresher;
 use YesWiki\Ferme\Service\WikiArchiver;
 use YesWiki\Ferme\Service\WikiStatsStore;
-use YesWiki\Wiki;
+use YesWiki\Files\Service\RuntimeLock;
 
-class StatsCommand extends AbstractFarmCommand
+/** `ferme:stats`: measures the farm's wikis, what has moved first, and does the farm's housekeeping on the way. */
+class StatsCommand extends FarmCommand
 {
-    private const LOCK_FILE = 'cache/ferme-stats.lock';
+    private const LOCK = 'cache/ferme-stats.lock';
     private const INDEX_AGE = 604800;
 
-    protected $store;
-    protected $refresher;
-    protected $folderLock;
-    protected $archiver;
-    protected $fingerprints;
-    protected $cleaner;
-    protected $sweeper;
-
-    public function __construct(Wiki &$wiki)
-    {
-        parent::__construct($wiki);
-        $this->store = $wiki->services->get(WikiStatsStore::class);
-        $this->refresher = $wiki->services->get(StatsRefresher::class);
-        $this->folderLock = $wiki->services->get(FolderLock::class);
-        $this->archiver = $wiki->services->get(WikiArchiver::class);
-        $this->fingerprints = $wiki->services->get(SpamFingerprints::class);
-        $this->cleaner = $wiki->services->get(SpamCleaner::class);
-        $this->sweeper = $wiki->services->get(LifetimeSweeper::class);
-    }
-
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('ferme:stats')
@@ -56,17 +36,17 @@ class StatsCommand extends AbstractFarmCommand
             ->addDryRunOption();
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $started = microtime(true);
         $dryRun = $this->isDryRun($input);
-
         if ($input->getOption('check')) {
             return $this->check($input, $output, $started);
         }
 
-        $lock = $dryRun ? null : $this->lock();
-        if ($lock === false) {
+        $locks = $this->service(RuntimeLock::class);
+        $handle = $dryRun ? null : $locks->acquire(self::LOCK);
+        if (!$dryRun && !$locks->tryLock($handle)) {
             $output->writeln('<comment>' . _t('FERME_CLI_STATS_ALREADY_RUNNING') . '</comment>');
 
             return Command::SUCCESS;
@@ -74,93 +54,68 @@ class StatsCommand extends AbstractFarmCommand
 
         try {
             $wikis = $this->selectWikis($input);
-            if (empty($wikis)) {
+            if ($wikis === []) {
                 $this->warnNothingFound($input, $output);
 
                 return Command::SUCCESS;
             }
-
             $campaigns = $dryRun ? 0 : $this->refreshIndex($output);
             $orphans = $this->sweepOrphans($input, $output, $wikis);
             $counters = $this->refresh($input, $output, $wikis);
-            $staleLocks = $dryRun ? 0 : $this->folderLock->prune();
-            $tidied = $dryRun ? ['private' => 0, 'archives' => 0] : $this->tidy($wikis);
-            $swept = $dryRun ? null : $this->sweeper->sweepIfDue();
+            $swept = $dryRun ? 0 : $this->tidy($wikis);
+            $lifetime = $dryRun ? null : $this->service(LifetimeSweeper::class)->sweepIfDue();
         } finally {
-            if (is_resource($lock)) {
-                flock($lock, LOCK_UN);
-                fclose($lock);
-            }
+            $locks->release($handle);
         }
 
-        return $this->renderSummary(
-            $output,
-            _t('FERME_CLI_STATS_SUMMARY'),
-            [
-                _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
-                _t('FERME_CLI_STATS_PROBED') => $counters['probed'],
-                _t('FERME_CLI_STATS_COUNTED') => $counters['counted'],
-                _t('FERME_CLI_STATS_WALKED') => $counters['walked'],
-                _t('FERME_CLI_STATS_UNCHANGED') => $counters['unchanged'],
-                _t('FERME_CLI_STATS_ORPHANS') => count($orphans),
-                _t('FERME_CLI_INDEX_KEPT') => $campaigns,
-                _t('FERME_CLI_STATS_STALE_LOCKS') => $staleLocks,
-                _t('FERME_CLI_STATS_PRIVATE_MADE') => $tidied['private'],
-                _t('FERME_CLI_STATS_ARCHIVES_SWEPT') => $tidied['archives'],
-                _t('FERME_CLI_LIFETIME_REMINDED') => count($swept['reminded'] ?? []),
-                _t('FERME_CLI_LIFETIME_DELETED') => count($swept['deleted'] ?? []),
-                _t('FERME_CLI_LIFETIME_ARCHIVED') => count($swept['archived'] ?? []),
-                _t('FERME_CLI_LIFETIME_PURGED') => count($swept['purged'] ?? []),
-                _t('FERME_CLI_FAILED') => count($counters['failed']),
-                _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
-            ],
-            array_merge($counters['failed'], $swept['failed'] ?? []),
-            $dryRun
-        );
+        return $this->renderSummary($output, _t('FERME_CLI_STATS_SUMMARY'), [
+            _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+            _t('FERME_CLI_STATS_PROBED') => $counters['probed'],
+            _t('FERME_CLI_STATS_COUNTED') => $counters['counted'],
+            _t('FERME_CLI_STATS_WALKED') => $counters['walked'],
+            _t('FERME_CLI_STATS_UNCHANGED') => $counters['unchanged'],
+            _t('FERME_CLI_STATS_ORPHANS') => count($orphans),
+            _t('FERME_CLI_INDEX_KEPT') => $campaigns,
+            _t('FERME_CLI_STATS_ARCHIVES_SWEPT') => $swept,
+            _t('FERME_CLI_LIFETIME_REMINDED') => count($lifetime['reminded'] ?? []),
+            _t('FERME_CLI_LIFETIME_DELETED') => count($lifetime['deleted'] ?? []),
+            _t('FERME_CLI_LIFETIME_ARCHIVED') => count($lifetime['archived'] ?? []),
+            _t('FERME_CLI_LIFETIME_PURGED') => count($lifetime['purged'] ?? []),
+            _t('FERME_CLI_FAILED') => count($counters['failed']),
+            _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+        ], array_merge($counters['failed'], $lifetime['failed'] ?? []), $dryRun);
     }
 
+    /**
+     * @param list<array{PATH: string, FOLDER: string, URL: string, VERSION: string, RELEASE: string}> $wikis
+     *
+     * @return array{probed: int, counted: int, walked: int, unchanged: int, failed: list<string>}
+     */
     private function refresh(InputInterface $input, OutputInterface $output, array $wikis): array
     {
+        $refresher = $this->service(StatsRefresher::class);
         $dryRun = $this->isDryRun($input);
         $force = (bool)$input->getOption('force');
-        $withDisk = !$input->getOption('no-disk');
         $stale = $this->seconds((string)$input->getOption('stale'));
         $max = (int)$input->getOption('max');
-
         $counters = ['probed' => 0, 'counted' => 0, 'walked' => 0, 'unchanged' => 0, 'failed' => []];
-        $stored = $this->store->readMany(array_column($wikis, 'FOLDER'));
-        $done = 0;
+        $stored = $this->service(WikiStatsStore::class)->readMany(array_column($wikis, 'FOLDER'));
+        usort($wikis, static fn (array $a, array $b): int => strcmp((string)($stored[$a['FOLDER']]['checkedAt'] ?? ''), (string)($stored[$b['FOLDER']]['checkedAt'] ?? '')));
 
-        foreach ($this->oldestFirst($wikis, $stored) as $wiki) {
-            if ($max > 0 && $done >= $max) {
+        foreach ($wikis as $wiki) {
+            if ($max > 0 && $counters['probed'] >= $max) {
                 break;
             }
-
-            $folder = $wiki['FOLDER'];
-            $known = $stored[$folder] ?? null;
-            if (!$force && !$this->refresher->isStale($known, $stale)) {
+            $known = $stored[$wiki['FOLDER']] ?? null;
+            if (!$force && !$refresher->isStale($known, $stale)) {
                 continue;
             }
-            if (!$this->isInsideFarm($wiki)) {
-                $counters['failed'][] = $this->label($wiki);
-                $output->writeln('<error>  ' . $this->label($wiki) . ': ' . _t('FERME_CLI_STATS_OUTSIDE_FARM') . '</error>');
-                continue;
-            }
-
-            $done++;
             $counters['probed']++;
-
             if ($dryRun) {
                 $output->writeln($this->dryRunPrefix($input) . $this->label($wiki) . ': ' . _t('FERME_CLI_STATS_WOULD_MEASURE'));
                 continue;
             }
-
-            $result = $this->refresher->refresh($folder, [
-                'force' => $force,
-                'withDisk' => $withDisk,
-                'known' => $known,
-            ]);
-
+            $result = $refresher->refresh($wiki['FOLDER'], ['force' => $force, 'withDisk' => !$input->getOption('no-disk'), 'known' => $known]);
             $counters['counted'] += $result['counted'] ? 1 : 0;
             $counters['walked'] += $result['walked'] ? 1 : 0;
             if ($result['failed'] !== null) {
@@ -170,29 +125,27 @@ class StatsCommand extends AbstractFarmCommand
                 $counters['unchanged']++;
             }
         }
-
-        $this->refresher->close();
+        $refresher->close();
 
         return $counters;
     }
 
-    /** Measures nothing: says whether the farm is being measured at all, and fails when it is not, so a supervision can watch a cron that stopped. */
+    /** Measures nothing: says whether the farm is being measured at all, and fails when it is not. */
     private function check(InputInterface $input, OutputInterface $output, float $started): int
     {
+        $refresher = $this->service(StatsRefresher::class);
         $olderThan = $this->seconds((string)$input->getOption('check'));
         $wikis = $this->selectWikis($input);
-        if (empty($wikis)) {
+        if ($wikis === []) {
             $this->warnNothingFound($input, $output);
 
             return Command::SUCCESS;
         }
-
-        $stored = $this->store->readMany(array_column($wikis, 'FOLDER'));
+        $stored = $this->service(WikiStatsStore::class)->readMany(array_column($wikis, 'FOLDER'));
         $late = [];
         $failing = 0;
         $never = 0;
         $oldest = null;
-
         foreach ($wikis as $wiki) {
             $known = $stored[$wiki['FOLDER']] ?? null;
             if ($known === null || empty($known['checkedAt'])) {
@@ -200,42 +153,38 @@ class StatsCommand extends AbstractFarmCommand
                 $late[] = $this->label($wiki);
                 continue;
             }
-            if (($known['status'] ?? '') === WikiStatsStore::STATUS_ERROR) {
-                $failing++;
+            $failing += ($known['status'] ?? '') === WikiStatsStore::STATUS_ERROR ? 1 : 0;
+            if ($oldest === null || (string)$known['checkedAt'] < $oldest['checkedAt']) {
+                $oldest = ['checkedAt' => (string)$known['checkedAt'], 'label' => $this->label($wiki)];
             }
-            if ($oldest === null || $known['checkedAt'] < $oldest['checkedAt']) {
-                $oldest = ['checkedAt' => $known['checkedAt'], 'label' => $this->label($wiki)];
-            }
-            if ($this->refresher->isStale($known, $olderThan)) {
+            if ($refresher->isStale($known, $olderThan)) {
                 $late[] = $this->label($wiki);
             }
         }
 
-        return $this->renderSummary(
-            $output,
-            _t('FERME_CLI_STATS_CHECK_SUMMARY'),
-            [
-                _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
-                _t('FERME_CLI_STATS_NEVER') => $never,
-                _t('FERME_CLI_STATS_OLDEST') => $oldest === null
-                    ? '-'
-                    : $oldest['checkedAt'] . ' (' . $oldest['label'] . ')',
-                _t('FERME_CLI_STATS_LATE') => count($late),
-                _t('FERME_CLI_STATS_FAILING') => $failing,
-                _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
-            ],
-            $late
-        );
+        return $this->renderSummary($output, _t('FERME_CLI_STATS_CHECK_SUMMARY'), [
+            _t('FERME_CLI_WIKIS_FOUND') => count($wikis),
+            _t('FERME_CLI_STATS_NEVER') => $never,
+            _t('FERME_CLI_STATS_OLDEST') => $oldest === null ? '-' : $oldest['checkedAt'] . ' (' . $oldest['label'] . ')',
+            _t('FERME_CLI_STATS_LATE') => count($late),
+            _t('FERME_CLI_STATS_FAILING') => $failing,
+            _t('FERME_CLI_ELAPSED') => $this->elapsed($started),
+        ], $late);
     }
 
-    /** Wikis deleted by something other than the farm leave their stats behind, so a full run drops what no longer matches a folder. */
+    /**
+     * Wikis deleted by something other than the farm leave their numbers behind.
+     *
+     * @param list<array{PATH: string, FOLDER: string, URL: string, VERSION: string, RELEASE: string}> $wikis
+     *
+     * @return list<string>
+     */
     private function sweepOrphans(InputInterface $input, OutputInterface $output, array $wikis): array
     {
         if ($input->getOption('wiki') || $input->getOption('path') || $this->isDryRun($input)) {
             return [];
         }
-
-        $orphans = $this->store->forgetOrphans(array_column($wikis, 'FOLDER'));
+        $orphans = $this->service(WikiStatsStore::class)->forgetOrphans(array_column($wikis, 'FOLDER'));
         foreach ($orphans as $folder) {
             $output->writeln('  <comment>' . $folder . ': ' . _t('FERME_CLI_STATS_ORPHAN_DROPPED') . '</comment>');
         }
@@ -243,73 +192,40 @@ class StatsCommand extends AbstractFarmCommand
         return $orphans;
     }
 
-    /** Oldest check first, so a run capped by --max walks the farm round robin. */
-    private function oldestFirst(array $wikis, array $stored): array
-    {
-        usort($wikis, function (array $a, array $b) use ($stored) {
-            $left = $stored[$a['FOLDER']]['checkedAt'] ?? '';
-            $right = $stored[$b['FOLDER']]['checkedAt'] ?? '';
-
-            return strcmp($left, $right);
-        });
-
-        return $wikis;
-    }
-
-    private function isInsideFarm(array $wiki): bool
-    {
-        $expected = realpath($this->farmConfig->wikiDir($wiki['FOLDER']));
-
-        return $expected !== false && $expected === realpath($wiki['PATH']);
-    }
-
-    private function lock()
-    {
-        $handle = fopen(self::LOCK_FILE, 'c');
-        if ($handle === false) {
-            return false;
-        }
-        if (!flock($handle, LOCK_EX | LOCK_NB)) {
-            fclose($handle);
-
-            return false;
-        }
-
-        return $handle;
-    }
-
-    /** The campaign index is rebuilt once a week: reading every wiki is too long to do on every sweep, and a robot's block does not appear and vanish in a day. */
+    /** The campaign index is rebuilt once a week: reading every wiki is too long for every sweep. */
     private function refreshIndex(OutputInterface $output): int
     {
-        $about = $this->fingerprints->about();
-        if ($about !== null && strtotime($about['builtAt']) > time() - self::INDEX_AGE) {
+        $fingerprints = $this->service(SpamFingerprints::class);
+        $about = $fingerprints->about();
+        if ($about !== null && (int)strtotime($about['builtAt']) > time() - self::INDEX_AGE) {
             return $about['kept'];
         }
-
         $output->writeln('<comment>' . _t('FERME_CLI_INDEX_SUMMARY') . '</comment>');
 
-        return $this->fingerprints->build($this->cleaner->hosts())['kept'];
+        return $fingerprints->build($this->service(SpamCleaner::class)->hosts())['kept'];
     }
 
-    /** Each wiki gets the private folder it should have, and loses the archives nobody came to fetch. */
-    private function tidy(array $wikis): array
+    /**
+     * Each wiki loses the archives nobody came to fetch.
+     *
+     * @param list<array{PATH: string, FOLDER: string, URL: string, VERSION: string, RELEASE: string}> $wikis
+     */
+    private function tidy(array $wikis): int
     {
-        $keep = (int)($this->wiki->config['yeswiki-farm-archive-keep'] ?? WikiArchiver::KEEP_ARCHIVES);
-        $made = 0;
+        $keep = (int)$this->farmConfig->text('yeswiki-farm-archive-keep', (string)WikiArchiver::KEEP_ARCHIVES);
+        if ($keep <= 0) {
+            return 0;
+        }
+        $archiver = $this->service(WikiArchiver::class);
         $swept = 0;
-
         foreach ($wikis as $wiki) {
             try {
-                $done = $keep > 0
-                    ? $this->archiver->tidy($wiki['FOLDER'], $keep)
-                    : ['created' => $this->archiver->ensurePrivate($wiki['FOLDER']), 'removed' => 0, 'bytes' => 0];
+                $swept += $archiver->tidy($wiki['FOLDER'], $keep)['removed'];
             } catch (\Throwable $throwable) {
                 continue;
             }
-            $made += $done['created'] ? 1 : 0;
-            $swept += $done['removed'];
         }
 
-        return ['private' => $made, 'archives' => $swept];
+        return $swept;
     }
 }
