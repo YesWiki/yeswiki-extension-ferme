@@ -80,10 +80,14 @@
     {% if pageQuery != '' and '=' not in pageQuery %}<input type="hidden" name="wiki" value="{{ pageQuery }}">{% endif %}
     {% if state.filter %}<input type="hidden" name="ferme_filter" value="{{ state.filter }}">{% endif %}
     {% if state.lifetime %}<input type="hidden" name="ferme_lifetime" value="{{ state.lifetime }}">{% endif %}
-    <label class="ferme-toolbar__search">
-      <span class="ferme-visually-hidden">{{ _t('FERME_SEARCH_LABEL') }}</span>
-      <input type="search" class="yw-input" name="ferme_search" value="{{ state.search }}" placeholder="{{ _t('FERME_SEARCH_LABEL') }}">
-    </label>
+    {% include '@core/_searchbox.twig' with {
+      name: 'ferme_search',
+      id: 'ferme-search',
+      value: state.search,
+      placeholder: _t('FERME_SEARCH_LABEL'),
+      button: _t('FERME_SEARCH_LABEL'),
+      modifier: 'yw-searchbox--inline ferme-toolbar__search'
+    } only %}
     <label class="ferme-toolbar__sort">
       <span>{{ _t('FERME_SORT_BY') }}</span>
       <select class="yw-input" name="ferme_sort" data-ferme-autosubmit>
@@ -96,7 +100,6 @@
       <option value="asc"{% if state.way == 'asc' %} selected{% endif %}>{{ _t('FERME_SORT_ASC') }}</option>
       <option value="desc"{% if state.way == 'desc' %} selected{% endif %}>{{ _t('FERME_SORT_DESC') }}</option>
     </select>
-    <button type="submit" class="yw-btn yw-btn--sm">{{ icon('loupe') }} {{ _t('FERME_SEARCH_LABEL') }}</button>
     {% if state.search or state.filter or state.lifetime %}
       <a class="yw-btn yw-btn--sm" href="{{ clearUrl }}">{{ icon('x') }} {{ _t('FERME_FILTER_CLEAR') }}</a>
     {% endif %}
@@ -107,11 +110,15 @@
     {% if group.chips is not empty %}
       <div class="ferme-chips">
         <span class="ferme-chips__label">{{ group.label }}</span>
-        {% for chip in group.chips %}
-          <a class="ferme-chip ferme-chip--{{ chip.kind }}{% if chip.active %} ferme-chip--active{% endif %}" href="{{ chip.url }}"{% if chip.active %} aria-current="true"{% endif %}>
-            {{ icon(chip.icon) }} {{ chip.label }} <span class="ferme-chip__count">{{ chip.count }}</span>
-          </a>
-        {% endfor %}
+        <ul class="yw-facets ferme-chips__list">
+          {% for chip in group.chips %}
+            <li class="yw-facet">
+              <a class="yw-facet__label ferme-chip ferme-chip--{{ chip.kind }}{% if chip.active %} ferme-chip--active{% endif %}" href="{{ chip.url }}"{% if chip.active %} aria-current="true"{% endif %}>
+                {{ icon(chip.icon) }} {{ chip.label }} <span class="yw-facet__count">{{ chip.count }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
       </div>
     {% endif %}
   {% endfor %}
@@ -131,8 +138,8 @@
   {% if rows is empty %}
     <p class="yw-alert yw-alert--info">{{ total == 0 ? _t('FERME_NO_WIKIS') : _t('FERME_NO_WIKI_MATCHES') }}</p>
   {% else %}
-    <div class="ferme-table-wrap">
-      <table class="yw-table ferme-table">
+    <div>
+      <table class="yw-table yw-table--hover ferme-table">
         <thead>
           <tr>
             <th class="ferme-table__check"><input type="checkbox" data-ferme-check-page aria-label="{{ _t('FERME_SELECT_PAGE') }}"></th>
@@ -141,7 +148,7 @@
             <th>{{ _t('FERME_STATS_CONTENT') }}</th>
             <th>{{ _t('FERME_SORT_ACTIVITY') }}</th>
             <th>{{ _t('FERME_STATS_DISK') }}</th>
-            <th><span class="ferme-visually-hidden">{{ _t('FERME_WIKI_ACTION') }}</span></th>
+            <th><span class="sr-only">{{ _t('FERME_WIKI_ACTION') }}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -202,9 +209,9 @@
               {% if stats %}<span title="{{ stats.diskDetail }}">{{ stats.disk }}</span>{% endif %}
             </td>
             <td class="ferme-table__actions">
-              <button type="button" class="yw-btn yw-btn--sm" data-ferme-detail aria-expanded="false" title="{{ _t('FERME_STATS_DETAIL') }}">{{ icon('chevron-down') }}<span class="ferme-visually-hidden">{{ _t('FERME_STATS_DETAIL') }}</span></button>
+              <button type="button" class="yw-btn yw-btn--sm" data-ferme-detail aria-expanded="false" title="{{ _t('FERME_STATS_DETAIL') }}">{{ icon('chevron-down') }}<span class="sr-only">{{ _t('FERME_STATS_DETAIL') }}</span></button>
               <div class="yw-dropdown">
-                <button type="button" class="yw-btn yw-btn--sm" data-yw-dropdown-toggle aria-expanded="false" title="{{ _t('FERME_WIKI_ACTION') }}">{{ icon('menu-2') }}<span class="ferme-visually-hidden">{{ _t('FERME_WIKI_ACTION') }}</span></button>
+                <button type="button" class="yw-btn yw-btn--sm" data-yw-dropdown-toggle aria-expanded="false" title="{{ _t('FERME_WIKI_ACTION') }}">{{ icon('menu-2') }}<span class="sr-only">{{ _t('FERME_WIKI_ACTION') }}</span></button>
                 <ul class="yw-dropdown__menu yw-dropdown__menu--right">
                   {% if row.url %}<li><a href="{{ row.url }}" target="_blank" rel="noopener">{{ icon('external-link') }} {{ _t('FERME_HOOK_OPEN_WIKI') }}</a></li>{% endif %}
                   <li><a href="{{ row.viewUrl }}">{{ icon('eye') }} {{ _t('FERME_HOOK_SEE_ENTRY') }}</a></li>
@@ -222,10 +229,14 @@
   {% endif %}
 
   {% if pageLinks is not empty %}
-    <nav class="yw-pagination ferme-pagination" aria-label="{{ _t('FERME_PAGES') }}">
-      {% for link in pageLinks %}
-        <a class="yw-pagination__link{% if link.current %} ferme-pagination__current{% endif %}" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.number }}</a>
-      {% endfor %}
+    <nav aria-label="{{ _t('FERME_PAGES') }}">
+      <ul class="yw-pagination ferme-pagination">
+        {% for link in pageLinks %}
+          <li class="yw-pagination__item{% if link.current %} yw-pagination__item--active{% endif %}">
+            <a class="yw-pagination__link" href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.number }}</a>
+          </li>
+        {% endfor %}
+      </ul>
     </nav>
   {% endif %}
 

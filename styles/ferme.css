@@ -5,15 +5,6 @@
   gap: var(--yw-space-md-y);
 }
 
-.ferme-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 .ferme-muted {
   color: var(--yw-text-muted);
   font-size: 0.9em;
@@ -42,6 +33,7 @@
 .ferme-tile__value {
   font-size: 1.4em;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--yw-primary);
 }
 
@@ -67,13 +59,9 @@
   width: auto;
 }
 
-.ferme-toolbar__search {
-  flex: 1 1 14rem;
-  margin: 0;
-}
-
-.ferme-toolbar__search .yw-input {
-  width: 100%;
+.ferme-toolbar .ferme-toolbar__search {
+  flex: 1 1 18rem;
+  max-width: 32rem;
 }
 
 .ferme-toolbar__sort {
@@ -101,21 +89,16 @@
   margin-right: var(--yw-space-sm-x);
 }
 
-.ferme-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--yw-space-sm-x);
-  padding: var(--yw-space-sm-y) var(--yw-space-md-x);
-  border: var(--yw-border-width) solid var(--yw-border);
-  border-radius: var(--yw-radius-full);
-  background: var(--yw-surface);
-  color: var(--yw-text);
-  font-size: 0.85em;
-  text-decoration: none;
+.ferme-chips__list.yw-facets {
+  justify-content: flex-start;
+  gap: var(--yw-space-sm-y) var(--yw-space-sm-x);
+  margin: 0;
 }
 
-.ferme-chip:hover {
-  background: var(--yw-surface-hover);
+.ferme-chip {
+  align-items: center;
+  font-size: 0.85rem;
+  text-decoration: none;
 }
 
 .ferme-chip--danger {
@@ -139,10 +122,6 @@
   color: var(--yw-on-primary);
 }
 
-.ferme-chip__count {
-  font-weight: 600;
-}
-
 .ferme-selection {
   display: flex;
   flex-wrap: wrap;
@@ -164,16 +143,12 @@
   font-weight: 600;
 }
 
-.ferme-table-wrap {
-  overflow-x: auto;
-}
-
 .ferme-table {
   width: 100%;
 }
 
-.ferme-table td {
-  vertical-align: top;
+.ferme-table th {
+  white-space: nowrap;
 }
 
 .ferme-table__check {
@@ -222,24 +197,12 @@
   display: inline-block;
 }
 
-.ferme-table .yw-dropdown__menu button,
-.ferme-selection .yw-dropdown__menu button {
+.ferme-table .yw-dropdown__menu :is(a, button),
+.ferme-selection .yw-dropdown__menu :is(a, button) {
   display: flex;
   align-items: center;
   gap: var(--yw-space-sm-x);
-  width: 100%;
-  padding: var(--yw-space-sm-y) var(--yw-space-md-x);
-  border: 0;
-  background: none;
-  color: var(--yw-text);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-}
-
-.ferme-table .yw-dropdown__menu button:hover,
-.ferme-selection .yw-dropdown__menu button:hover {
-  background: var(--yw-surface-hover);
+  font-family: inherit;
 }
 
 .ferme-table .yw-dropdown__menu .ferme-danger,
@@ -329,13 +292,8 @@
 }
 
 .ferme-pagination {
-  display: flex;
   flex-wrap: wrap;
-  gap: var(--yw-space-sm-x);
-}
-
-.ferme-pagination__current {
-  font-weight: 700;
+  justify-content: center;
 }
 
 .ferme-progress {
