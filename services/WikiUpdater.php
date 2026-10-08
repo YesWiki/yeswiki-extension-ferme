@@ -104,9 +104,10 @@ class WikiUpdater
                 }
             }
 
-            if ($sameVersion) {
-                $messages = array_merge($messages, $this->upgradeExtensions($wikiDir, $toUpgrade));
+            if (!$sameVersion && !empty($toUpgrade)) {
+                $this->patch($wikiDir, ['yeswiki_version' => $version]);
             }
+            $messages = array_merge($messages, $this->upgradeExtensions($wikiDir, $toUpgrade));
 
             foreach ($migrateOnly ? [] : self::REMOVED_TOOLS as $entry) {
                 $this->displace($wikiDir, $entry, $backupDir);
@@ -139,7 +140,7 @@ class WikiUpdater
                 : ['yeswiki_version' => $version]);
 
             try {
-                $messages = array_merge($messages, $this->runMigrations($wikiDir, $sameVersion ? [] : $toUpgrade));
+                $messages = array_merge($messages, $this->runMigrations($wikiDir, []));
             } finally {
                 if ($hibernating) {
                     $this->patch($wikiDir, ['wiki_status' => 'hibernate']);

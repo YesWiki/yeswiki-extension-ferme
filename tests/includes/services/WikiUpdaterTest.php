@@ -129,6 +129,34 @@ class WikiUpdaterTest extends YesWikiTestCase
         $this->assertSame('uptodate', $report['status']);
     }
 
+    public function testOnAVersionChangeTheExtensionsComeFromTheNewVersionBeforeTheCore()
+    {
+        $this->writeConfig('running', 'doryphore-dev');
+        $log = $this->tmp . '/console.log';
+        $this->console($this->wikiDir, 'old', $log);
+        $this->console($this->master, 'new', $log);
+        $versions = $this->createPartialMock(ExtensionVersions::class, ['toUpgrade', 'unpublished']);
+        $versions->method('unpublished')->willReturn([]);
+        $versions->expects($this->once())->method('toUpgrade')->willReturn(['lms']);
+
+        $this->updater($versions)->update($this->wikiDir, ['backup' => false, 'sourceDir' => $this->master]);
+
+        $version = $this->wikiApp->config['yeswiki_version'];
+        $this->assertSame(
+            ['old upgrade lms ' . $version, 'new migrate ' . $version],
+            file($log, FILE_IGNORE_NEW_LINES),
+            'les extensions de la nouvelle version passent avec l\'ancien coeur, les migrations avec le nouveau'
+        );
+    }
+
+    private function console(string $root, string $label, string $log): void
+    {
+        file_put_contents(
+            $root . '/includes/commands/console',
+            "<?php\n\$wakkaConfig = [];\ninclude 'wakka.config.php';\nfile_put_contents('" . $log . "', '" . $label . " ' . implode(' ', array_slice(\$argv, 1)) . ' ' . \$wakkaConfig['yeswiki_version'] . \"\\n\", FILE_APPEND);\n"
+        );
+    }
+
     private function extension(string $root, string $name, ?string $release = null): void
     {
         mkdir($root . '/tools/' . $name, 0777, true);
@@ -162,11 +190,11 @@ class WikiUpdaterTest extends YesWikiTestCase
         );
     }
 
-    private function writeConfig(string $status): void
+    private function writeConfig(string $status, string $version = 'doryphore'): void
     {
         file_put_contents(
             $this->wikiDir . '/wakka.config.php',
-            "<?php\n\$wakkaConfig = [\n  'wakka_name' => 'Mon wiki',\n  'yeswiki_version' => 'doryphore',\n  'yeswiki_release' => '4.6.0',\n  'wiki_status' => '" . $status . "',\n];\n"
+            "<?php\n\$wakkaConfig = [\n  'wakka_name' => 'Mon wiki',\n  'yeswiki_version' => '" . $version . "',\n  'yeswiki_release' => '4.6.0',\n  'wiki_status' => '" . $status . "',\n];\n"
         );
     }
 
