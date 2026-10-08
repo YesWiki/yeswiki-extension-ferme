@@ -103,7 +103,7 @@ class InstanceConsole
     private function process(string $wikiDir, array $arguments, array $env, int $timeout, ?string $input = null): array
     {
         $wikiDir = rtrim($wikiDir, '/');
-        $process = new Process([$this->php(), ...$arguments], $wikiDir, $this->environment($wikiDir, $env), $input);
+        $process = new Process([self::php(), ...$arguments], $wikiDir, $this->environment($wikiDir, $env), $input);
         $process->setTimeout($timeout > 0 ? $timeout : null);
         $process->run();
 
@@ -134,17 +134,22 @@ class InstanceConsole
         ], $env);
     }
 
-    private function php(): string
+    /** The PHP command line of the running version: PHP_BINARY under the CLI, the same version's php beside it under fpm. */
+    public static function php(string $sapi = PHP_SAPI): string
     {
         $configured = getenv('ASYNC_PHP_BINARY');
         if (is_string($configured) && $configured !== '') {
             return $configured;
         }
-        if (PHP_SAPI === 'cli') {
+        if ($sapi === 'cli') {
             return PHP_BINARY;
+        }
+        $sameVersion = PHP_BINDIR . DIRECTORY_SEPARATOR . 'php' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        if (is_executable($sameVersion)) {
+            return $sameVersion;
         }
         $found = (new PhpExecutableFinder())->find(false);
 
-        return is_string($found) && $found !== '' ? $found : 'php';
+        return is_string($found) && $found !== '' && !str_contains(basename($found), 'fpm') ? $found : 'php';
     }
 }

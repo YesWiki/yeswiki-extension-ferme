@@ -81,7 +81,7 @@ class FarmMigrationWatch
         if (!$this->isDue()) {
             return;
         }
-        $command = escapeshellarg(PHP_SAPI === 'cli' ? PHP_BINARY : 'php') . ' ' . escapeshellarg(ConsoleService::console()) . ' ferme:migrate --no-ansi --no-interaction';
+        $command = escapeshellarg(InstanceConsole::php()) . ' ' . escapeshellarg(ConsoleService::console()) . ' ferme:migrate --no-ansi --no-interaction';
         $log = $this->config->instanceDir() . '/' . self::LOG;
         if (function_exists('exec')) {
             @exec('cd ' . escapeshellarg($this->config->instanceDir()) . ' && ' . InstanceConsole::MIGRATING . '=1 nohup ' . $command . ' >> ' . escapeshellarg($log) . ' 2>&1 &');
