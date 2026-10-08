@@ -123,7 +123,7 @@ class FarmMigrationWatch
             FILE_APPEND | LOCK_EX
         );
 
-        $command = self::RUNNING . '=1 ' . escapeshellarg(PHP_BINARY)
+        $command = self::RUNNING . '=1 ' . escapeshellarg(PhpCli::binary())
             . ' ' . escapeshellarg($this->root . DIRECTORY_SEPARATOR . self::CONSOLE)
             . ' ferme:update --migrate-only --no-ansi --no-interaction';
 

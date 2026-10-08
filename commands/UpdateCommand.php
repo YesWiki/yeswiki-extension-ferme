@@ -10,6 +10,7 @@ use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\Process\Process;
 use YesWiki\Ferme\Service\AbstractFarmCommand;
 use YesWiki\Ferme\Service\CustomAside;
+use YesWiki\Ferme\Service\PhpCli;
 use YesWiki\Ferme\Service\WikiUpdater;
 use YesWiki\Wiki;
 
@@ -434,7 +435,7 @@ class UpdateCommand extends AbstractFarmCommand
     private function workerCommand(InputInterface $input, array $wiki, string $sourceDir): array
     {
         $command = [
-            PHP_BINARY,
+            PhpCli::binary(),
             self::CONSOLE,
             'ferme:update',
             '--path=' . $wiki['PATH'],

@@ -372,7 +372,7 @@ class WikiUpdater
     private function runConsole(string $wikiDir, array $arguments): string
     {
         $process = new Process(
-            array_merge([PHP_BINARY, self::CONSOLE], $arguments),
+            array_merge([PhpCli::binary(), self::CONSOLE], $arguments),
             $wikiDir,
             [FarmMigrationWatch::RUNNING => '1']
         );
