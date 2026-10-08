@@ -250,14 +250,22 @@ class WikiUpdater
         return is_array($symlinked) ? $symlinked : [];
     }
 
-    // returns the extensions a wiki has that the source does not ship
+    // returns the extensions the wiki owns: real folders the farm neither lends nor copies, missing from the source or installed by the wiki itself
     private function extraExtensions(string $sourceDir, string $wikiDir): array
     {
-        $names = function (string $dir) {
-            return array_map('basename', array_filter(glob($dir . '/tools/*') ?: [], 'is_dir'));
-        };
+        $managed = array_merge($this->entriesToReplace(), $this->symlinkedEntries());
+        $extras = [];
+        foreach (glob($wikiDir . '/tools/*', GLOB_ONLYDIR) ?: [] as $dir) {
+            $name = basename($dir);
+            if (is_link($dir) || in_array('tools/' . $name, $managed, true)) {
+                continue;
+            }
+            if (!is_dir($sourceDir . '/tools/' . $name) || $this->extensions->installedRelease($wikiDir, $name) !== null) {
+                $extras[] = $name;
+            }
+        }
 
-        return array_values(array_diff($names($wikiDir), $names($sourceDir)));
+        return $extras;
     }
 
     // moves an entry out of the way, into the backup folder when there is one, without following symlinks

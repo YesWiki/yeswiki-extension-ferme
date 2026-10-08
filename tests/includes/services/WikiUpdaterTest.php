@@ -21,6 +21,7 @@ use YesWiki\Test\Core\YesWikiTestCase;
 require_once 'tests/YesWikiTestCase.php';
 
 #[CoversMethod(WikiUpdater::class, 'update')]
+#[CoversMethod(WikiUpdater::class, 'updateExtensions')]
 class WikiUpdaterTest extends YesWikiTestCase
 {
     private string $tmp;
@@ -104,7 +105,39 @@ class WikiUpdaterTest extends YesWikiTestCase
         $this->updater()->update($this->wikiDir, ['backup' => false, 'sourceDir' => $this->master]);
     }
 
-    private function updater(): WikiUpdater
+    public function testTheExtensionsTheWikiOwnsAreOfferedEvenWhenTheFarmHasThemToo()
+    {
+        $this->extension($this->master, 'ferme', '4.2.6');
+        $this->extension($this->wikiDir, 'ferme', '4.2.0');
+        $this->extension($this->master, 'bazar');
+        $this->extension($this->wikiDir, 'bazar');
+        $this->extension($this->wikiDir, 'lms', '1.3.10');
+        $this->extension($this->master, 'lent', '1.0.0');
+        symlink($this->master . '/tools/lent', $this->wikiDir . '/tools/lent');
+        $this->extension($this->master, 'copied', '1.0.0');
+        $this->extension($this->wikiDir, 'copied', '1.0.0');
+        $this->wikiApp->config['yeswiki-farm-extra-tools'] = ['copied'];
+
+        $versions = $this->createPartialMock(ExtensionVersions::class, ['toUpgrade', 'unpublished']);
+        $versions->method('unpublished')->willReturn([]);
+        $versions->expects($this->once())->method('toUpgrade')
+            ->with($this->wikiDir, ['ferme', 'lms'])
+            ->willReturn([]);
+
+        $report = $this->updater($versions)->updateExtensions($this->wikiDir, ['sourceDir' => $this->master]);
+
+        $this->assertSame('uptodate', $report['status']);
+    }
+
+    private function extension(string $root, string $name, ?string $release = null): void
+    {
+        mkdir($root . '/tools/' . $name, 0777, true);
+        if ($release !== null) {
+            file_put_contents($root . '/tools/' . $name . '/infos.json', json_encode(['release' => $release]));
+        }
+    }
+
+    private function updater(?ExtensionVersions $versions = null): WikiUpdater
     {
         $lock = new FolderLock();
         $lock->useDirectory($this->tmp . '/locks');
@@ -122,7 +155,7 @@ class WikiUpdaterTest extends YesWikiTestCase
             $editor,
             $this->createStub(WikiDatabase::class),
             $this->createStub(CustomAside::class),
-            $this->createStub(ExtensionVersions::class),
+            $versions ?? $this->createStub(ExtensionVersions::class),
             $lock,
             $hibernator,
             $this->createStub(StatsRefresher::class)
