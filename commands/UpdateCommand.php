@@ -455,6 +455,12 @@ class UpdateCommand extends AbstractFarmCommand
         if ($input->getOption('migrate-only')) {
             $command[] = '--migrate-only';
         }
+        if ($input->getOption('migratecerco')) {
+            $command[] = '--migratecerco';
+        }
+        if ($input->getOption('migratedev')) {
+            $command[] = '--migratedev';
+        }
         if ($this->isDryRun($input)) {
             $command[] = '--dry-run';
         }
