@@ -11,6 +11,7 @@ class WikiUpdater
     private const REMOVED_TOOLS = ['tools/despam', 'tools/hashcash', 'tools/ipblock', 'tools/nospam'];
     private const CONSOLE = 'includes/commands/console';
     private const PROCESS_TIMEOUT = 600;
+    private const HERSE_REFUSALS = ['Accès interdit', 'Access denied'];
 
     protected $wiki;
     protected $config;
@@ -378,21 +379,34 @@ class WikiUpdater
         return $messages;
     }
 
+    // runs the wiki own console, through its herse, and fails when the console never ran
     private function runConsole(string $wikiDir, array $arguments): string
     {
         $process = new Process(
             array_merge([PhpCli::binary(), self::CONSOLE], $arguments),
             $wikiDir,
-            [FarmMigrationWatch::RUNNING => '1']
+            [FarmMigrationWatch::RUNNING => '1'] + $this->herseCredentials($wikiDir)
         );
         $process->setTimeout(self::PROCESS_TIMEOUT);
         $process->run();
 
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException(implode(' ', $arguments) . ': ' . trim($process->getErrorOutput() ?: $process->getOutput()));
+        $output = trim(preg_replace('/\033\[[0-9;]*[A-Za-z]/', '', $process->getOutput()));
+        if (!$process->isSuccessful() || in_array($output, self::HERSE_REFUSALS, true)) {
+            throw new \RuntimeException(implode(' ', $arguments) . ': ' . trim($process->getErrorOutput() ?: $output));
         }
 
-        return implode(' ', $arguments) . ': ' . trim(preg_replace('/\033\[[0-9;]*[A-Za-z]/', '', $process->getOutput()));
+        return implode(' ', $arguments) . ': ' . $output;
+    }
+
+    // the basic auth a herse older than 4.1.2 asks even of the command line
+    private function herseCredentials(string $wikiDir): array
+    {
+        $wakkaConfig = $this->editor->load($wikiDir);
+        if (empty($wakkaConfig['herse_id']) || empty($wakkaConfig['herse_password'])) {
+            return [];
+        }
+
+        return ['PHP_AUTH_USER' => (string)$wakkaConfig['herse_id'], 'PHP_AUTH_PW' => (string)$wakkaConfig['herse_password']];
     }
 
     // upgrades each extension through the wiki own console

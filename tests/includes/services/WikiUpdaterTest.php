@@ -149,6 +149,45 @@ class WikiUpdaterTest extends YesWikiTestCase
         );
     }
 
+    public function testAnOldHerseLetsTheConsoleThroughWithTheWikiCredentials()
+    {
+        $this->writeConfig('running', 'doryphore', "  'herse_id' => 'gardien',\n  'herse_password' => 'secret',\n");
+        $log = $this->tmp . '/console.log';
+        $this->herseConsole($this->master, $log);
+
+        $report = $this->updater()->update($this->wikiDir, ['backup' => false, 'sourceDir' => $this->master]);
+
+        $this->assertSame('updated', $report['status']);
+        $this->assertSame(['migrate'], file($log, FILE_IGNORE_NEW_LINES), 'la herse a laisse passer la console');
+    }
+
+    public function testAConsoleTheHerseRefusesIsAFailureAndTheVersionIsNotStamped()
+    {
+        $this->writeConfig('hibernate', 'doryphore', "  'herse_id' => 'gardien',\n  'herse_password' => 'autre',\n");
+        $this->herseConsole($this->master, $this->tmp . '/console.log', 'secret');
+
+        $error = '';
+        try {
+            $this->updater()->update($this->wikiDir, ['backup' => false, 'sourceDir' => $this->master]);
+        } catch (\RuntimeException $e) {
+            $error = $e->getMessage();
+        }
+        $this->assertStringContainsString('Accès interdit', $error, 'un refus de la herse fait echouer la mise a jour');
+        $this->assertSame('4.6.0', $this->readConfig()['yeswiki_release'], 'la version n\'est pas inscrite');
+        $this->assertSame('hibernate', $this->readConfig()['wiki_status'], 'le wiki se rendort quand meme');
+    }
+
+    private function herseConsole(string $root, string $log, ?string $expected = null): void
+    {
+        $password = $expected === null ? "\$wakkaConfig['herse_password']" : var_export($expected, true);
+        file_put_contents(
+            $root . '/includes/commands/console',
+            "<?php\n\$wakkaConfig = [];\ninclude 'wakka.config.php';\n"
+            . "if ((\$_SERVER['PHP_AUTH_USER'] ?? '') !== \$wakkaConfig['herse_id'] || (\$_SERVER['PHP_AUTH_PW'] ?? '') !== " . $password . ") {\n  echo 'Accès interdit';\n  exit;\n}\n"
+            . "file_put_contents('" . $log . "', implode(' ', array_slice(\$argv, 1)) . \"\\n\", FILE_APPEND);\n"
+        );
+    }
+
     private function console(string $root, string $label, string $log): void
     {
         file_put_contents(
@@ -190,11 +229,11 @@ class WikiUpdaterTest extends YesWikiTestCase
         );
     }
 
-    private function writeConfig(string $status, string $version = 'doryphore'): void
+    private function writeConfig(string $status, string $version = 'doryphore', string $extra = ''): void
     {
         file_put_contents(
             $this->wikiDir . '/wakka.config.php',
-            "<?php\n\$wakkaConfig = [\n  'wakka_name' => 'Mon wiki',\n  'yeswiki_version' => '" . $version . "',\n  'yeswiki_release' => '4.6.0',\n  'wiki_status' => '" . $status . "',\n];\n"
+            "<?php\n\$wakkaConfig = [\n  'wakka_name' => 'Mon wiki',\n  'yeswiki_version' => '" . $version . "',\n  'yeswiki_release' => '4.6.0',\n  'wiki_status' => '" . $status . "',\n" . $extra . "];\n"
         );
     }
 
