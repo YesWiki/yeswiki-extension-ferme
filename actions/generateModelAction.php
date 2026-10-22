@@ -9,6 +9,8 @@ use YesWiki\Ferme\Service\FarmService;
 
 class GenerateModelAction extends YesWikiAction
 {
+    public const FORM_COLUMNS_NEVER_COPIED = ['bn_activitypub_username', 'bn_activitypub_private_key', 'bn_activitypub_public_key'];
+
     protected $dbService;
     private $assetsProgressShown = false;
 
@@ -186,7 +188,9 @@ class GenerateModelAction extends YesWikiAction
             $tabforms = [];
             $firstForm = reset($forms);
             $validColumns = array_values(array_filter(array_keys($firstForm), function ($key) {
-                return strpos($key, 'bn_') === 0;
+                return strpos($key, 'bn_') === 0
+                    && !in_array($key, self::FORM_COLUMNS_NEVER_COPIED, true)
+                    && $this->dbService->columnExists('nature', $key);
             }));
             foreach ($forms as $form) {
                 $values = array_map(function ($col) use ($form) {

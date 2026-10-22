@@ -7,6 +7,9 @@ use YesWiki\Wiki;
 
 class WikiCreator
 {
+    public const ROBOTS_META = 'noindex,nofollow,max-image-preview:none,noarchive,noimageindex';
+    public const ROBOTS_TXT = "User-agent: *\nDisallow: /\n";
+
     protected $wiki;
     protected $config;
     protected $files;
@@ -66,6 +69,8 @@ class WikiCreator
 
                 throw $th;
             }
+
+            $this->writeRobotsFile($destfolder);
 
             $prefix = $this->tablePrefix($entry, $fieldName);
             $config = $this->buildWikiConfig($entry, $fieldName, $prefix, $this->resolveRights($entry, $fieldName), $this->config->theme($theme));
@@ -318,6 +323,10 @@ class WikiCreator
             $config[WikiConfigEditor::LOCKED_PARAMS] = WikiConfigEditor::lockParams($extraConfig, array_keys($extraConfig));
         }
 
+        if ($this->blocksRobots()) {
+            $config['meta'] = array_merge(is_array($config['meta'] ?? null) ? $config['meta'] : [], ['robots' => self::ROBOTS_META]);
+        }
+
         if (isset($entry['bf_description'])) {
             $config['meta_description'] = addslashes(
                 substr(
@@ -329,6 +338,19 @@ class WikiCreator
         }
 
         return $config;
+    }
+
+    /** Whether new wikis ask search engines to stay away, which takes from spammers what they come for. */
+    private function blocksRobots(): bool
+    {
+        return filter_var($this->wiki->config['yeswiki-farm-block-robots'] ?? true, FILTER_VALIDATE_BOOL);
+    }
+
+    private function writeRobotsFile(string $destfolder): void
+    {
+        if ($this->blocksRobots() && file_put_contents($destfolder . 'robots.txt', self::ROBOTS_TXT) === false) {
+            $this->warn(_t('FERME_ROBOTS_NOT_WRITTEN') . ' ' . $destfolder . 'robots.txt');
+        }
     }
 
     private function writeWikiConfig(string $destfolder, array $config): void
@@ -380,6 +402,9 @@ class WikiCreator
         mysqli_autocommit($link, false);
         try {
             $sqlReport = $this->runSqlFile($link, 'setup/sql/create-tables.sql', $replacements) . '<hr />';
+            if ($model !== 'default-content') {
+                $this->addFormColumnsTheModelNames($link, $prefix, $modelFile);
+            }
             $sqlReport .= $this->runSqlFile($link, $modelFile, $replacements);
         } catch (\Throwable $th) {
             $this->resetSQLTransactionWhenError($link, $notExistingTables, $prefix);
@@ -389,6 +414,25 @@ class WikiCreator
         mysqli_autocommit($link, true);
 
         return $sqlReport;
+    }
+
+    /**
+     * Adds the form columns an older model still inserts, so it loads; the wiki's migrations then fold them into the current schema.
+     */
+    private function addFormColumnsTheModelNames(\mysqli $link, string $prefix, string $modelFile): void
+    {
+        $sql = (string)@file_get_contents($modelFile);
+        if (!preg_match_all('/INSERT INTO `\{\{prefix\}\}nature`\s*\(([^)]*)\)/i', $sql, $inserts)) {
+            return;
+        }
+        preg_match_all('/`(bn_\w+)`/', implode(',', $inserts[1]), $columns);
+        $table = mysqli_real_escape_string($link, $prefix . 'nature');
+        foreach (array_unique($columns[1]) as $column) {
+            $exists = mysqli_query($link, "SHOW COLUMNS FROM `$table` LIKE '" . mysqli_real_escape_string($link, $column) . "'");
+            if ($exists !== false && mysqli_num_rows($exists) === 0) {
+                mysqli_query($link, "ALTER TABLE `$table` ADD COLUMN `$column` text DEFAULT NULL");
+            }
+        }
     }
 
     private function resetSQLTransactionWhenError($link, $notExistingTables, $prefix): void

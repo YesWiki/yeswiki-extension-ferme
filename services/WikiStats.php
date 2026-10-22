@@ -16,6 +16,7 @@ class WikiStats
     public const MONTHS = 12;
     public const PAGES_READ = 8;
     public const INSTALL_MINUTES = 5;
+    public const HOME_LENGTH = 2000;
 
     public const SPAM_VOCABULARY = '/(casino|jackpot|escort|call.?girl|camgirl|viagra|cialis|sattamatka|porn|\bnude\b|hookup|adultfriend|backlink|payday.?loan|\bbet\b|\bslots?\b|\bpoker\b|\bseo\b|\bessays?\b|\bhomework\b|\bdating\b|keonhacai|nhacai|taixiu|soikeo|bongda|cacuoc|sunwin|togel|judi)/i';
 
@@ -24,15 +25,17 @@ class WikiStats
     private $database;
     private $fingerprints;
     private $approvals;
+    private $disposable;
     private $connections = [];
 
-    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, SpamFingerprints $fingerprints, SpamApprovals $approvals)
+    public function __construct(\YesWiki\Wiki $wiki, FarmConfig $config, WikiDatabase $database, SpamFingerprints $fingerprints, SpamApprovals $approvals, DisposableEmailDomains $disposable)
     {
         $this->wiki = $wiki;
         $this->config = $config;
         $this->database = $database;
         $this->fingerprints = $fingerprints;
         $this->approvals = $approvals;
+        $this->disposable = $disposable;
     }
 
     /**
@@ -44,7 +47,7 @@ class WikiStats
     }
 
     /**
-     * @return array{users:int,forms:int,entries:int,pages:int,lastPageId:int,lastActivity:?string,firstActivity:?string,editedPages:int,lastEdit:?string,activity:array<int,int>,version:string,release:string,name:string,description:string}
+     * @return array{users:int,forms:int,entries:int,pages:int,disposableUsers:int,homeText:string,lastPageId:int,lastActivity:?string,firstActivity:?string,editedPages:int,lastEdit:?string,activity:array<int,int>,version:string,release:string,name:string,description:string}
      */
     public function fromDatabase(string $folder): array
     {
@@ -63,6 +66,8 @@ class WikiStats
                     'forms' => $this->countRows($db, $prefix, 'nature'),
                     'entries' => $this->countEntries($db, $prefix),
                     'pages' => $this->countPages($db, $prefix),
+                    'disposableUsers' => $this->countDisposableUsers($db, $prefix),
+                    'homeText' => $this->homeText($db, $prefix, (string)($wakkaConfig['root_page'] ?? 'PagePrincipale')),
                 ],
                 $this->latest($db, $prefix),
                 ['activity' => $this->activity($db, $prefix)],
@@ -176,6 +181,27 @@ class WikiStats
         $row = $db->query('SELECT COUNT(*) FROM `' . $this->database->table($prefix, $table) . '`')->fetch_row();
 
         return (int)($row[0] ?? 0);
+    }
+
+    private function countDisposableUsers(\mysqli $db, string $prefix): int
+    {
+        $result = $db->query('SELECT email FROM `' . $this->database->table($prefix, 'users') . '`');
+
+        return $result ? $this->disposable->countIn(array_column($result->fetch_all(), 0)) : 0;
+    }
+
+    /** The start of the home page as a reader sees it, for the spam score; never stored. */
+    private function homeText(\mysqli $db, string $prefix, string $rootPage): string
+    {
+        $statement = $db->prepare(
+            'SELECT body FROM `' . $this->database->table($prefix, 'pages') . '` WHERE tag = ? AND latest = \'Y\' LIMIT 1'
+        );
+        $statement->bind_param('s', $rootPage);
+        $statement->execute();
+        $row = $statement->get_result()->fetch_row();
+        $statement->close();
+
+        return mb_substr(trim((string)preg_replace('/\s+/u', ' ', strip_tags((string)($row[0] ?? '')))), 0, self::HOME_LENGTH);
     }
 
     private function countEntries(\mysqli $db, string $prefix): int

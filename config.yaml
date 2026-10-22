@@ -10,6 +10,8 @@ parameters:
   yeswiki-farm-spam-threshold: 3
   yeswiki-farm-spam-words: ''
   yeswiki-farm-spam-hosts: ''
+  yeswiki-farm-spam-email-domains: ''
+  yeswiki-farm-block-robots: true
   yeswiki-farm-archive-keep: 604800
   yeswiki-farm-migrate-on-update: true
   yeswiki-farm-mattermost-webhook: ''
@@ -136,6 +138,8 @@ parameters:
     - 'yeswiki-farm-email-WikiAdmin'
     - 'yeswiki-farm-spam-words'
     - 'yeswiki-farm-spam-hosts'
+    - 'yeswiki-farm-spam-email-domains'
+    - 'yeswiki-farm-block-robots'
     - 'yeswiki-farm-stats-on-visit'
     - 'yeswiki-farm-stats-interval'
     - 'yeswiki-farm-stats-per-visit'

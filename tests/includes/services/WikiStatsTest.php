@@ -4,6 +4,7 @@ namespace YesWiki\Test\Ferme\Service;
 
 use PHPUnit\Framework\Attributes\CoversMethod;
 use YesWiki\Ferme\Exception\WikiStatsException;
+use YesWiki\Ferme\Service\DisposableEmailDomains;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FileSystem;
 use YesWiki\Ferme\Service\SpamApprovals;
@@ -44,7 +45,7 @@ class WikiStatsTest extends YesWikiTestCase
 
         $this->db = (new WikiDatabase())->connect($this->wakkaConfig);
         $this->db->query('CREATE TABLE `' . $this->prefix . 'pages` (id int unsigned NOT NULL AUTO_INCREMENT, tag varchar(191) NOT NULL, time datetime NOT NULL, body longtext NOT NULL, user varchar(191) NOT NULL DEFAULT \'\', latest enum(\'Y\',\'N\') NOT NULL DEFAULT \'N\', comment_on varchar(191) NOT NULL DEFAULT \'\', PRIMARY KEY (id)) ENGINE=InnoDB');
-        $this->db->query('CREATE TABLE `' . $this->prefix . 'users` (name varchar(191) NOT NULL, PRIMARY KEY (name)) ENGINE=InnoDB');
+        $this->db->query('CREATE TABLE `' . $this->prefix . 'users` (name varchar(191) NOT NULL, email varchar(191) NOT NULL DEFAULT \'\', PRIMARY KEY (name)) ENGINE=InnoDB');
         $this->db->query('CREATE TABLE `' . $this->prefix . 'nature` (bn_id_nature int unsigned NOT NULL AUTO_INCREMENT, PRIMARY KEY (bn_id_nature)) ENGINE=InnoDB');
         $this->db->query('CREATE TABLE `' . $this->prefix . 'triples` (id int unsigned NOT NULL AUTO_INCREMENT, resource varchar(255) NOT NULL, property varchar(255) NOT NULL, value text NOT NULL, PRIMARY KEY (id)) ENGINE=InnoDB');
     }
@@ -66,6 +67,7 @@ class WikiStatsTest extends YesWikiTestCase
         $stats = $this->stats()->compute('monwiki');
 
         $this->assertSame(3, $stats['users']);
+        $this->assertSame(1, $stats['disposableUsers'], 'bob@yopmail.com');
         $this->assertSame(2, $stats['forms']);
         $this->assertSame(4, $stats['entries']);
         $this->assertSame(5, $stats['pages']);
@@ -271,7 +273,7 @@ class WikiStatsTest extends YesWikiTestCase
             return $prefix . $name;
         });
 
-        $stats = new WikiStats(self::getWiki(), $this->farmConfig(), $database, $this->createStub(SpamFingerprints::class), $this->createStub(SpamApprovals::class));
+        $stats = new WikiStats(self::getWiki(), $this->farmConfig(), $database, $this->createStub(SpamFingerprints::class), $this->createStub(SpamApprovals::class), new DisposableEmailDomains(self::getWiki()));
         $stats->fromDatabase('monwiki');
         $stats->fromDatabase('monwiki');
         $stats->probe('monwiki');
@@ -279,8 +281,8 @@ class WikiStatsTest extends YesWikiTestCase
 
     private function fillWiki(): void
     {
-        foreach (['Alice', 'Bob', 'Carole'] as $name) {
-            $this->db->query('INSERT INTO `' . $this->prefix . 'users` (name) VALUES ("' . $name . '")');
+        foreach (['Alice' => 'alice@example.org', 'Bob' => 'bob@yopmail.com', 'Carole' => 'carole@example.org'] as $name => $email) {
+            $this->db->query('INSERT INTO `' . $this->prefix . 'users` (name, email) VALUES ("' . $name . '", "' . $email . '")');
         }
         $this->db->query('INSERT INTO `' . $this->prefix . 'nature` (bn_id_nature) VALUES (1), (2)');
         foreach (['F1', 'F2', 'F3', 'F4'] as $tag) {
@@ -328,7 +330,7 @@ class WikiStatsTest extends YesWikiTestCase
 
     private function stats(?array $configOverride = null): WikiStats
     {
-        return new WikiStats(self::getWiki(), $this->farmConfig($configOverride), new WikiDatabase(), $this->createStub(SpamFingerprints::class), $this->createStub(SpamApprovals::class));
+        return new WikiStats(self::getWiki(), $this->farmConfig($configOverride), new WikiDatabase(), $this->createStub(SpamFingerprints::class), $this->createStub(SpamApprovals::class), new DisposableEmailDomains(self::getWiki()));
     }
 
     private function farmConfig(?array $configOverride = null): FarmConfig

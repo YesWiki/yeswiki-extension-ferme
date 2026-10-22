@@ -77,7 +77,7 @@ $(document).ready(function () {
 
     // on enleve les anciens contenus
     $results.html('');
-    $form.find(':hidden').val('');
+    $form.find('input[id^="wiki-import-"]').val('');
     importedData = { forms: {}, lists: {}, entries: {}, pages: {} };
 
     // url saisie
