@@ -12,6 +12,7 @@ class WikiUpdater
     private const CONSOLE = 'includes/commands/console';
     private const PROCESS_TIMEOUT = 600;
     private const HERSE_REFUSALS = ['Accès interdit', 'Access denied'];
+    private const CONSOLE_ERROR = '/^(Erreur|Error) \|/m';
 
     protected $wiki;
     protected $config;
@@ -379,7 +380,7 @@ class WikiUpdater
         return $messages;
     }
 
-    // runs the wiki own console, through its herse, and fails when the console never ran
+    // runs the wiki own console, through its herse, and fails when it never ran or reports an error with exit code 0
     private function runConsole(string $wikiDir, array $arguments): string
     {
         $process = new Process(
@@ -391,7 +392,7 @@ class WikiUpdater
         $process->run();
 
         $output = trim(preg_replace('/\033\[[0-9;]*[A-Za-z]/', '', $process->getOutput()));
-        if (!$process->isSuccessful() || in_array($output, self::HERSE_REFUSALS, true)) {
+        if (!$process->isSuccessful() || in_array($output, self::HERSE_REFUSALS, true) || preg_match(self::CONSOLE_ERROR, $output)) {
             throw new \RuntimeException(implode(' ', $arguments) . ': ' . trim($process->getErrorOutput() ?: $output));
         }
 

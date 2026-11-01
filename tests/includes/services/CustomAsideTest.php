@@ -55,11 +55,46 @@ class CustomAsideTest extends YesWikiTestCase
         $aside = $this->aside();
         $aside->hide($this->wikiDir);
 
-        $this->assertFileExists($this->wikiDir . '/custom.temp/' . CustomAside::SENTINEL);
+        $this->assertFileExists($this->wikiDir . '/custom.temp' . CustomAside::SENTINEL);
+        $this->assertFileDoesNotExist($this->wikiDir . '/custom.temp/' . CustomAside::SENTINEL);
 
         $aside->reveal($this->wikiDir);
 
+        $this->assertFileDoesNotExist($this->wikiDir . '/custom.temp' . CustomAside::SENTINEL);
         $this->assertFileDoesNotExist($this->wikiDir . '/custom/' . CustomAside::SENTINEL);
+    }
+
+    public function testACustomTheFarmCannotWriteIntoIsStillMarkedAndRecovered()
+    {
+        chmod($this->wikiDir . '/custom', 0555);
+        $this->aside()->hide($this->wikiDir);
+        mkdir($this->wikiDir . '/custom');
+
+        $message = $this->aside()->recover($this->wikiDir);
+        chmod($this->wikiDir . '/custom', 0755);
+
+        $this->assertNotNull($message);
+        $this->assertSame('body{}', file_get_contents($this->wikiDir . '/custom/custom.css'));
+        $this->assertFileDoesNotExist($this->wikiDir . '/custom.temp' . CustomAside::SENTINEL);
+    }
+
+    public function testAnAsideMarkedInsideByAnOlderRunIsStillOurs()
+    {
+        rename($this->wikiDir . '/custom', $this->wikiDir . '/custom.temp');
+        file_put_contents($this->wikiDir . '/custom.temp/' . CustomAside::SENTINEL, '{}');
+        mkdir($this->wikiDir . '/custom');
+
+        $this->assertNotNull($this->aside()->recover($this->wikiDir));
+        $this->assertSame('body{}', file_get_contents($this->wikiDir . '/custom/custom.css'));
+        $this->assertFileDoesNotExist($this->wikiDir . '/custom/' . CustomAside::SENTINEL);
+    }
+
+    public function testAMarkLeftAloneAfterAHandRestoreIsDropped()
+    {
+        file_put_contents($this->wikiDir . '/custom.temp' . CustomAside::SENTINEL, '{}');
+
+        $this->assertNull($this->aside()->recover($this->wikiDir));
+        $this->assertFileDoesNotExist($this->wikiDir . '/custom.temp' . CustomAside::SENTINEL);
     }
 
     public function testASymlinkedCustomIsMovedAsALinkAndPutBackAsOne()

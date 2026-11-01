@@ -177,6 +177,24 @@ class WikiUpdaterTest extends YesWikiTestCase
         $this->assertSame('hibernate', $this->readConfig()['wiki_status'], 'le wiki se rendort quand meme');
     }
 
+    public function testAMigrationThatFailsWithExitCodeZeroIsAFailureAndTheVersionIsNotStamped()
+    {
+        $this->writeConfig('running');
+        file_put_contents(
+            $this->wikiDir . '/includes/commands/console',
+            "<?php\necho \"Starting migrations\\nErreur | Migration CheckSQLTablesThenFixThem (20240425000000) failed\\n\";\n"
+        );
+
+        $error = '';
+        try {
+            $this->updater()->update($this->wikiDir, ['backup' => false, 'sourceDir' => $this->master, 'migrateOnly' => true]);
+        } catch (\RuntimeException $e) {
+            $error = $e->getMessage();
+        }
+        $this->assertStringContainsString('CheckSQLTablesThenFixThem', $error, 'une migration en erreur fait echouer la mise a jour');
+        $this->assertSame('4.6.0', $this->readConfig()['yeswiki_release'], 'la version n\'est pas inscrite');
+    }
+
     private function herseConsole(string $root, string $log, ?string $expected = null): void
     {
         $password = $expected === null ? "\$wakkaConfig['herse_password']" : var_export($expected, true);

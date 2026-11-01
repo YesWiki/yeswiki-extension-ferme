@@ -2,11 +2,8 @@
 
 namespace YesWiki\Ferme\Service;
 
-/**
- * Puts a wiki's custom/ folder out of the way while its migrations run, so they
- * see a stock wiki, and makes sure it comes back: at the end of the update, on a
- * fatal, on a signal, or on the next run of the farm over that wiki.
- */
+// Puts a wiki's custom/ out of the way while its migrations run, so they see a stock wiki,
+// and brings it back at the end, on a fatal, on a signal, or on the next run over that wiki.
 class CustomAside
 {
     public const ASIDE = 'custom.temp';
@@ -23,9 +20,7 @@ class CustomAside
         $this->files = $files;
     }
 
-    /**
-     * @return bool false when the wiki has no custom/ to hide
-     */
+    // moves custom/ aside and marks it as ours, false when the wiki has none
     public function hide(string $wikiDir): bool
     {
         $custom = $this->customPath($wikiDir);
@@ -42,7 +37,7 @@ class CustomAside
         }
 
         if (is_dir($aside) && !is_link($aside)) {
-            file_put_contents($aside . DIRECTORY_SEPARATOR . self::SENTINEL, json_encode([
+            file_put_contents($this->sentinelPath($wikiDir), json_encode([
                 'wiki' => $this->key($wikiDir),
                 'since' => date('c'),
                 'pid' => getmypid(),
@@ -55,9 +50,7 @@ class CustomAside
         return true;
     }
 
-    /**
-     * @return string|null where a custom/ found back in its place has been moved
-     */
+    // puts custom/ back, and returns where a custom/ found back in its place has been moved
     public function reveal(string $wikiDir): ?string
     {
         unset($this->pending[$this->key($wikiDir)]);
@@ -76,26 +69,29 @@ class CustomAside
         if (!rename($aside, $custom)) {
             throw new \RuntimeException(_t('FERME_CLI_CANNOT_RESTORE_CUSTOM') . ' ' . $aside);
         }
+        if (is_file($this->sentinelPath($wikiDir))) {
+            unlink($this->sentinelPath($wikiDir));
+        }
 
         return $displaced;
     }
 
-    /**
-     * Put back an aside an interrupted run left behind, and say so. A wiki with no
-     * custom/ left has nothing to lose, so the aside goes back even unmarked, which
-     * is how the runs that predate the mark are picked up.
-     */
+    // puts back an aside an interrupted run left, unmarked too when the wiki has no custom/ left
     public function recover(string $wikiDir): ?string
     {
         $this->unnest($wikiDir);
 
         if (!$this->isAside($wikiDir)) {
+            if (is_file($this->sentinelPath($wikiDir))) {
+                unlink($this->sentinelPath($wikiDir));
+            }
+
             return null;
         }
 
         $custom = $this->customPath($wikiDir);
         $inPlace = file_exists($custom) || is_link($custom);
-        if ($inPlace && !$this->isOurs($this->asidePath($wikiDir))) {
+        if ($inPlace && !$this->isOurs($wikiDir, $this->asidePath($wikiDir))) {
             throw new \RuntimeException(_t('FERME_CLI_CUSTOM_ASIDE_FOREIGN') . ' ' . $this->asidePath($wikiDir));
         }
 
@@ -116,11 +112,7 @@ class CustomAside
         return false;
     }
 
-    /**
-     * An aside put back by hand over a custom/ that already existed does not
-     * replace it: the shell drops it inside, where nothing ever looks again.
-     * Lift it out so the usual path can see it.
-     */
+    // lifts out an aside a shell mv dropped inside an existing custom/
     private function unnest(string $wikiDir): void
     {
         $nested = $this->nestedPath($wikiDir);
@@ -132,7 +124,7 @@ class CustomAside
         if (file_exists($aside) || is_link($aside)) {
             throw new \RuntimeException(_t('FERME_CLI_CUSTOM_ASIDE_IN_THE_WAY') . ' ' . $aside);
         }
-        if (!$this->isOurs($nested)) {
+        if (!$this->isOurs($wikiDir, $nested)) {
             throw new \RuntimeException(_t('FERME_CLI_CUSTOM_ASIDE_NESTED') . ' ' . $nested);
         }
         if (!rename($nested, $aside)) {
@@ -140,19 +132,16 @@ class CustomAside
         }
     }
 
-    private function isOurs(string $aside): bool
+    private function isOurs(string $wikiDir, string $aside): bool
     {
         if (is_link($aside)) {
             return true;
         }
 
-        return is_file($aside . DIRECTORY_SEPARATOR . self::SENTINEL);
+        return is_file($this->sentinelPath($wikiDir)) || is_file($aside . DIRECTORY_SEPARATOR . self::SENTINEL);
     }
 
-    /**
-     * A folder found where custom/ belongs is never deleted: an empty one goes,
-     * anything else waits in the farm backups.
-     */
+    // clears the place of custom/: an empty folder goes, anything else waits in the farm backups
     private function displace(string $wikiDir, string $custom): ?string
     {
         if (!is_link($custom) && is_dir($custom) && count((array)scandir($custom)) <= 2) {
@@ -179,9 +168,7 @@ class CustomAside
         throw new \RuntimeException(trim(_t('FERME_CLI_CANNOT_MOVE') . ' ' . $custom . ' ' . $summary));
     }
 
-    /**
-     * Restore on the way out, whichever way the process is leaving.
-     */
+    // restores on the way out, whichever way the process is leaving
     private function watch(): void
     {
         if ($this->watching) {
@@ -227,10 +214,13 @@ class CustomAside
         return $this->key($wikiDir) . DIRECTORY_SEPARATOR . self::ASIDE;
     }
 
-    /**
-     * @return string|null null when custom/ is a link or absent, as anything
-     *                     inside it then belongs to whatever it points at
-     */
+    // the mark sits beside the aside, as a custom/ owned by another user can be moved but not written into
+    private function sentinelPath(string $wikiDir): string
+    {
+        return $this->asidePath($wikiDir) . self::SENTINEL;
+    }
+
+    // null when custom/ is a link or absent, as anything inside then belongs to what it points at
     private function nestedPath(string $wikiDir): ?string
     {
         $custom = $this->customPath($wikiDir);
