@@ -177,6 +177,23 @@ class WikiUpdaterTest extends YesWikiTestCase
         $this->assertSame('hibernate', $this->readConfig()['wiki_status'], 'le wiki se rendort quand meme');
     }
 
+    public function testTheExtensionsOfAHibernatingWikiAreUpgradedAwakeThenItGoesBackToSleep()
+    {
+        $this->extension($this->wikiDir, 'lms', '1.3.10');
+        file_put_contents(
+            $this->wikiDir . '/includes/commands/console',
+            "<?php\n\$wakkaConfig = [];\ninclude 'wakka.config.php';\nif (\$wakkaConfig['wiki_status'] === 'hibernate') {\n  fwrite(STDERR, 'lecture seule');\n  exit(1);\n}\necho 'ok';\n"
+        );
+        $versions = $this->createPartialMock(ExtensionVersions::class, ['toUpgrade', 'unpublished']);
+        $versions->method('unpublished')->willReturn([]);
+        $versions->expects($this->once())->method('toUpgrade')->willReturn(['lms']);
+
+        $report = $this->updater($versions)->updateExtensions($this->wikiDir, ['sourceDir' => $this->master]);
+
+        $this->assertSame('updated', $report['status']);
+        $this->assertSame('hibernate', $this->readConfig()['wiki_status'], 'le wiki se rendort');
+    }
+
     public function testAMigrationThatFailsWithExitCodeZeroIsAFailureAndTheVersionIsNotStamped()
     {
         $this->writeConfig('running');

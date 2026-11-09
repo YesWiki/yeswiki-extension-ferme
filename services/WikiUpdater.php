@@ -202,10 +202,19 @@ class WikiUpdater
             $messages[] = $recovered;
         }
 
-        return [
-            'status' => 'updated',
-            'messages' => array_merge($messages, $this->runMigrations($wikiDir, $toUpgrade)),
-        ];
+        $hibernating = ($wakkaConfig['wiki_status'] ?? '') === 'hibernate';
+        if ($hibernating) {
+            $this->patch($wikiDir, ['wiki_status' => 'running']);
+        }
+        try {
+            $messages = array_merge($messages, $this->runMigrations($wikiDir, $toUpgrade));
+        } finally {
+            if ($hibernating) {
+                $this->patch($wikiDir, ['wiki_status' => 'hibernate']);
+            }
+        }
+
+        return ['status' => 'updated', 'messages' => $messages];
     }
 
     // returns the version and release of a source tree, from the master config or a release constants.php

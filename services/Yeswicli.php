@@ -4,17 +4,15 @@ namespace YesWiki\Ferme\Service;
 
 class Yeswicli
 {
-    /**
-     * Run the migrations of a wiki that was just built, and report what stopped them.
-     * A wiki whose migrations never ran looks finished and is not, so the caller is
-     * told rather than left to find out later.
-     *
-     * @return array<int,string> the output of a run that failed, empty when it worked
-     */
+    /** Runs the migrations of a freshly built wiki and returns the output of a failed run, empty when it worked. */
     public function migrate(string $wikiFolder): array
     {
         if (!file_exists($wikiFolder . 'tools/autoupdate/services/MigrationService.php')) {
             return [];
+        }
+
+        if (!$this->canExec()) {
+            return [_t('FERME_MIGRATE_NO_EXEC')];
         }
 
         chmod($wikiFolder . 'yeswicli', 0755);
@@ -22,9 +20,22 @@ class Yeswicli
         chdir($wikiFolder);
         $output = [];
         $status = 0;
-        exec(FarmMigrationWatch::RUNNING . '=1 ./yeswicli migrate 2>&1', $output, $status);
-        chdir($currentDir);
+        try {
+            exec(FarmMigrationWatch::RUNNING . '=1 ./yeswicli migrate 2>&1', $output, $status);
+        } finally {
+            chdir($currentDir);
+        }
 
         return $status === 0 ? [] : $output;
+    }
+
+    private function canExec(): bool
+    {
+        if (!function_exists('exec')) {
+            return false;
+        }
+        $disabled = array_map('trim', explode(',', (string)ini_get('disable_functions')));
+
+        return !in_array('exec', $disabled, true);
     }
 }
