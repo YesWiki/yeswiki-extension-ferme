@@ -60,6 +60,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_MODEL_NO_ASSETS' => 'Le wiki source n\'a ni fichiers ni dossier custom à copier.',
         'FERME_MODEL_ARCHIVE_EXTRACTED' => 'Fichiers repris de la sauvegarde du wiki source :',
         'FERME_MODEL_REMOTE_NEEDS_ADMIN' => 'Le wiki source n\'est pas sur ce serveur, et aucun compte administrateur n\'a été donné pour lui : le modèle n\'a ni fichiers ni dossier custom.',
+        'FERME_MODEL_REMOTE_NEEDS_CORE' => 'Le wiki source n\'est pas sur ce serveur, et il faut YesWiki 4.6.7 ou plus récent pour récupérer ses fichiers à distance : le modèle n\'a ni fichiers ni dossier custom.',
         'FERME_MODEL_ARCHIVE_TIMEOUT' => 'Le wiki source n\'a pas fini sa sauvegarde dans le temps imparti.',
         'FERME_MODEL_ARCHIVE_FAILED' => 'La sauvegarde du wiki source a échoué.',
         'FERME_MODEL_ARCHIVE_UNREADABLE' => 'L\'archive téléchargée ne s\'ouvre pas :',

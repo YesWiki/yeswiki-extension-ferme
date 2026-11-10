@@ -1,21 +1,31 @@
 <?php
 
+// A wiki that could not be created: a RequiredFieldsException on cores that have one (4.6.7 and up), so bazar reopens the form with what the visitor typed.
+
 namespace YesWiki\Ferme\Exception;
 
 use YesWiki\Bazar\Exception\RequiredFieldsException;
 
-/**
- * A wiki that could not be created. It extends RequiredFieldsException because that is
- * the only failure bazar answers by reopening the form with what the visitor typed.
- */
-class WikiCreationException extends RequiredFieldsException
+if (!class_exists(__NAMESPACE__ . '\WikiCreationBase', false)) {
+    class_alias(
+        class_exists(RequiredFieldsException::class, false) || stream_resolve_include_path('tools/bazar/exceptions/RequiredFieldsException.php') !== false
+            ? RequiredFieldsException::class
+            : \Exception::class,
+        __NAMESPACE__ . '\WikiCreationBase'
+    );
+}
+
+class WikiCreationException extends WikiCreationBase
 {
-    /** @var string|null the input to clear, when one of them is to blame */
     private $blamedField;
 
     public function __construct(string $message, ?string $blamedField = null)
     {
-        parent::__construct([]);
+        if ($this instanceof RequiredFieldsException) {
+            parent::__construct([]);
+        } else {
+            parent::__construct($message);
+        }
         $this->message = $message;
         $this->blamedField = $blamedField;
     }

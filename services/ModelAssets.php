@@ -1,38 +1,23 @@
 <?php
 
+// Fills a farm model with the files and custom folders of its source wiki, copied from disk or fetched from a remote backup.
+
 namespace YesWiki\Ferme\Service;
 
 use YesWiki\Core\Service\ArchiveService;
 use YesWiki\Core\Service\RemoteBackupService;
 use YesWiki\Wiki;
 
-/**
- * A wiki model is a SQL dump plus the whole content of its source: the files folder
- * with the originals, not the sizes a page happened to display, and the custom folder
- * that styles them. This fills <model>/files and <model>/custom, where WikiCreator
- * already looks for them when it builds a wiki.
- *
- * A source hosted on this server is copied from disk, in one go. A source elsewhere is
- * asked for a backup of those two folders and nothing else, which takes minutes: that
- * one is a job the browser walks forward a step at a time, the way the core backup
- * screen does, because no single request lives long enough to sit through it.
- */
 class ModelAssets
 {
-    /** The two folders a model takes from its source, whole. */
     public const CONTENT_FOLDERS = ['custom', 'files'];
 
     public const JOB_FILENAME = 'model-assets.json';
     public const STEP_IDLE = 'idle';
     public const STEP_DONE = 'done';
 
-    /**
-     * Left out of what is copied: the farm's own models, because a model of a farm
-     * master would nest every other model inside itself, and the caches.
-     */
     private const CUSTOM_SKIPPED = ['wiki-models', 'cache'];
 
-    /** A job still around after this long was left behind by a browser that went away. */
     private const STALE_AFTER = 7200;
 
     protected $wiki;
@@ -46,7 +31,7 @@ class ModelAssets
         FarmConfig $config,
         FileSystem $files,
         ArchiveService $archiveService,
-        RemoteBackupService $remoteBackup
+        $remoteBackup = null
     ) {
         $this->wiki = $wiki;
         $this->config = $config;
@@ -55,22 +40,16 @@ class ModelAssets
         $this->remoteBackup = $remoteBackup;
     }
 
-    /**
-     * Fill a model folder with the files and the custom folder of its source, or open
-     * the job that will, when the source is on another server.
-     *
-     * @param string $model       folder name under custom/wiki-models
-     * @param string $baseUrl     source wiki, without trailing slash
-     * @param array  $credentials 'username' and 'password' of an administrator of the
-     *                            source, needed only when it is on another server
-     *
-     * @return array{running:bool,messages:array,state:array}
-     */
+    /** Fill a model from its source, or open the job that fetches it when the source is on another server. */
     public function start(string $model, string $baseUrl, array $credentials = []): array
     {
         $localPath = $this->localWikiPath($baseUrl);
         if (!is_null($localPath)) {
             return $this->finished($this->copyFromDisk($localPath, $this->config->modelDir($model)));
+        }
+
+        if (is_null($this->remoteBackup())) {
+            return $this->finished([_t('FERME_MODEL_REMOTE_NEEDS_CORE')]);
         }
 
         $username = trim((string)($credentials['username'] ?? ''));
@@ -79,10 +58,9 @@ class ModelAssets
             return $this->finished([_t('FERME_MODEL_REMOTE_NEEDS_ADMIN')]);
         }
 
-        // fail here rather than after the source has started working for nothing
         $this->jobPath();
 
-        $state = $this->remoteBackup->start($baseUrl, $username, $password, [
+        $state = $this->remoteBackup()->start($baseUrl, $username, $password, [
             'savefiles' => '1',
             'savedatabase' => '0',
             'onlyFolders' => self::CONTENT_FOLDERS,
@@ -92,14 +70,7 @@ class ModelAssets
         return ['running' => true, 'messages' => [], 'state' => $state];
     }
 
-    /**
-     * Move the running fetch one step further. The last step unpacks the backup into
-     * the model, which is the only step that touches what the model already held.
-     *
-     * @return array{running:bool,messages:array,state:array}
-     *
-     * @throws \RuntimeException
-     */
+    /** Move the running fetch one step further; the last step unpacks the backup into the model. */
     public function advance(): array
     {
         $job = $this->readJob();
@@ -112,7 +83,13 @@ class ModelAssets
             throw new \RuntimeException(_t('FERME_MODEL_ARCHIVE_TIMEOUT'));
         }
 
-        $state = $this->remoteBackup->status();
+        if (is_null($this->remoteBackup())) {
+            $this->deleteJob();
+
+            throw new \RuntimeException(_t('FERME_MODEL_REMOTE_NEEDS_CORE'));
+        }
+
+        $state = $this->remoteBackup()->status();
         if (!empty($state['running'])) {
             return ['running' => true, 'messages' => [], 'state' => $state];
         }
@@ -135,24 +112,19 @@ class ModelAssets
         return $this->finished([_t('FERME_MODEL_ARCHIVE_EXTRACTED') . ' ' . $extracted]);
     }
 
-    /**
-     * Give up a fetch, here and on the wiki it was being fetched from.
-     */
+    /** Give up a fetch, here and on the wiki it was being fetched from. */
     public function cancel(): array
     {
         $ours = !empty($this->readJob());
         $this->deleteJob();
-        if ($ours) {
-            // a backup someone started from the core screen is theirs to stop, not ours
-            $this->remoteBackup->cancel();
+        if ($ours && !is_null($this->remoteBackup())) {
+            $this->remoteBackup()->cancel();
         }
 
         return $this->finished([], self::STEP_IDLE);
     }
 
-    /**
-     * The model a fetch is filling, when one is running.
-     */
+    /** The model a fetch is filling, when one is running. */
     public function runningModel(): ?string
     {
         $job = $this->readJob();
@@ -160,9 +132,7 @@ class ModelAssets
         return empty($job['model']) ? null : (string)$job['model'];
     }
 
-    /**
-     * Where the source wiki lives on this server, or null when it is elsewhere.
-     */
+    /** Where the source wiki lives on this server, or null when it is elsewhere. */
     public function localWikiPath(string $baseUrl): ?string
     {
         $baseUrl = $this->normalizeUrl($baseUrl);
@@ -189,9 +159,7 @@ class ModelAssets
         return is_file($path . DIRECTORY_SEPARATOR . 'wakka.config.php') ? $path : null;
     }
 
-    /**
-     * Is this zip entry something a model wants?
-     */
+    /** Is this zip entry something a model wants? */
     public function isModelContent(string $name): bool
     {
         if (strpos($name, '..') !== false || strpos($name, "\0") !== false || substr($name, 0, 1) === '/') {
@@ -238,14 +206,7 @@ class ModelAssets
         return empty($messages) ? [_t('FERME_MODEL_NO_ASSETS')] : $messages;
     }
 
-    /**
-     * Take the custom and files folders out of a backup, and leave the rest of it,
-     * starting with the wakka.config.php of a wiki that is not this one. What the
-     * model held is dropped here and not a moment earlier, so that a fetch that
-     * never got this far leaves the model as it was.
-     *
-     * @throws \RuntimeException
-     */
+    /** Replace the model's files and custom folders with those of a backup. */
     private function unpack(string $zipPath, string $target): int
     {
         $zip = new \ZipArchive();
@@ -276,9 +237,6 @@ class ModelAssets
         return $extracted;
     }
 
-    /**
-     * @return array{names:array,bytes:int}
-     */
     private function wantedEntries(\ZipArchive $zip): array
     {
         $names = [];
@@ -295,11 +253,7 @@ class ModelAssets
         return ['names' => $names, 'bytes' => $bytes];
     }
 
-    /**
-     * The core weighs the download, no one weighs what comes out of it.
-     *
-     * @throws \RuntimeException
-     */
+    /** Refuse to extract more than the disk can hold. */
     private function assertRoomFor(int $bytes, string $target): void
     {
         if ($bytes <= 0) {
@@ -333,9 +287,6 @@ class ModelAssets
         }
     }
 
-    /**
-     * @param resource $stream
-     */
     private function writeStream($stream, string $path): bool
     {
         $dir = dirname($path);
@@ -371,10 +322,7 @@ class ModelAssets
         return $count;
     }
 
-    /**
-     * Reduce the many shapes of a wiki address to one comparable form:
-     * no query marker, no trailing slash.
-     */
+    /** A wiki address without query marker nor trailing slash. */
     private function normalizeUrl(string $url): string
     {
         $url = str_replace(['wakka.php?wiki=', 'index.php?wiki=', '?wiki='], '', trim($url));
@@ -383,12 +331,19 @@ class ModelAssets
         return rtrim($url, '/');
     }
 
-    /**
-     * @return array{running:bool,messages:array,state:array}
-     */
     private function finished(array $messages, string $step = self::STEP_DONE): array
     {
         return ['running' => false, 'messages' => $messages, 'state' => ['step' => $step]];
+    }
+
+    /** The core service that fetches a remote backup, which cores older than 4.6.7 do not have. */
+    private function remoteBackup(): ?RemoteBackupService
+    {
+        if (is_null($this->remoteBackup) && $this->wiki->services->has(RemoteBackupService::class)) {
+            $this->remoteBackup = $this->wiki->services->get(RemoteBackupService::class);
+        }
+
+        return $this->remoteBackup;
     }
 
     private function jobPath(): string

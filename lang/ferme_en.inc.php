@@ -34,6 +34,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_MODEL_NO_ASSETS' => 'The source wiki has neither files nor a custom folder to copy.',
         'FERME_MODEL_ARCHIVE_EXTRACTED' => 'Files taken from the backup of the source wiki:',
         'FERME_MODEL_REMOTE_NEEDS_ADMIN' => 'The source wiki is not on this server and no administrator account was given for it, so the model has neither files nor a custom folder.',
+        'FERME_MODEL_REMOTE_NEEDS_CORE' => 'The source wiki is not on this server, and fetching its files remotely needs YesWiki 4.6.7 or newer, so the model has neither files nor a custom folder.',
         'FERME_MODEL_ARCHIVE_TIMEOUT' => 'The source wiki did not finish its backup in time.',
         'FERME_MODEL_ARCHIVE_FAILED' => 'The backup of the source wiki failed.',
         'FERME_MODEL_ARCHIVE_UNREADABLE' => 'The downloaded archive does not open:',
