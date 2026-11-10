@@ -97,6 +97,16 @@ class WikiUpdaterTest extends YesWikiTestCase
         $this->assertSame('hibernate', $this->readConfig()['wiki_status']);
     }
 
+    public function testAWikiWithAnEmptyPrivateFolderGetsTheOneCoreChecksBeforeUpdating()
+    {
+        mkdir($this->wikiDir . '/private');
+
+        $report = $this->updater()->update($this->wikiDir, ['backup' => false, 'sourceDir' => $this->master]);
+
+        $this->assertDirectoryExists($this->wikiDir . '/private/backups');
+        $this->assertContains(_t('FERME_CLI_PRIVATE_CREATED'), $report['messages']);
+    }
+
     public function testAWikiCoreIsWorkingOnIsRefused()
     {
         $this->writeConfig('updating');

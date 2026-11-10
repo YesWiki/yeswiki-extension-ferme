@@ -393,6 +393,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_NOT_FOUND_IN' => 'introuvable dans',
         'FERME_CLI_CANNOT_MOVE' => 'Déplacement impossible :',
         'FERME_CLI_BACKUP_OTHER_FILESYSTEM' => 'Le dossier de sauvegarde est sur un autre système de fichiers que les wikis, le déplacement ne serait pas instantané :',
+        'FERME_CLI_PRIVATE_CREATED' => 'Dossier private/backups créé (exigé par le cœur pour la sauvegarde avant mise à jour)',
         'FERME_CLI_BACKUP_IN' => 'Sauvegarde dans',
         'FERME_CLI_DUMP_IN' => 'Base sauvegardée dans',
         'FERME_CLI_DUMP_FAILED' => 'mysqldump a échoué :',

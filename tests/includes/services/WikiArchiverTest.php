@@ -15,6 +15,7 @@ require_once 'tests/YesWikiTestCase.php';
 
 #[CoversMethod(WikiArchiver::class, 'tidy')]
 #[CoversMethod(WikiArchiver::class, 'ensurePrivate')]
+#[CoversMethod(WikiArchiver::class, 'ensurePrivateIn')]
 #[CoversMethod(WikiArchiver::class, 'archives')]
 #[CoversMethod(WikiArchiver::class, 'pathOf')]
 #[CoversMethod(WikiArchiver::class, 'forget')]
@@ -52,6 +53,23 @@ class WikiArchiverTest extends YesWikiTestCase
         $archiver->ensurePrivate('monwiki');
 
         $this->assertFalse($archiver->ensurePrivate('monwiki'), 'rien à créer la deuxième fois');
+    }
+
+    public function testAnEmptyPrivateFolderGetsTheBackupsFolderCoreChecksBeforeAnUpdate()
+    {
+        mkdir($this->tmp . '/monwiki/private');
+
+        $this->assertTrue(WikiArchiver::ensurePrivateIn($this->tmp . '/monwiki/', []));
+
+        $this->assertDirectoryExists($this->tmp . '/monwiki/private/backups');
+    }
+
+    public function testACustomPrivatePathIsTheOneCreated()
+    {
+        WikiArchiver::ensurePrivateIn($this->tmp . '/monwiki', ['archive' => ['privatePath' => 'private/sauvegardes']]);
+
+        $this->assertDirectoryExists($this->tmp . '/monwiki/private/sauvegardes');
+        $this->assertDirectoryDoesNotExist($this->tmp . '/monwiki/private/backups');
     }
 
     public function testAnArchiveNobodyCameToFetchIsThrownOutAfterAWeek()

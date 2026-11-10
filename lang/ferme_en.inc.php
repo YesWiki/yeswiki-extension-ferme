@@ -416,6 +416,7 @@ $GLOBALS['translations'] = array_merge(
         'FERME_CLI_NOT_FOUND_IN' => 'not found in',
         'FERME_CLI_CANNOT_MOVE' => 'Cannot move:',
         'FERME_CLI_BACKUP_OTHER_FILESYSTEM' => 'The backup folder is on another filesystem than the wikis, so moving files aside would not be instant:',
+        'FERME_CLI_PRIVATE_CREATED' => 'Created the private/backups folder (core requires it for the pre-update backup)',
         'FERME_CLI_BACKUP_IN' => 'Backup in',
         'FERME_CLI_DUMP_IN' => 'Database saved in',
         'FERME_CLI_DUMP_FAILED' => 'mysqldump failed:',

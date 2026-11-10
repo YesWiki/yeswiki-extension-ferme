@@ -112,7 +112,7 @@ class WikiCreator
         }
     }
 
-    /** Send the welcome mail, without failing a creation that already succeeded. */
+    // Send the welcome mail, without failing a creation that already succeeded
     private function greet(array $entry, string $fieldName): void
     {
         try {
@@ -122,7 +122,7 @@ class WikiCreator
         }
     }
 
-    /** Refuse a theme, model, acl or option the farm does not offer. */
+    // Refuse a theme, model, acl or option the farm does not offer
     private function checkChoices(array $entry, string $theme, string $model): void
     {
         if ($model !== 'default-content' && !in_array($model, $this->wiki->config['yeswiki-farm-models'], true)) {
@@ -217,6 +217,7 @@ class WikiCreator
         foreach ($symlinked as $file) {
             $this->linkOrFail($srcfolder . $file, $destfolder . $file);
         }
+        WikiArchiver::ensurePrivateIn($destfolder, []);
         $this->linkOrFail($srcfolder . WikiSymlinker::GUARD_SOURCE, $destfolder . WikiSymlinker::GUARD_LINK);
 
         foreach (['themes' => 'yeswiki-farm-extra-themes', 'tools' => 'yeswiki-farm-extra-tools'] as $parent => $configKey) {
@@ -245,7 +246,7 @@ class WikiCreator
         }
     }
 
-    /** Copies a folder, and names the missing files rather than handing over a half-installed wiki. */
+    // Copies a folder, and names the missing files rather than handing over a half-installed wiki
     private function copyOrFail(string $source, string $dest): void
     {
         if ($this->files->copyRecursive($source, $dest) === true) {
@@ -255,7 +256,7 @@ class WikiCreator
         throw new WikiCreationException(_t('FERME_COPY_INCOMPLETE') . ' ' . $source . ' : ' . $this->files->failureSummary());
     }
 
-    /** What the wiki borrows from the farm rather than copying, folder above included. */
+    // What the wiki borrows from the farm rather than copying, folder above included
     private function linkOrFail(string $source, string $dest): void
     {
         $this->makeDir(dirname($dest));
@@ -340,7 +341,7 @@ class WikiCreator
         return $config;
     }
 
-    /** Whether new wikis ask search engines to stay away, which takes from spammers what they come for. */
+    // Whether new wikis ask search engines to stay away, which takes from spammers what they come for
     private function blocksRobots(): bool
     {
         return filter_var($this->wiki->config['yeswiki-farm-block-robots'] ?? true, FILTER_VALIDATE_BOOL);
@@ -416,9 +417,7 @@ class WikiCreator
         return $sqlReport;
     }
 
-    /**
-     * Adds the form columns an older model still inserts, so it loads; the wiki's migrations then fold them into the current schema.
-     */
+    // Adds the form columns an older model still inserts, so it loads; the wiki's migrations then fold them into the current schema
     private function addFormColumnsTheModelNames(\mysqli $link, string $prefix, string $modelFile): void
     {
         $sql = (string)@file_get_contents($modelFile);
@@ -485,7 +484,6 @@ class WikiCreator
         return str_replace(['{num}', '{nbRows}'], [$index, $rows], _t('FERME_INSERTION')) . '<br/>';
     }
 
-    /** @param array<int,string> $errors */
     private function reportMigration(array $errors): void
     {
         if (empty($errors)) {

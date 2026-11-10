@@ -5,14 +5,7 @@ namespace YesWiki\Ferme\Service;
 use Symfony\Component\Process\Process;
 use YesWiki\Ferme\Exception\WikiStatsException;
 
-/**
- * Makes a wiki's own backup from the farm, hands it over, and takes it away once
- * it has been handed over.
- *
- * The wiki archives itself through its own console, so nothing here needs an
- * account on it. A sleeping wiki is archived like any other — and wakes up inside
- * its archive, because whoever restores it wants a wiki that works.
- */
+// Makes a wiki's own backup from the farm, hands it over, and takes it away once it has been handed over
 class WikiArchiver
 {
     public const PRIVATE_FOLDER = 'private/backups';
@@ -33,9 +26,6 @@ class WikiArchiver
         $this->refresher = $refresher;
     }
 
-    /**
-     * @return array{file:string,bytes:int,replaced:int}
-     */
     public function create(string $folder): array
     {
         $dir = rtrim($this->config->wikiDir($folder), DIRECTORY_SEPARATOR);
@@ -81,14 +71,7 @@ class WikiArchiver
         });
     }
 
-    /**
-     * Housekeeping, run by the statistics sweep: every wiki gets the `private`
-     * folder it is supposed to have, and the archives nobody came to fetch are
-     * thrown out. No lock is taken — making a missing folder and deleting a
-     * week-old file are both harmless whoever else is working on the wiki.
-     *
-     * @return array{created:bool,removed:int,bytes:int}
-     */
+    // Housekeeping for the statistics sweep: makes the missing `private` folders and drops archives nobody fetched.
     public function tidy(string $folder, int $olderThan = self::KEEP_ARCHIVES): array
     {
         $created = $this->ensurePrivate($folder);
@@ -109,10 +92,7 @@ class WikiArchiver
         return ['created' => $created, 'removed' => $removed, 'bytes' => $bytes];
     }
 
-    /**
-     * The `private` folder every wiki is supposed to have, and the one core wants
-     * its archives in — which it refuses to create itself.
-     */
+    // Gives a farm wiki the `private` folder and the archive folder core needs; true if it made one
     public function ensurePrivate(string $folder): bool
     {
         $dir = rtrim($this->config->wikiDir($folder), DIRECTORY_SEPARATOR);
@@ -120,8 +100,15 @@ class WikiArchiver
             return false;
         }
 
+        return self::ensurePrivateIn($dir, $this->config->readWikiConfig($folder));
+    }
+
+    // Same as ensurePrivate() for a wiki given by its directory and its wakka config
+    public static function ensurePrivateIn(string $dir, array $wakkaConfig): bool
+    {
+        $dir = rtrim($dir, DIRECTORY_SEPARATOR);
         $created = false;
-        foreach ([$dir . DIRECTORY_SEPARATOR . 'private', $this->folderOf($folder)] as $path) {
+        foreach ([$dir . DIRECTORY_SEPARATOR . 'private', self::archiveFolderIn($dir, $wakkaConfig)] as $path) {
             if (!is_dir($path) && @mkdir($path, 0755, true)) {
                 $created = true;
             }
@@ -135,11 +122,7 @@ class WikiArchiver
         return $created;
     }
 
-    /**
-     * The archives a wiki holds, newest first.
-     *
-     * @return array<int,array{file:string,path:string,bytes:int,time:int}>
-     */
+    // The archives a wiki holds, newest first
     public function archives(string $folder): array
     {
         $dir = $this->folderOf($folder);
@@ -160,11 +143,6 @@ class WikiArchiver
         return $found;
     }
 
-    /**
-     * @param array<int,string> $files
-     *
-     * @return int how many were removed
-     */
     public function forget(string $folder, array $files): int
     {
         $gone = 0;
@@ -178,9 +156,7 @@ class WikiArchiver
         return $gone;
     }
 
-    /**
-     * The archive of a wiki, by name, or null when the name does not belong to it.
-     */
+    // The archive of a wiki, by name, or null when the name does not belong to it
     public function pathOf(string $folder, string $file): ?string
     {
         $file = basename(trim($file));
@@ -193,11 +169,7 @@ class WikiArchiver
         return is_file($path) ? $path : null;
     }
 
-    /**
-     * A wiki put to sleep comes back awake from its archive: `wiki_status` is taken
-     * out of the copy of the configuration the zip carries, and out of that copy
-     * only — the wiki itself goes on sleeping.
-     */
+    // A wiki put to sleep comes back awake from its archive.
     private function wakeInside(string $path): bool
     {
         $zip = new \ZipArchive();
@@ -225,10 +197,7 @@ class WikiArchiver
         return true;
     }
 
-    /**
-     * A wiki refuses to archive itself when the folder its archives go in does not
-     * exist yet, and a wiki the farm made has an empty `private/`. One mkdir.
-     */
+    // Creates the archive folder before archiving: core refuses to archive into a missing one.
     private function makeRoomFor(string $folder): void
     {
         $dir = $this->folderOf($folder);
@@ -239,8 +208,12 @@ class WikiArchiver
 
     private function folderOf(string $folder): string
     {
-        $dir = rtrim($this->config->wikiDir($folder), DIRECTORY_SEPARATOR);
-        $wakkaConfig = $this->config->readWikiConfig($folder);
+        return self::archiveFolderIn(rtrim($this->config->wikiDir($folder), DIRECTORY_SEPARATOR), $this->config->readWikiConfig($folder));
+    }
+
+    // The folder core archives a wiki into: its archive.privatePath, private/backups by default.
+    private static function archiveFolderIn(string $dir, array $wakkaConfig): string
+    {
         $private = (string)($wakkaConfig['archive']['privatePath'] ?? '');
         if ($private === '' || $private === '%TMP') {
             $private = self::PRIVATE_FOLDER;

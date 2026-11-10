@@ -93,6 +93,10 @@ class WikiUpdater
                 }
             }
 
+            if (WikiArchiver::ensurePrivateIn($wikiDir, $wakkaConfig)) {
+                $messages[] = _t('FERME_CLI_PRIVATE_CREATED');
+            }
+
             $backupDir = null;
             if ($backup) {
                 $backupDir = $this->prepareBackupDir($wikiDir);
