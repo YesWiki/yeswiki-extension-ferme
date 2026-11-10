@@ -1,20 +1,18 @@
 <?php
 
+// What the extension repository publishes for a YesWiki version, against what a wiki has on disk.
+
 namespace YesWiki\Ferme\Service;
 
 use Symfony\Component\HttpClient\HttpClient;
 use YesWiki\Wiki;
 
-/**
- * What the extension repository holds for a YesWiki version, against what a wiki
- * has on disk. A wiki is only updated once its own extensions are at the release
- * published for the version it is moving to.
- */
 class ExtensionVersions
 {
     public const DEFAULT_REPOSITORY = 'https://repository.yeswiki.net/';
     private const INDEX = 'packages.json';
     private const PREFIX = 'extension-';
+    private const DATED = '/^\d{4}-\d{2}-\d{2}(-\d+)?$/';
 
     private $wiki;
     private $indexes = [];
@@ -24,15 +22,7 @@ class ExtensionVersions
         $this->wiki = $wiki;
     }
 
-    /**
-     * The extensions to bring up before the migrations run. A wiki staying on its
-     * version only needs the ones behind the published release; one changing version
-     * needs them all, since the release it runs was built for another core.
-     *
-     * @param array<int,string> $extensions
-     *
-     * @return array<int,string>
-     */
+    // the extensions behind the published release, or all of them when the wiki changes version
     public function toUpgrade(string $wikiDir, array $extensions, string $targetVersion, string $currentVersion = ''): array
     {
         if (empty($extensions)) {
@@ -54,7 +44,7 @@ class ExtensionVersions
             }
 
             $installed = $this->installedRelease($wikiDir, $extension);
-            if ($installed === null || version_compare($installed, $latest, '<')) {
+            if ($installed === null || $this->isBehind($installed, $latest)) {
                 $todo[] = $extension;
             }
         }
@@ -62,14 +52,7 @@ class ExtensionVersions
         return $todo;
     }
 
-    /**
-     * The extensions the target version has nothing to offer for, which the update
-     * carries over as they are.
-     *
-     * @param array<int,string> $extensions
-     *
-     * @return array<int,string>
-     */
+    // the extensions the target version publishes nothing for, carried over as they are
     public function unpublished(array $extensions, string $targetVersion): array
     {
         if (empty($extensions)) {
@@ -83,9 +66,7 @@ class ExtensionVersions
         }));
     }
 
-    /**
-     * The release an extension writes next to itself when the wiki installs it.
-     */
+    // the release an extension writes next to itself when the wiki installs it
     public function installedRelease(string $wikiDir, string $extension): ?string
     {
         $file = rtrim($wikiDir, DIRECTORY_SEPARATOR) . '/tools/' . $extension . '/infos.json';
@@ -99,9 +80,19 @@ class ExtensionVersions
         return is_string($release) && $release !== '' ? $release : null;
     }
 
-    /**
-     * @return array<string,string> extension name => latest published release
-     */
+    // a dated release like 2025-02-04-1 predates every numbered one, whatever version_compare says
+    private function isBehind(string $installed, string $latest): bool
+    {
+        $installedDated = preg_match(self::DATED, $installed) === 1;
+        $latestDated = preg_match(self::DATED, $latest) === 1;
+        if ($installedDated !== $latestDated) {
+            return $installedDated;
+        }
+
+        return version_compare($installed, $latest, '<');
+    }
+
+    // extension name => latest release published for that version
     protected function index(string $targetVersion): array
     {
         $url = $this->repositoryUrl($targetVersion);

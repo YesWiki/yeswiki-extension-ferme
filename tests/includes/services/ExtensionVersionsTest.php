@@ -49,6 +49,30 @@ class ExtensionVersionsTest extends YesWikiTestCase
         $this->assertSame([], $this->versions()->toUpgrade($this->tmp, ['bazarliste'], 'doryphore', 'doryphore'));
     }
 
+    public function testAnExtensionWithADatedReleaseIsBehindANumberedOne()
+    {
+        $this->install('bazarliste', '2025-02-04-1');
+
+        $this->assertSame(['bazarliste'], $this->versions()->toUpgrade($this->tmp, ['bazarliste'], 'doryphore', 'doryphore'));
+    }
+
+    public function testDatedReleasesStillCompareWithEachOther()
+    {
+        $this->install('documents', '2024-03-14-1');
+        $older = $this->versions(['documents' => '2024-05-01-1']);
+        $this->assertSame(['documents'], $older->toUpgrade($this->tmp, ['documents'], 'doryphore', 'doryphore'));
+
+        $same = $this->versions(['documents' => '2024-03-14-1']);
+        $this->assertSame([], $same->toUpgrade($this->tmp, ['documents'], 'doryphore', 'doryphore'));
+    }
+
+    public function testANumberedReleaseIsNotBehindADatedOne()
+    {
+        $this->install('documents', '0.10.0');
+
+        $this->assertSame([], $this->versions(['documents' => '2024-03-14-1'])->toUpgrade($this->tmp, ['documents'], 'doryphore', 'doryphore'));
+    }
+
     public function testAnExtensionInstalledByHandIsUpgradedSinceNothingSaysWhereItIs()
     {
         mkdir($this->tmp . '/tools/bazarliste', 0777, true);
@@ -104,16 +128,23 @@ class ExtensionVersionsTest extends YesWikiTestCase
         );
     }
 
-    private function versions(): ExtensionVersions
+    private function versions(array $published = ['bazarliste' => '1.4.0', 'documents' => '0.10.0']): ExtensionVersions
     {
-        return new class($this->getWiki()) extends ExtensionVersions {
+        return new class($this->getWiki(), $published) extends ExtensionVersions {
             public $calls = 0;
+            private $published;
+
+            public function __construct($wiki, array $published)
+            {
+                parent::__construct($wiki);
+                $this->published = $published;
+            }
 
             protected function index(string $targetVersion): array
             {
                 $this->calls++;
 
-                return ['bazarliste' => '1.4.0', 'documents' => '0.10.0'];
+                return $this->published;
             }
         };
     }

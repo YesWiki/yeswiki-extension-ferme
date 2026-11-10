@@ -231,6 +231,24 @@ class WikiUpdaterTest extends YesWikiTestCase
         );
     }
 
+    public function testAnExtensionTheWikiLostTheReleaseOfIsOfferedWhenTheFarmPublishesOne()
+    {
+        $this->extension($this->master, 'bazar');
+        $this->extension($this->wikiDir, 'bazar');
+        $this->extension($this->master, 'stats', '4.1.1');
+        $this->extension($this->wikiDir, 'stats');
+
+        $versions = $this->createPartialMock(ExtensionVersions::class, ['toUpgrade', 'unpublished']);
+        $versions->method('unpublished')->willReturn([]);
+        $versions->expects($this->once())->method('toUpgrade')
+            ->with($this->wikiDir, ['stats'])
+            ->willReturn([]);
+
+        $report = $this->updater($versions)->updateExtensions($this->wikiDir, ['sourceDir' => $this->master]);
+
+        $this->assertSame('uptodate', $report['status']);
+    }
+
     private function extension(string $root, string $name, ?string $release = null): void
     {
         mkdir($root . '/tools/' . $name, 0777, true);

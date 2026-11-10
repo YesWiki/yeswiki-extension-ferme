@@ -262,7 +262,7 @@ class WikiUpdater
         return is_array($symlinked) ? $symlinked : [];
     }
 
-    // returns the extensions the wiki owns: real folders the farm neither lends nor copies, missing from the source or installed by the wiki itself
+    // returns the extensions the wiki owns: real folders the farm neither lends nor copies, that are not a core tool without a release on both sides
     private function extraExtensions(string $sourceDir, string $wikiDir): array
     {
         $managed = array_merge($this->entriesToReplace(), $this->symlinkedEntries());
@@ -272,7 +272,9 @@ class WikiUpdater
             if (is_link($dir) || in_array('tools/' . $name, $managed, true)) {
                 continue;
             }
-            if (!is_dir($sourceDir . '/tools/' . $name) || $this->extensions->installedRelease($wikiDir, $name) !== null) {
+            if (!is_dir($sourceDir . '/tools/' . $name)
+                || $this->extensions->installedRelease($wikiDir, $name) !== null
+                || $this->extensions->installedRelease($sourceDir, $name) !== null) {
                 $extras[] = $name;
             }
         }
