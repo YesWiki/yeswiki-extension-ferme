@@ -6,19 +6,18 @@ use YesWiki\Ferme\Exception\FolderBusyException;
 use YesWiki\Ferme\Exception\WikiAsleepException;
 use YesWiki\Ferme\Service\FolderLock;
 use YesWiki\Ferme\Service\WikiHibernator;
-use YesWiki\Kernel\Service\ConfigurationService;
 use YesWiki\Test\Ferme\FarmTestCase;
 
 require_once __DIR__ . '/../FarmTestCase.php';
 
-/** A wiki put to sleep or woken by the wiki_status its own configuration carries. */
+/** A wiki put to sleep or woken by the wiki_status its own database stores. */
 class WikiHibernatorTest extends FarmTestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
         mkdir($this->scratch . '/wikis/monwiki');
-        $this->write("<?php\n\n\$yeswikiConfig = ['yeswiki_name' => 'Mon wiki', 'base_url' => 'http://farm.test/monwiki/?'];\n");
+        $this->wikiWithDatabase($this->scratch . '/wikis/monwiki', 'http://farm.test/monwiki/?', ['yeswiki_name' => 'Mon wiki']);
         $this->farm();
     }
 
@@ -32,7 +31,7 @@ class WikiHibernatorTest extends FarmTestCase
         $this->assertSame(_t('FERME_STATUS_RUNNING'), WikiHibernator::label(''));
     }
 
-    public function testSendingAWikiToSleepWritesItIntoItsOwnConfiguration(): void
+    public function testSendingAWikiToSleepWritesItIntoItsOwnDatabase(): void
     {
         $result = $this->service(WikiHibernator::class)->hibernate('monwiki');
 
@@ -106,18 +105,9 @@ class WikiHibernatorTest extends FarmTestCase
         $this->service(WikiHibernator::class)->hibernate('vide');
     }
 
-    private function write(string $content): void
-    {
-        file_put_contents($this->scratch . '/wikis/monwiki/yeswiki.config.php', $content);
-    }
-
     /** @return array<string, mixed> */
     private function read(): array
     {
-        $file = (new ConfigurationService())->getConfiguration($this->scratch . '/wikis/monwiki/yeswiki.config.php');
-        $file->load();
-        $parameters = $file->__get('_parameters');
-
-        return is_array($parameters) ? $parameters : [];
+        return $this->settingsOf($this->scratch . '/wikis/monwiki');
     }
 }

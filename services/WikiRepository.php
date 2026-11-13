@@ -2,6 +2,8 @@
 
 namespace YesWiki\Ferme\Service;
 
+use YesWiki\Kernel\Service\InstanceConfiguration;
+use YesWiki\Kernel\Service\WikiSettings;
 use YesWiki\Content\Entity\PageType;
 use YesWiki\Content\Service\EntryManager;
 use YesWiki\Kernel\Service\ProgramVersion;
@@ -207,9 +209,8 @@ class WikiRepository
             if ($folder === '' || isset($onDisk[$folder]) || !FarmConfig::isSafeName($folder, true)) {
                 continue;
             }
-            $file = $this->config->wikiConfigFile($folder);
-            $onDisk[$folder] = is_file($file);
-            $statuses[$folder] = $onDisk[$folder] ? (WikiFinder::extractConfig($file)['wiki_status'] ?? '') : '';
+            $onDisk[$folder] = $this->config->hasWiki($folder);
+            $statuses[$folder] = $onDisk[$folder] ? $this->statusIn($folder) : '';
         }
 
         return [
@@ -309,9 +310,9 @@ class WikiRepository
 
             return $fiche;
         }
-        $wikiConfig = WikiFinder::extractConfig($this->config->wikiConfigFile($folder));
+        $wikiConfig = WikiFinder::extractConfigIn($this->config->wikiDir($folder));
         $fiche['url'] = ($wikiConfig['base_url'] ?? $this->config->wikiUrl($folder) . '?') . ($wikiConfig['root_page'] ?? '');
-        $fiche['version'] = $this->describeVersion($wikiConfig);
+        $fiche['version'] = $this->describeVersion((string)($fiche['stats']['schema'] ?? ''));
         $adminName = $this->config->text('yeswiki-farm-admin-name');
         $fiche['admin'] = $adminName === '' || $this->config->text('yeswiki-farm-admin-pass') === '' ? null : [
             'name' => $adminName,
@@ -322,18 +323,34 @@ class WikiRepository
         return $fiche;
     }
 
-    /**
-     * @param array<string, string> $wikiConfig
-     *
-     * @return array<string, string>
-     */
-    private function describeVersion(array $wikiConfig): array
+    /** A wiki's status as its database stores it, else as its configuration file from before says it; one connection per database server, however many wikis share it. */
+    private function statusIn(string $folder): string
+    {
+        $dir = $this->config->wikiDir($folder);
+        $fromTheFile = (string)(WikiFinder::extractConfigIn($dir)['wiki_status'] ?? '');
+        $host = (new InstanceConfiguration($dir))->hostSettings();
+        try {
+            $db = $this->database->connect($host, $dir);
+            $stored = InstanceDatabase::scalar($db, 'SELECT value FROM ' . InstanceDatabase::table($db, InstanceDatabase::prefix($host), 'triples') . ' WHERE resource = ? AND property = ?', [WikiSettings::RESOURCE, WikiSettings::PREFIX . 'wiki_status']);
+        } catch (\Throwable) {
+            return $fromTheFile;
+        }
+        if ($stored === null || $stored === false) {
+            return $fromTheFile;
+        }
+        $status = json_decode((string)$stored, true);
+
+        return is_string($status) ? trim($status) : '';
+    }
+
+    /** @return array<string, string> how far that wiki's migrations ran, against the newest core one this program ships (replicas 20) */
+    private function describeVersion(string $schema): array
     {
         $program = new ProgramVersion();
-        $version = $wikiConfig['yeswiki_version'] ?? '';
-        $release = $wikiConfig['yeswiki_release'] ?? '';
-        $status = strtolower($version) !== strtolower($program->releaseLine()) ? 'different' : ($release !== $program->version() ? 'outdated' : 'up-to-date');
+        $shipped = WikiStats::coreMigrations();
+        $latest = $shipped === [] ? '' : (string)end($shipped);
+        $status = $schema === '' ? 'different' : ($schema === $latest ? 'up-to-date' : 'outdated');
 
-        return ['version' => $version, 'release' => $release, 'status' => $status, 'source_version' => $program->releaseLine(), 'source_release' => $program->version()];
+        return ['version' => $program->releaseLine(), 'release' => $schema, 'status' => $status, 'source_version' => $program->releaseLine(), 'source_release' => $latest];
     }
 }

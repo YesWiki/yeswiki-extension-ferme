@@ -4,6 +4,8 @@ namespace YesWiki\Ferme\Service;
 
 use YesWiki\Content\Entity\PageType;
 use YesWiki\Ferme\Exception\WikiStatsException;
+use YesWiki\Kernel\Service\MigrationService;
+use YesWiki\Kernel\Service\TripleStore;
 
 /** What one wiki holds: accounts, forms, entries, pages, a year of activity and the disk its data takes. Reads only. */
 class WikiStats
@@ -41,8 +43,7 @@ class WikiStats
 
             return array_merge(
                 [
-                    'version' => (string)($wikiConfig['yeswiki_version'] ?? ''),
-                    'release' => (string)($wikiConfig['yeswiki_release'] ?? ''),
+                    'schema' => $this->schema($db, InstanceDatabase::table($db, InstanceDatabase::prefix($wikiConfig), 'triples')),
                     'name' => (string)($wikiConfig['yeswiki_name'] ?? $wikiConfig['wakka_name'] ?? ''),
                     'description' => mb_substr((string)($wikiConfig['meta_description'] ?? ''), 0, 300),
                     'users' => $counts[PageType::USER] ?? 0,
@@ -158,6 +159,24 @@ class WikiStats
         $present = (int)InstanceDatabase::scalar($db, "SELECT COUNT(*) FROM {$pages} WHERE latest = 'Y' AND {$type} = ? AND tag = ?", [PageType::USER, $name]) > 0;
 
         return ['adminPresent' => $present ? 'yes' : 'no'];
+    }
+
+    /** The newest core migration that wiki ran, the one its code was last migrated to (replicas 20). */
+    private function schema(\PDO $db, string $triples): string
+    {
+        $ran = array_map(static fn (array $row): string => (string)$row['resource'], InstanceDatabase::rows($db, "SELECT resource FROM {$triples} WHERE property = ? AND value = ?", [TripleStore::TYPE_URI, MigrationService::TRIPLES_MIGRATION_ID]));
+        $core = array_values(array_intersect(self::coreMigrations(), $ran));
+
+        return $core === [] ? '' : (string)end($core);
+    }
+
+    /** @return list<string> the core migrations this program ships, oldest first */
+    public static function coreMigrations(): array
+    {
+        $names = array_map(static fn (string $file): string => basename($file, '.php'), glob(YESWIKI_PROGRAM_DIR . '/src/migrations/2*.php') ?: []);
+        sort($names);
+
+        return $names;
     }
 
     /** @return array<string, int> */

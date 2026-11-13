@@ -2,10 +2,11 @@
 
 namespace YesWiki\Ferme\Service;
 
+use YesWiki\Core\YesWikiLoader;
 use YesWiki\Files\Service\Storage;
-use YesWiki\Kernel\Service\ConfigurationService;
+use YesWiki\Kernel\Service\InstanceConfiguration;
 
-/** Reads and rewrites another wiki's configuration file through core's ConfigurationService. */
+/** Reads and rewrites another wiki's settings through core's InstanceConfiguration, where that wiki keeps them. */
 class WikiConfigEditor
 {
     public const LOCKED_PARAMS = 'edit_config_locked_params';
@@ -22,46 +23,38 @@ class WikiConfigEditor
 
     public function __construct(
         private readonly FarmConfig $config,
-        private readonly ConfigurationService $configurationService,
         private readonly Storage $storage
     ) {
     }
 
-    /** @return array<string, mixed> */
+    /** @return array<string, mixed> a wiki's settings, read where it keeps them: its private/.env, its database, its configuration file from before */
     public function load(string $wikiDir): array
     {
-        $path = FarmConfig::configFileIn($wikiDir);
-        if (!is_file($path)) {
-            throw new \RuntimeException(_t('FERME_CLI_NO_CONFIG_FILE') . ' ' . $path);
+        $instance = new InstanceConfiguration($wikiDir);
+        if (!$instance->exists()) {
+            throw new \RuntimeException(_t('FERME_CLI_NO_CONFIG_FILE') . ' ' . $wikiDir);
         }
-        $parameters = $this->config->readConfigIn($wikiDir);
+        $parameters = $instance->load();
         if ($parameters === []) {
-            throw new \RuntimeException(_t('FERME_CLI_EMPTY_CONFIG_FILE') . ' ' . $path);
+            throw new \RuntimeException(_t('FERME_CLI_EMPTY_CONFIG_FILE') . ' ' . $wikiDir);
         }
 
         return $parameters;
     }
 
     /**
-     * Write the whole configuration back, keys left out of it removed.
+     * Write the whole configuration back, keys left out of it removed: the host's to its private/.env, the rest to its database (replicas 20).
      *
      * @param array<string, mixed> $config
      */
     public function write(string $wikiDir, array $config): void
     {
-        $path = FarmConfig::configFileIn($wikiDir);
-        $file = $this->configurationService->getConfiguration($path);
-        $file->load();
-        foreach (array_keys((array)$file->__get('_parameters')) as $key) {
-            if (!array_key_exists($key, $config)) {
-                $file->__unset((string)$key);
-            }
-        }
-        foreach ($config as $key => $value) {
-            $file[$key] = $value;
-        }
-        if ($file->write() === false) {
-            throw new \RuntimeException(_t('FERME_CLI_CANNOT_WRITE') . ' ' . $path);
+        $instance = new InstanceConfiguration($wikiDir);
+        $current = $instance->load();
+        $set = array_filter($config, static fn (mixed $value, string $key): bool => !array_key_exists($key, $current) || $current[$key] !== $value, ARRAY_FILTER_USE_BOTH);
+        $unset = array_map('strval', array_keys(array_diff_key($current, $config)));
+        if (!$instance->store($set, $unset)) {
+            throw new \RuntimeException(_t('FERME_CLI_CANNOT_WRITE') . ' ' . $wikiDir . '/private/.env');
         }
         $this->config->forgetWikiConfig(basename($wikiDir));
     }
@@ -85,12 +78,17 @@ class WikiConfigEditor
         return $changes;
     }
 
-    /** A copy of a wiki's configuration in the farm's backups, before it is rewritten. */
+    /** A copy of a wiki's settings in the farm's backups before they are rewritten: its private/.env, its stored settings and its configuration file from before, as JSON. */
     public function backup(string $wikiDir): string
     {
         $slug = trim(str_replace('/', '-', $wikiDir), '-');
-        $path = $this->config->dataPath('configs/' . $slug . '/' . basename(FarmConfig::configFileIn($wikiDir)) . '.' . date('Ymd-His'));
-        $this->storage->writeFrom($path, FarmConfig::configFileIn($wikiDir));
+        $path = $this->config->dataPath('configs/' . $slug . '/settings.' . date('Ymd-His') . '.json');
+        $legacy = FarmConfig::configFileIn($wikiDir);
+        $this->storage->write($path, (string)json_encode([
+            'env' => YesWikiLoader::envFileValues($wikiDir),
+            'settings' => (new InstanceConfiguration($wikiDir))->storedSettings(),
+            'file' => is_file($legacy) ? (string)file_get_contents($legacy) : null,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $path;
     }

@@ -7,6 +7,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Process\Process;
+use YesWiki\Core\YesWikiLoader;
 use YesWiki\Kernel\Command\CreateInstanceCommand;
 use YesWiki\Kernel\Service\ConsoleService;
 use YesWiki\Kernel\Service\EnvironmentConfiguration;
@@ -122,7 +123,7 @@ class InstanceConsole
     private function environment(string $wikiDir, array $env): array
     {
         $clean = [];
-        foreach ([...array_keys(EnvironmentConfiguration::knownEnvNames()), ...EnvironmentConfiguration::NOT_CONFIG, ...self::SECRETS] as $name) {
+        foreach ([...array_keys(EnvironmentConfiguration::knownEnvNames()), ...array_keys(YesWikiLoader::envFileValues()), ...EnvironmentConfiguration::NOT_CONFIG, ...self::SECRETS] as $name) {
             $clean[$name] = false;
         }
 

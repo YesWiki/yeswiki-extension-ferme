@@ -2,6 +2,9 @@
 
 namespace YesWiki\Ferme\Service;
 
+use YesWiki\Core\YesWikiLoader;
+use YesWiki\Kernel\Service\InstanceConfiguration;
+
 /** Finds the wikis installed under the farm's folder, the farm wiki itself left out. */
 class WikiFinder
 {
@@ -36,14 +39,21 @@ class WikiFinder
             return true;
         });
         $iterator = new \RecursiveIteratorIterator($filtered, \RecursiveIteratorIterator::LEAVES_ONLY, \RecursiveIteratorIterator::CATCH_GET_CHILD);
-        $iterator->setMaxDepth($depth);
+        $iterator->setMaxDepth($depth + 1);
 
         $wikis = [];
         foreach ($iterator as $file) {
-            if (!$file instanceof \SplFileInfo || !$file->isFile() || !in_array($file->getBasename(), FarmConfig::CONFIG_FILES, true)) {
+            if (!$file instanceof \SplFileInfo || !$file->isFile()) {
                 continue;
             }
-            $wikiDir = dirname($file->getPathname());
+            $isEnvFile = $file->getBasename() === '.env' && basename(dirname($file->getPathname())) === 'private';
+            if (!$isEnvFile && !in_array($file->getBasename(), FarmConfig::CONFIG_FILES, true)) {
+                continue;
+            }
+            $wikiDir = $isEnvFile ? dirname($file->getPathname(), 2) : dirname($file->getPathname());
+            if (!(new InstanceConfiguration($wikiDir))->exists()) {
+                continue;
+            }
             if ($wikiDir === $farm || isset($wikis[$wikiDir])) {
                 continue;
             }
@@ -63,7 +73,7 @@ class WikiFinder
         if ($wikiDir === $this->masterRoot()) {
             throw new \RuntimeException(_t('FERME_CLI_MASTER_EXCLUDED'));
         }
-        if (!is_file(FarmConfig::configFileIn($wikiDir))) {
+        if (!(new InstanceConfiguration($wikiDir))->exists()) {
             throw new \RuntimeException(_t('FERME_NO_WIKI_IN') . ' ' . $wikiDir);
         }
 
@@ -97,10 +107,24 @@ class WikiFinder
         return $config;
     }
 
+    /** @return array<string, string> the keys a listing needs from a wiki folder, its private/.env over its configuration file from before, read without its database */
+    public static function extractConfigIn(string $wikiDir): array
+    {
+        $config = self::extractConfig(FarmConfig::configFileIn($wikiDir));
+        foreach (YesWikiLoader::envFileValues($wikiDir) as $name => $value) {
+            $key = strtolower($name);
+            if (in_array($key, ['base_url', 'root_page', 'yeswiki_name', 'wiki_status'], true)) {
+                $config[$key] = $value;
+            }
+        }
+
+        return $config;
+    }
+
     /** @return array{PATH: string, FOLDER: string, URL: string, VERSION: string, RELEASE: string} */
     private function describe(string $wikiDir, string $root): array
     {
-        $config = self::extractConfig(FarmConfig::configFileIn($wikiDir));
+        $config = self::extractConfigIn($wikiDir);
         $folder = str_starts_with($wikiDir, $root . '/') ? substr($wikiDir, strlen($root) + 1) : basename($wikiDir);
 
         return [

@@ -39,8 +39,8 @@ use YesWiki\Files\Service\Storage;
 use YesWiki\Identity\Service\AclService;
 use YesWiki\Identity\Service\AuthenticationService;
 use YesWiki\Identity\Service\UserManager;
-use YesWiki\Kernel\Service\ConfigurationService;
 use YesWiki\Kernel\Service\ExtensionRegistry;
+use YesWiki\Kernel\Service\InstanceConfiguration;
 use YesWiki\Kernel\Service\Mailer;
 use YesWiki\Kernel\Service\UrlFormatter;
 use YesWiki\Test\Core\ForcedParameterBag;
@@ -102,7 +102,7 @@ abstract class FarmTestCase extends YesWikiTestCase
 
         $this->built = [];
 
-        return $this->built[FarmConfig::class] = new FarmConfig($bag, new ConfigurationService());
+        return $this->built[FarmConfig::class] = new FarmConfig($bag);
     }
 
     /**
@@ -140,7 +140,7 @@ abstract class FarmTestCase extends YesWikiTestCase
             InstanceConsole::class => new InstanceConsole(),
             InstanceDatabase::class => new InstanceDatabase(),
             FolderLock::class => $lock,
-            WikiConfigEditor::class => new WikiConfigEditor($config, new ConfigurationService(), $storage),
+            WikiConfigEditor::class => new WikiConfigEditor($config, $storage),
             WikiHibernator::class => new WikiHibernator($config, $this->service(WikiConfigEditor::class), $this->service(FolderLock::class)),
             WikiStatsStore::class => new WikiStatsStore($core->get(\YesWiki\Kernel\Service\DbService::class)),
             SpamApprovals::class => new SpamApprovals($this->service(WikiStatsStore::class)),
@@ -211,6 +211,31 @@ abstract class FarmTestCase extends YesWikiTestCase
             'bf_dossier-wiki_email' => 'farm-admin@example.tld',
             'bf_dossier-wiki_password' => 'FarmTestPassword1',
         ];
+    }
+
+    /**
+     * A child wiki as an install leaves it since replicas 20: its host settings in private/.env, the rest in its own SQLite database.
+     *
+     * @param array<string, mixed> $settings
+     */
+    protected function wikiWithDatabase(string $wikiDir, string $baseUrl, array $settings = []): void
+    {
+        @mkdir($wikiDir . '/private', 0o755, true);
+        file_put_contents($wikiDir . '/private/.env', "DB_DRIVER='sqlite'\nTABLE_PREFIX='yeswiki_'\nBASE_URL='{$baseUrl}'\n");
+        \YesWiki\Core\YesWikiLoader::forgetEnvFile($wikiDir);
+        $db = new \PDO('sqlite:' . $wikiDir . '/private/yeswiki.db');
+        $db->exec('CREATE TABLE IF NOT EXISTS yeswiki_triples (id INTEGER PRIMARY KEY AUTOINCREMENT, resource TEXT NOT NULL, property TEXT NOT NULL, value TEXT NOT NULL)');
+        if ($settings !== []) {
+            (new InstanceConfiguration($wikiDir))->store($settings);
+        }
+    }
+
+    /** @return array<string, mixed> a child wiki's settings, read where it keeps them */
+    protected function settingsOf(string $wikiDir): array
+    {
+        \YesWiki\Core\YesWikiLoader::forgetEnvFile($wikiDir);
+
+        return (new InstanceConfiguration($wikiDir))->load();
     }
 
     /**

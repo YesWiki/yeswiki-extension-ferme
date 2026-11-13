@@ -11,7 +11,7 @@ class WikiStatsStore
     public const PROPERTY_PREFIX = 'http://yeswiki.net/_vocabulary/ferme/stats/';
 
     public const NUMBERS = ['users', 'forms', 'entries', 'pages', 'lastPageId', 'filesMtime', 'files', 'filesBytes', 'customBytes', 'privateBytes', 'suspect', 'spamWords', 'spamLinks', 'spamPages', 'editedPages'];
-    public const TEXTS = ['lastActivity', 'firstActivity', 'lastEdit', 'computedAt', 'checkedAt', 'status', 'error', 'version', 'release', 'suspectWhy', 'spamHosts', 'spamApproved', 'adminPresent'];
+    public const TEXTS = ['lastActivity', 'firstActivity', 'lastEdit', 'computedAt', 'checkedAt', 'status', 'error', 'schema', 'suspectWhy', 'spamHosts', 'spamApproved', 'adminPresent'];
     public const SERIES = ['activity'];
 
     public const STATUS_OK = 'ok';

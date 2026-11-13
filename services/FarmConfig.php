@@ -3,7 +3,7 @@
 namespace YesWiki\Ferme\Service;
 
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-use YesWiki\Kernel\Service\ConfigurationService;
+use YesWiki\Kernel\Service\InstanceConfiguration;
 
 /** The farm's settings, and where each of its wikis lives. */
 class FarmConfig
@@ -16,10 +16,8 @@ class FarmConfig
     /** @var array<string, array<string, mixed>> */
     private array $wikiConfigCache = [];
 
-    public function __construct(
-        private readonly ParameterBagInterface $params,
-        private readonly ConfigurationService $configurationService
-    ) {
+    public function __construct(private readonly ParameterBagInterface $params)
+    {
     }
 
     /** A setting of the farm wiki, or the default when it says nothing. */
@@ -150,9 +148,10 @@ class FarmConfig
         return $wikiDir . '/' . self::CONFIG_FILES[0];
     }
 
+    /** Whether that folder holds a wiki: its private/.env names a database, or its configuration file from before names its address. */
     public function hasWiki(string $folder): bool
     {
-        return self::isSafeName($folder, true) && is_file($this->wikiConfigFile($folder));
+        return self::isSafeName($folder, true) && (new InstanceConfiguration($this->wikiDir($folder)))->exists();
     }
 
     /** @return array<string, mixed> */
@@ -165,18 +164,18 @@ class FarmConfig
         return $this->wikiConfigCache[$folder];
     }
 
-    /** @return array<string, mixed> */
+    /** @return array<string, mixed> a wiki's settings where it keeps them, the host's alone when its database does not answer */
     public function readConfigIn(string $wikiDir): array
     {
-        $path = self::configFileIn($wikiDir);
-        if (!is_file($path)) {
+        $instance = new InstanceConfiguration($wikiDir);
+        if (!$instance->exists()) {
             return [];
         }
-        $file = $this->configurationService->getConfiguration($path);
-        $file->load();
-        $parameters = $file->__get('_parameters');
-
-        return is_array($parameters) ? $parameters : [];
+        try {
+            return $instance->load();
+        } catch (\Throwable) {
+            return $instance->hostSettings();
+        }
     }
 
     public function forgetWikiConfig(string $folder): void

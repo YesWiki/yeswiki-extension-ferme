@@ -14,7 +14,7 @@
       <dl class="ferme-facts">
         <dt>{{ _t('FERME_SORT_FORMS') }}</dt><dd>{{ stats.forms|default(0) }}</dd>
         <dt>{{ _t('FERME_FILES_TITLE') }}</dt><dd>{{ stats.files|default(0) }}</dd>
-        {% if stats.version is defined %}<dt>{{ _t('FERME_WIKI_VERSION') }}</dt><dd>{{ stats.version }} {{ stats.release|default('') }}</dd>{% endif %}
+        {% if stats.schema is defined %}<dt>{{ _t('FERME_WIKI_VERSION') }}</dt><dd>{{ stats.schema ?: '—' }}</dd>{% endif %}
         {% if stats.firstActivity is defined %}<dt>{{ _t('FERME_STATS_INSTALLED_AT') }}</dt><dd>{{ stats.firstActivity }}</dd>{% endif %}
         {% if stats.editedPages is defined %}<dt>{{ _t('FERME_STATS_EDITED_PAGES_LABEL') }}</dt><dd>{{ stats.editedPages }}</dd>{% endif %}
         {% if stats.computedAt is defined %}<dt>{{ _t('FERME_STATS_MEASURED_AT') }}</dt><dd>{{ stats.computedAt }}</dd>{% endif %}
