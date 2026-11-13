@@ -26,10 +26,11 @@ try {
         throw new RuntimeException('no wiki is configured in ' . YESWIKI_INSTANCE_DIR);
     }
 
-    $_SERVER['REQUEST_URI'] = $yeswikiConfig['base_url'] . ($yeswikiConfig['root_page'] ?? '');
+    $rootPage = (string)($yeswikiConfig['root_page'] ?? '') ?: 'PagePrincipale';
+    $_SERVER['REQUEST_URI'] = $yeswikiConfig['base_url'] . $rootPage;
     $_SERVER['HTTP_HOST'] = parse_url((string)$yeswikiConfig['base_url'], PHP_URL_HOST);
     $_SERVER['REQUEST_METHOD'] = 'GET';
-    $_GET['wiki'] = $yeswikiConfig['root_page'] ?? '';
+    $_GET['wiki'] = $rootPage;
 
     $arguments = json_decode((string)stream_get_contents(STDIN), true);
     $result = (new InstanceTasks(YesWikiLoader::getWiki()->services))->run((string)($argv[1] ?? ''), is_array($arguments) ? $arguments : []);

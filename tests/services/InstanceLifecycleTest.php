@@ -10,7 +10,6 @@ use YesWiki\Ferme\Service\WikiHibernator;
 use YesWiki\Ferme\Service\WikiRemover;
 use YesWiki\Ferme\Service\WikiStats;
 use YesWiki\Ferme\Service\WikiStatsStore;
-use YesWiki\Kernel\Service\ConfigurationService;
 use YesWiki\Test\Ferme\FarmTestCase;
 
 require_once __DIR__ . '/../FarmTestCase.php';
@@ -37,9 +36,10 @@ class InstanceLifecycleTest extends FarmTestCase
         $dir = $this->service(WikiCreator::class)->createFromEntry($this->entry('sqlite-wiki'), 'bf_dossier-wiki');
 
         $this->assertSame($this->scratch . '/wikis/sqlite-wiki', $dir);
-        foreach (['index.php', 'yeswicli', 'yeswiki.config.php', 'private/yeswiki.db'] as $file) {
+        foreach (['index.php', 'yeswicli', 'private/.env', 'private/yeswiki.db'] as $file) {
             $this->assertFileExists($dir . '/' . $file);
         }
+        $this->assertFileDoesNotExist($dir . '/yeswiki.config.php', 'a new wiki has no configuration file (replicas 20)');
         foreach (['cache', 'custom', 'files', 'private'] as $folder) {
             $this->assertDirectoryExists($dir . '/' . $folder);
         }
@@ -47,8 +47,7 @@ class InstanceLifecycleTest extends FarmTestCase
         $this->assertDirectoryDoesNotExist($dir . '/src/Kernel');
         $this->assertDirectoryDoesNotExist($dir . '/vendor');
 
-        $config = (new ConfigurationService())->getConfiguration($dir . '/yeswiki.config.php');
-        $config->load();
+        $config = $this->settingsOf($dir);
         $this->assertSame('http://farm.test/sqlite-wiki/?', $config['base_url']);
         $this->assertSame('sqlite', $config['db_driver']);
         $this->assertSame('A farm test wiki', $config['yeswiki_name']);

@@ -18,7 +18,7 @@ class WikiArchiverTest extends FarmTestCase
     {
         parent::setUp();
         mkdir($this->scratch . '/wikis/monwiki/private/backups', 0o755, true);
-        file_put_contents($this->scratch . '/wikis/monwiki/yeswiki.config.php', "<?php\n\n\$yeswikiConfig = ['base_url' => 'http://farm.test/monwiki/?'];\n");
+        $this->wikiWithDatabase($this->scratch . '/wikis/monwiki', 'http://farm.test/monwiki/?');
         $this->farm();
     }
 

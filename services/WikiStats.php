@@ -297,7 +297,7 @@ class WikiStats
             \RecursiveIteratorIterator::CATCH_GET_CHILD
         );
         foreach ($tree as $file) {
-            if (!$file instanceof \SplFileInfo || $file->isLink() || !$file->isFile()) {
+            if (!$file instanceof \SplFileInfo || $file->isLink() || !$file->isFile() || str_starts_with($file->getFilename(), '.')) {
                 continue;
             }
             $count++;

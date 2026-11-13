@@ -70,13 +70,19 @@ class WikiConfigEditorTest extends FarmTestCase
     {
         $dir = $this->scratch . '/wikis/edited';
         mkdir($dir);
-        file_put_contents($dir . '/yeswiki.config.php', "<?php\n\n\$yeswikiConfig = ['base_url' => 'http://farm.test/edited/?', 'debug' => 'yes'];\n");
+        $this->wikiWithDatabase($dir, 'http://farm.test/edited/?', ['debug' => 'yes', 'meta_description' => 'Kept']);
         $editor = $this->service(WikiConfigEditor::class);
 
         $editor->patch($dir, ['wiki_status' => 'hibernate'], ['debug']);
         $backup = $editor->backup($dir);
 
-        $this->assertSame(['base_url' => 'http://farm.test/edited/?', 'wiki_status' => 'hibernate'], $editor->load($dir));
+        $loaded = $editor->load($dir);
+        $this->assertSame('http://farm.test/edited/?', $loaded['base_url'], 'the host settings stay in private/.env');
+        $this->assertSame('hibernate', $loaded['wiki_status'], 'the wiki\'s own go to its database');
+        $this->assertSame('Kept', $loaded['meta_description']);
+        $this->assertArrayNotHasKey('debug', $loaded, 'and a key taken away is gone');
+        $this->assertStringNotContainsString('DEBUG', (string)file_get_contents($dir . '/private/.env'));
         $this->assertFileExists($this->scratch . '/farm/' . $backup);
+        $this->assertSame('hibernate', json_decode((string)file_get_contents($this->scratch . '/farm/' . $backup), true)['settings']['wiki_status'] ?? null, 'the backup holds what the database stores');
     }
 }

@@ -2,11 +2,11 @@
 
 namespace YesWiki\Ferme\Service;
 
-use YesWiki\Kernel\Service\InstanceConfiguration;
-use YesWiki\Kernel\Service\WikiSettings;
 use YesWiki\Content\Entity\PageType;
 use YesWiki\Content\Service\EntryManager;
+use YesWiki\Kernel\Service\InstanceConfiguration;
 use YesWiki\Kernel\Service\ProgramVersion;
+use YesWiki\Kernel\Service\WikiSettings;
 
 /** The farm's wikis as its entries describe them, joined to their numbers, and the wikis on disk that have no entry yet. */
 class WikiRepository

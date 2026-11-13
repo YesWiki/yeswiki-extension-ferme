@@ -5,7 +5,7 @@ namespace YesWiki\Test\Ferme\Services;
 use YesWiki\Content\Entity\PageBody;
 use YesWiki\Ferme\Service\InstanceConsole;
 use YesWiki\Ferme\Service\InstanceDatabase;
-use YesWiki\Kernel\Service\ConfigurationService;
+use YesWiki\Kernel\Service\InstanceConfiguration;
 use YesWiki\Test\Ferme\FarmTestCase;
 
 require_once __DIR__ . '/../FarmTestCase.php';
@@ -51,10 +51,7 @@ class MigrationTest extends FarmTestCase
     /** @return array<string, array{type: string, body: array<string, mixed>}> */
     private function rows(string $dir): array
     {
-        $config = (new ConfigurationService())->getConfiguration($dir . '/yeswiki.config.php');
-        $config->load();
-        $parameters = $config->__get('_parameters');
-        $db = $this->service(InstanceDatabase::class)->connect(is_array($parameters) ? $parameters : [], $dir);
+        $db = $this->service(InstanceDatabase::class)->connect((new InstanceConfiguration($dir))->hostSettings(), $dir);
         $rows = [];
         foreach (InstanceDatabase::rows($db, "SELECT tag, type, body FROM yeswiki_pages WHERE latest = 'Y'") as $row) {
             $body = json_decode((string)$row['body'], true);
