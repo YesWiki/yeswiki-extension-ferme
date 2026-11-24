@@ -6,6 +6,7 @@ use Psr\Container\ContainerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
 use YesWiki\Content\Service\EntryManager;
+use YesWiki\Ferme\Service\DisposableEmailDomains;
 use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\FarmDashboard;
 use YesWiki\Ferme\Service\FarmMailer;
@@ -148,7 +149,8 @@ abstract class FarmTestCase extends YesWikiTestCase
             WikiPages::class => new WikiPages($config, $this->service(InstanceDatabase::class)),
             SpamFingerprints::class => new SpamFingerprints($config, $this->service(WikiFinder::class), $this->service(WikiPages::class), $storage),
             SpamScore::class => new SpamScore($config),
-            WikiStats::class => new WikiStats($config, $this->service(InstanceDatabase::class), $this->service(WikiPages::class), $this->service(SpamFingerprints::class), $this->service(SpamApprovals::class)),
+            WikiStats::class => new WikiStats($config, $this->service(InstanceDatabase::class), $this->service(WikiPages::class), $this->service(SpamFingerprints::class), $this->service(SpamApprovals::class), $this->service(DisposableEmailDomains::class)),
+            DisposableEmailDomains::class => new DisposableEmailDomains($config),
             StatsRefresher::class => new StatsRefresher($this->service(WikiStats::class), $this->service(WikiStatsStore::class), $this->service(SpamScore::class)),
             WikiArchiver::class => new WikiArchiver($config, $this->service(InstanceConsole::class), $this->service(FolderLock::class), $this->service(WikiHibernator::class), $this->service(StatsRefresher::class), new LocalFiles()),
             ModelLibrary::class => new ModelLibrary($config, $this->service(WikiArchiver::class), $storage, new LocalFiles()),

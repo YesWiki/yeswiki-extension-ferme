@@ -13,6 +13,7 @@ class WikiStats
     public const MONTHS = 12;
     public const PAGES_READ = 8;
     public const INSTALL_MINUTES = 5;
+    public const HOME_LENGTH = 2000;
 
     public const SPAM_VOCABULARY = '/(casino|jackpot|escort|call.?girl|camgirl|viagra|cialis|sattamatka|porn|\bnude\b|hookup|adultfriend|backlink|payday.?loan|\bbet\b|\bslots?\b|\bpoker\b|\bseo\b|\bessays?\b|\bhomework\b|\bdating\b|keonhacai|nhacai|taixiu|soikeo|bongda|cacuoc|sunwin|togel|judi)/i';
 
@@ -21,7 +22,8 @@ class WikiStats
         private readonly InstanceDatabase $database,
         private readonly WikiPages $pages,
         private readonly SpamFingerprints $fingerprints,
-        private readonly SpamApprovals $approvals
+        private readonly SpamApprovals $approvals,
+        private readonly DisposableEmailDomains $disposable
     ) {
     }
 
@@ -50,6 +52,8 @@ class WikiStats
                     'forms' => $counts[PageType::FORM] ?? 0,
                     'entries' => $counts[PageType::ENTRY] ?? 0,
                     'pages' => $counts[PageType::PAGE] ?? 0,
+                    'disposableUsers' => $this->countDisposableUsers($db, $pages),
+                    'homeText' => $this->homeText($db, $pages, (string)($wikiConfig['root_page'] ?? 'PagePrincipale')),
                 ],
                 $this->latest($db, $pages),
                 $this->adminPresence($db, $pages),
@@ -159,6 +163,27 @@ class WikiStats
         $present = (int)InstanceDatabase::scalar($db, "SELECT COUNT(*) FROM {$pages} WHERE latest = 'Y' AND {$type} = ? AND tag = ?", [PageType::USER, $name]) > 0;
 
         return ['adminPresent' => $present ? 'yes' : 'no'];
+    }
+
+    private function countDisposableUsers(\PDO $db, string $pages): int
+    {
+        $type = InstanceDatabase::quote($db, 'type');
+        $emails = [];
+        foreach (InstanceDatabase::rows($db, "SELECT body FROM {$pages} WHERE latest = 'Y' AND {$type} = ?", [PageType::USER]) as $row) {
+            $account = json_decode((string)($row['body'] ?? ''), true);
+            $emails[] = is_array($account) ? (string)($account['email'] ?? '') : '';
+        }
+
+        return $this->disposable->countIn($emails);
+    }
+
+    /** The start of the home page as a reader sees it, for the spam score; never stored. */
+    private function homeText(\PDO $db, string $pages, string $rootPage): string
+    {
+        $rows = InstanceDatabase::rows($db, "SELECT body FROM {$pages} WHERE latest = 'Y' AND tag = ?", [$rootPage]);
+        $text = $rows === [] ? '' : WikiPages::contentOf($rows[0]['body'] ?? null);
+
+        return mb_substr(trim((string)preg_replace('/\s+/u', ' ', strip_tags($text))), 0, self::HOME_LENGTH);
     }
 
     /** The newest core migration that wiki ran, the one its code was last migrated to (replicas 20). */

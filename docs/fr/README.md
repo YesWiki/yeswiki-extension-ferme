@@ -208,5 +208,7 @@ La ferme mesure cent wikis (`yeswiki-farm-stats-per-visit`) après chaque ménag
 - `yeswiki-farm-spam-threshold` : score à partir duquel un wiki est suspect (3 par défaut).
 - `yeswiki-farm-spam-words` : vocabulaire suspect, en expression régulière.
 - `yeswiki-farm-spam-hosts` : domaines à traiter comme du spam, par exemple `[/.]example\.com`.
+- `yeswiki-farm-spam-email-domains` : domaines de mails jetables à ajouter à la liste fournie, séparés par des virgules.
+- `yeswiki-farm-block-robots` : les wikis créés demandent aux moteurs de recherche de ne pas les indexer (`true` par défaut).
 
 Le nettoyage supprime les pages qu'un robot a créées et retire les lignes de spam des pages qu'il a modifiées, qui sont ensuite fermées en écriture. Ce qu'il retire est d'abord écrit dans `private/backups/ferme/spam/`.

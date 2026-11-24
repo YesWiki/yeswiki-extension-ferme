@@ -208,5 +208,7 @@ The farm measures a hundred wikis (`yeswiki-farm-stats-per-visit`) after each ho
 - `yeswiki-farm-spam-threshold`: score from which a wiki is suspect (default 3).
 - `yeswiki-farm-spam-words`: suspect vocabulary, as a regular expression.
 - `yeswiki-farm-spam-hosts`: domains to treat as spam, for example `[/.]example\.com`.
+- `yeswiki-farm-spam-email-domains`: throwaway mail domains to add to the bundled list, comma separated.
+- `yeswiki-farm-block-robots`: created wikis ask search engines not to index them (default `true`).
 
 Cleaning deletes the pages a robot created and strips the spam lines from the pages it edited, which are then closed to writers. What it removes is written first to `private/backups/ferme/spam/`.

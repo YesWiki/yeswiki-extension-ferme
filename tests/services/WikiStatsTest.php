@@ -3,6 +3,7 @@
 namespace YesWiki\Test\Ferme\Services;
 
 use YesWiki\Ferme\Exception\WikiStatsException;
+use YesWiki\Ferme\Service\FarmConfig;
 use YesWiki\Ferme\Service\InstanceConsole;
 use YesWiki\Ferme\Service\StatsRefresher;
 use YesWiki\Ferme\Service\WikiCreator;
@@ -94,6 +95,34 @@ class WikiStatsTest extends FarmTestCase
         $this->service(InstanceConsole::class)->task($this->dir, 'append-to-page', ['tag' => 'CasinoBonus', 'content' => 'Best casino bonus, escort jackpot']);
 
         $this->assertSame(1, $this->service(WikiStats::class)->fromDatabase('measured')['spamPages']);
+    }
+
+    public function testAnAccountWithAThrowawayAddressIsCounted(): void
+    {
+        $this->assertSame(0, $this->service(WikiStats::class)->fromDatabase('measured')['disposableUsers']);
+
+        $this->service(WikiCreator::class)->ensureAccount($this->dir, 'Passant', 'passant@yopmail.com', 'PassantPassword1');
+
+        $this->assertSame(1, $this->service(WikiStats::class)->fromDatabase('measured')['disposableUsers']);
+    }
+
+    public function testTheFarmAddsItsOwnThrowawayDomains(): void
+    {
+        $this->farm(['yeswiki-farm-admin-name' => 'FarmTestAdmin', 'yeswiki-farm-spam-email-domains' => 'example.tld, other.example']);
+
+        $this->assertSame(1, $this->service(WikiStats::class)->fromDatabase('measured')['disposableUsers'], 'farm-admin@example.tld');
+    }
+
+    public function testTheStartOfTheHomePageIsReadButNeverStored(): void
+    {
+        $home = $this->service(FarmConfig::class)->homepage();
+        $this->service(InstanceConsole::class)->task($this->dir, 'append-to-page', ['tag' => $home, 'content' => 'Une ligne ajoutée à l\'accueil']);
+
+        $stats = $this->service(WikiStats::class)->fromDatabase('measured');
+
+        $this->assertStringContainsString('Une ligne ajoutée à l\'accueil', $stats['homeText']);
+        $this->assertLessThanOrEqual(WikiStats::HOME_LENGTH, mb_strlen($stats['homeText']));
+        $this->assertNotContains('homeText', WikiStatsStore::TEXTS);
     }
 
     public function testAWikiThatCannotBeReadFailsWithAReasonRatherThanZeros(): void

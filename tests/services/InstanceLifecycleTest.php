@@ -78,6 +78,23 @@ class InstanceLifecycleTest extends FarmTestCase
         $this->assertFileExists($this->scratch . '/farm/' . $kept);
     }
 
+    public function testANewWikiAsksSearchEnginesToStayAwayUnlessTheFarmLetsThemIn(): void
+    {
+        $this->farm();
+        $blocked = $this->service(WikiCreator::class)->createFromEntry($this->entry('sqlite-wiki'), 'bf_dossier-wiki');
+
+        $this->assertStringContainsString('Disallow: /', (string)file_get_contents($blocked . '/robots.txt'));
+        $this->assertStringContainsString('noindex', (string)($this->settingsOf($blocked)['meta']['robots'] ?? ''));
+        $this->service(WikiRemover::class)->destroy('sqlite-wiki', null);
+
+        $this->farm(['yeswiki-farm-block-robots' => false]);
+        $open = $this->service(WikiCreator::class)->createFromEntry($this->entry('sqlite-wiki'), 'bf_dossier-wiki');
+
+        $this->assertStringContainsString('Allow: /', (string)file_get_contents($open . '/robots.txt'));
+        $this->assertArrayNotHasKey('robots', (array)($this->settingsOf($open)['meta'] ?? []));
+        $this->service(WikiRemover::class)->destroy('sqlite-wiki', null);
+    }
+
     public function testAnAddressAlreadyTakenIsRefusedAndTheFailedCreationLeavesNothing(): void
     {
         $this->farm();

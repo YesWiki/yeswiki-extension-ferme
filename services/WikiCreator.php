@@ -214,6 +214,9 @@ class WikiCreator
         if ($archive !== '') {
             $arguments[] = '--from-archive=' . $archive;
         }
+        if (!$this->config->flag('yeswiki-farm-block-robots', true)) {
+            $arguments[] = '--allow-robots';
+        }
 
         $this->console->mustRun($dir, $arguments, $env);
     }
